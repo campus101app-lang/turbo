@@ -33,18 +33,22 @@ router.get("/", authenticate, async (req, res) => {
     });
 
     // Build WHERE clause: my expenses OR expenses awaiting my approval
-    let where = {
-      OR: [
-        // My submitted expenses
+    let where = {};
+
+    // For merchants: show own expenses + pending expenses from others
+    // For regular users: show only own expenses
+    if (user?.isMerchant) {
+      where.OR = [
         { submittedById: req.user.id },
-        // Expenses awaiting my approval (if I'm a merchant/manager)
-        ...(user?.isMerchant
-          ? [{ approvedById: null, status: "pending" }]
-          : []),
-      ],
-      ...(status ? { status } : {}),
-      ...(category ? { category } : {}),
-    };
+        { approvedById: null, status: "pending" },
+      ];
+    } else {
+      where.submittedById = req.user.id;
+    }
+
+    // Apply status and category filters
+    if (status) where.status = status;
+    if (category) where.category = category;
 
     const [expenses, total] = await Promise.all([
       prisma.expense.findMany({
@@ -143,11 +147,20 @@ router.get("/:id", authenticate, async (req, res) => {
 
     if (!expense) return res.status(404).json({ error: "Expense not found" });
 
-    // Check authorization: owner or approver
-    if (
-      expense.submittedById !== req.user.id &&
-      expense.approvedById !== req.user.id
-    ) {
+    // Check authorization: 
+    // - Owner of expense (submittedById)
+    // - Manager who has approved/rejected it (approvedById is not null and matches)
+    // - Any merchant can view pending expenses
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { isMerchant: true },
+    });
+
+    const isOwner = expense.submittedById === req.user.id;
+    const isApprover = expense.approvedById === req.user.id;
+    const isMerchantViewingPending = user?.isMerchant && expense.status === "pending";
+
+    if (!isOwner && !isApprover && !isMerchantViewingPending) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
@@ -160,55 +173,84 @@ router.get("/:id", authenticate, async (req, res) => {
 // ─── PUT /api/expenses/:id ────────────────────────────────────────────────────
 // Can only update draft expenses owned by user
 
-router.put("/:id", authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, description, amount, currency, category, receiptUrl } =
-      req.body;
-
-    const existing = await prisma.expense.findUnique({
-      where: { id },
-    });
-
-    if (!existing) return res.status(404).json({ error: "Expense not found" });
-
-    // FIX: Using submittedById from your schema to check ownership
-    if (existing.submittedById !== req.user.id) {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized: You did not create this expense" });
+router.put(
+  "/:id",
+  authenticate,
+  [
+    body("amount")
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage("Amount must be positive"),
+    body("category")
+      .optional()
+      .isIn([
+        "travel",
+        "meals",
+        "accommodation",
+        "equipment",
+        "software",
+        "marketing",
+        "utilities",
+        "salary",
+        "other",
+      ])
+      .withMessage("Invalid category"),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
     }
 
-    // Business Logic: Prevent editing once a manager has acted on it
-    if (existing.status !== "pending") {
-      return res
-        .status(400)
-        .json({
-          error: `Cannot edit an expense that is already ${existing.status}`,
-        });
+    try {
+      const { id } = req.params;
+      const { title, description, amount, currency, category, receiptUrl } =
+        req.body;
+
+      const existing = await prisma.expense.findUnique({
+        where: { id },
+      });
+
+      if (!existing) return res.status(404).json({ error: "Expense not found" });
+
+      // FIX: Using submittedById from your schema to check ownership
+      if (existing.submittedById !== req.user.id) {
+        return res
+          .status(403)
+          .json({ error: "Unauthorized: You did not create this expense" });
+      }
+
+      // Business Logic: Prevent editing once a manager has acted on it
+      if (existing.status !== "pending") {
+        return res
+          .status(400)
+          .json({
+            error: `Cannot edit an expense that is already ${existing.status}`,
+          });
+      }
+
+      const updated = await prisma.expense.update({
+        where: { id },
+        data: {
+          title: title ?? existing.title,
+          description: description ?? existing.description,
+          amount: amount != null ? parseFloat(amount) : existing.amount,
+          currency: currency ?? existing.currency,
+          category: category ?? existing.category,
+          receiptUrl: receiptUrl ?? existing.receiptUrl,
+        },
+        include: {
+          submittedBy: { select: { id: true, businessName: true } },
+        },
+      });
+
+      res.json({ expense: updated });
+    } catch (err) {
+      console.error("Update expense error:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-
-    const updated = await prisma.expense.update({
-      where: { id },
-      data: {
-        title: title ?? existing.title,
-        description: description ?? existing.description,
-        amount: amount != null ? parseFloat(amount) : existing.amount,
-        currency: currency ?? existing.currency,
-        category: category ?? existing.category,
-        receiptUrl: receiptUrl ?? existing.receiptUrl,
-      },
-      include: {
-        submittedBy: { select: { id: true, businessName: true } },
-      },
-    });
-
-    res.json({ expense: updated });
-  } catch (err) {
-    console.error("Update expense error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  },
+);
 
 // ─── DELETE /api/expenses/:id ─────────────────────────────────────────────────
 // Can only delete draft expenses owned by user

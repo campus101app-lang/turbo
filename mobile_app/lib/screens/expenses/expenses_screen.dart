@@ -106,13 +106,14 @@ class ExpensesScreen extends ConsumerWidget {
             labelColor: Colors.white,
             unselectedLabelColor: Colors.grey[300],
           ),
-          actions: [
-            IconButton(
+          // actions: [
+           
+          // ],
+        ),
+        floatingActionButton:  IconButton(
               icon: const Icon(Icons.add),
               onPressed: () => context.push('/expenses/create'),
             ),
-          ],
-        ),
         body: const TabBarView(
           children: [
             _MyExpensesTab(),
