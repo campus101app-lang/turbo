@@ -39,6 +39,7 @@ app.use(cors({
     process.env.FRONTEND_URL || 'https://dayfi.me',
     'http://localhost:3000',
     'http://localhost:5173',
+    /^http:\/\/localhost:\d+$/,
     /\.dayfi\.me$/,
   ],
   credentials: true,

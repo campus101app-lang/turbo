@@ -337,20 +337,27 @@ class _ExpensesBody extends ConsumerWidget {
 
 // ─── Summary row ──────────────────────────────────────────────────────────────
 
-class _SummaryRow extends ConsumerWidget {
+class _SummaryRow extends StatefulWidget {
   final List<Expense> expenses;
   final double usdToNgn;
 
   const _SummaryRow({required this.expenses, required this.usdToNgn});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<_SummaryRow> createState() => _SummaryRowState();
+}
+
+class _SummaryRowState extends State<_SummaryRow> {
+  bool _allocationExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
     double approvedNgn = 0;
     double pendingNgn = 0;
     double rejectedNgn = 0;
 
-    for (final e in expenses) {
-      final ngn = e.toNgn(usdToNgn);
+    for (final e in widget.expenses) {
+      final ngn = e.toNgn(widget.usdToNgn);
       if (e.status == 'approved' || e.status == 'reimbursed') {
         approvedNgn += ngn;
       }
@@ -358,139 +365,155 @@ class _SummaryRow extends ConsumerWidget {
       if (e.status == 'rejected') rejectedNgn += ngn;
     }
 
-    return Row(
+    final total = approvedNgn + pendingNgn + rejectedNgn;
+    final approvedPct = total > 0 ? approvedNgn / total : 0.0;
+    final pendingPct = total > 0 ? pendingNgn / total : 0.0;
+    final rejectedPct = total > 0 ? rejectedNgn / total : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _SummaryCard(
-            label: 'Approved',
-            amountNgn: approvedNgn,
-            usdToNgn: usdToNgn,
-            color: DayFiColors.green,
-            icon: FontAwesomeIcons.checkCircle,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Pending',
-            amountNgn: pendingNgn,
-            usdToNgn: usdToNgn,
-            color: const Color(0xFFFFA726),
-            icon: FontAwesomeIcons.hourglassHalf,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Rejected',
-            amountNgn: rejectedNgn,
-            usdToNgn: usdToNgn,
-            color: DayFiColors.red,
-            icon: FontAwesomeIcons.xmarkCircle,
-          ),
-        ),
+     
+        if (_allocationExpanded) ...[
+          // const SizedBox(height: 10),
+          if (widget.expenses.isEmpty)
+            Text(
+              'Add expenses to see approved vs pending vs rejected.',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                letterSpacing: .4,
+                height: 1,
+              ),
+            )
+          else
+            Container(
+              width: MediaQuery.of(context).size.width,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+                  width: .5,
+                ),
+                color: AppThemeExtension.of(context).cardSurface,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _MiniAllocationRow(
+                    label: 'Approved',
+                    valueLabel: '${(approvedPct * 100).toStringAsFixed(1)}%',
+                    progress: approvedPct,
+                    accent: DayFiColors.green,
+                  ),
+                  _MiniAllocationRow(
+                    label: 'Pending',
+                    valueLabel: '${(pendingPct * 100).toStringAsFixed(1)}%',
+                    progress: pendingPct,
+                    accent: const Color(0xFFFFA726),
+                  ),
+                  _MiniAllocationRow(
+                    label: 'Rejected',
+                    valueLabel: '${(rejectedPct * 100).toStringAsFixed(1)}%',
+                    progress: rejectedPct,
+                    accent: DayFiColors.red,
+                  ),
+                ],
+              ),
+            ),
+        ],
       ],
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  final String label;
-  final double amountNgn;
-  final double usdToNgn;
-  final Color color;
-  final FaIconData icon;
-
-  const _SummaryCard({
+class _MiniAllocationRow extends StatelessWidget {
+  const _MiniAllocationRow({
     required this.label,
-    required this.amountNgn,
-    required this.usdToNgn,
-    required this.color,
-    required this.icon,
+    required this.valueLabel,
+    required this.progress,
+    this.accent = DayFiColors.green,
   });
 
-  String _fmtNgn(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}k';
-    return v.toStringAsFixed(0);
-  }
-
-  String _fmtUsd(double ngn, double rate) {
-    if (rate <= 0) return '\$0.00';
-    final usd = ngn / rate;
-    if (usd >= 1000) return '\$${(usd / 1000).toStringAsFixed(1)}k';
-    return '\$${usd.toStringAsFixed(2)}';
-  }
+  final String label;
+  final String valueLabel;
+  final double progress;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final ext = AppThemeExtension.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ext.cardBorder, width: .75),
-        color: ext.monthlyCardSurface,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 4),
-            FaIcon(icon, color: color, size: 14),
-            const SizedBox(height: 4),
-            // Text(
-            //   label,
-            //   style: GoogleFonts.outfit(
-            //     fontSize: 10,
-            //     fontWeight: FontWeight.w500,
-            //     letterSpacing: .4,
-            //     color: color,
-            //   ),
-            //   maxLines: 1,
-            //   overflow: TextOverflow.ellipsis,
-            // ),
-            // const SizedBox(height: 8),
-            // ── Primary: NGN ─────────────────────────────────────────
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '₦',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
-                      color: ext.primaryText,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: .325,
+                    height: 1,
                   ),
-                  TextSpan(
-                    text: _fmtNgn(amountNgn),
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: .8,
-                      color: ext.primaryText,
-                    ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    minHeight: 3,
+                    backgroundColor: ext.secondaryText.withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(accent),
                   ),
-                ],
+                ),
               ),
-            ),
-            // ── Secondary: USD equivalent ─────────────────────────────
-            Text(
-              _fmtUsd(amountNgn, usdToNgn),
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: ext.secondaryText.withOpacity(0.7),
-                letterSpacing: .3,
+              const SizedBox(width: 16),
+              Builder(
+                builder: (context) {
+                  final v = valueLabel.trim();
+                  final hasPct = v.endsWith('%');
+                  final digits = hasPct ? v.substring(0, v.length - 1) : v;
+                  return Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: digits,
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: .95,
+                            height: 1,
+                            color: ext.primaryText,
+                          ),
+                        ),
+                        if (hasPct)
+                          TextSpan(
+                            text: '%',
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.95,
+                              height: 1,
+                              color: ext.primaryText.withOpacity(0.72),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
               ),
+            ],
             ),
           ],
         ),
-      ),
     );
   }
 }
@@ -569,7 +592,7 @@ class _ExpenseTile extends StatelessWidget {
             const SizedBox(width: 12),
             // Info
             Expanded(
-              flex: 3,
+              flex: 5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -598,8 +621,7 @@ class _ExpenseTile extends StatelessWidget {
                 ],
               ),
             ),
-
-            Expanded(
+            Expanded(flex: 2,
               child: Row(
                 children: [
                   Container(
@@ -610,7 +632,7 @@ class _ExpenseTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surface.withValues(alpha: 0.2),
+                      ).colorScheme.inversePrimary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: FittedBox(
@@ -618,14 +640,13 @@ class _ExpenseTile extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         expense.status.toUpperCase(),
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.bricolageGrotesque(
                           fontSize: 10,
                           color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .1,
                           height: 1.4,
                         ),
-
                         maxLines: 1,
                       ),
                     ),
@@ -635,6 +656,7 @@ class _ExpenseTile extends StatelessWidget {
             ),
             // Amount + status
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

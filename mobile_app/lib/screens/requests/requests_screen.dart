@@ -917,6 +917,18 @@ class _LinkRevealSheet extends StatelessWidget {
     required this.asset,
   });
 
+  Future<void> _shareText(BuildContext context, String text) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+      await Share.share(
+        text,
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      );
+      return;
+    }
+    await Share.share(text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final symbol = asset == 'NGNT' ? '₦' : '\$';
@@ -1041,7 +1053,8 @@ class _LinkRevealSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () => Share.share(
+                  onPressed: () => _shareText(
+                    context,
                     'Please pay me $symbol${NumberFormat('#,##0.00').format(amount)} $asset via this link:\n$link',
                   ),
                   icon: const Icon(
@@ -1081,6 +1094,18 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
   bool _marking = false;
   bool _cancelling = false;
   bool _editing = false;
+
+  Future<void> _shareText(String text) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+      await Share.share(
+        text,
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      );
+      return;
+    }
+    await Share.share(text);
+  }
 
   Future<bool> _confirm(String title, String message) async {
     final result = await showDialog<bool>(
@@ -1278,7 +1303,7 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () => Share.share(
+                    onTap: () => _shareText(
                       'Please pay ${r.assetSymbol}${NumberFormat('#,##0.00').format(r.amount)} ${r.asset}:\n${r.paymentLink}',
                     ),
                     child: Icon(

@@ -9,6 +9,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:mobile_app/providers/wallet_provider.dart';
 import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import 'package:mobile_app/screens/cards/cards_screen.dart';
+import 'package:mobile_app/screens/expenses/expenses_screen.dart';
 import 'package:mobile_app/screens/home/home_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
 // import 'package:mobile_app/screens/expenses/expenses_screen.dart';
@@ -138,7 +139,7 @@ class _MainShellState extends ConsumerState<MainShell>
                                   controller: _tabController,
                                   children: [
                                     const InvoicesScreen(),
-                                    // const ExpensesScreen(),
+                                    const ExpensesScreen(),
                                     TransactionsScreen(
                                       tabController: _tabController,
                                     ),

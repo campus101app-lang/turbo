@@ -11,7 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart' show DateFormat;
-import 'package:mobile_app/screens/accounts/accounts_screen.dart';
+// import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import '../../providers/wallet_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -22,7 +22,13 @@ final userProvider = FutureProvider<Map<String, dynamic>>(
 
 final _txHomeProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final result = await apiService.getTransactions(page: 1, limit: 100);
-  return List<Map<String, dynamic>>.from(result['transactions'] ?? []);
+  final txs = List<Map<String, dynamic>>.from(result['transactions'] ?? []);
+  return txs.where((tx) {
+    final asset = (tx['asset'] as String?)?.toUpperCase() ?? '';
+    final swapFrom = (tx['swapFromAsset'] as String?)?.toUpperCase() ?? '';
+    final swapTo = (tx['swapToAsset'] as String?)?.toUpperCase() ?? '';
+    return asset != 'XLM' && swapFrom != 'XLM' && swapTo != 'XLM';
+  }).toList();
 });
 
 final _xlmPriceHistoryHomeProvider = FutureProvider<Map<String, double>>((
@@ -243,11 +249,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
 
     final txs = txAsync.value ?? [];
-    final recentTxs = [...txs]..sort((a, b) {
-      final aDate = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bDate.compareTo(aDate);
-    });
+    final recentTxs = [...txs]
+      ..sort((a, b) {
+        final aDate =
+            DateTime.tryParse(a['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate =
+            DateTime.tryParse(b['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return bDate.compareTo(aDate);
+      });
 
     final xlmPoints = _buildPoints(
       txs,
@@ -370,216 +381,223 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            _SectionHeader(
-              label: 'Most recent',
-              trailing: '',
-              onTrailingTap: () => context.push('/transactions'),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: ext.cardBorder, width: 1),
-                color: ext.cardSurface,
+            if (recentTxs.isNotEmpty) ...[
+              const SizedBox(height: 32),
+              _SectionHeader(
+                label: 'Most recent',
+                trailing: '',
+                onTrailingTap: () => context.push('/transactions'),
               ),
-              padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+              const SizedBox(height: 4),
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ext.cardBorder, width: 1),
+                  color: ext.cardSurface,
+                ),
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
 
-              child: Column(
-                children: [
-                  Column(
-                    children: recentTxs.take(3).map((tx) {
-                      final isSend = tx['type'] == 'send';
-                      final isSwap = tx['type'] == 'swap';
-                      final amount = _asDouble(tx['amount']);
-                      final asset = tx['asset'] as String? ?? '';
-                      final swapToAsset = tx['swapToAsset'] as String? ?? '';
-                      final swapToAmount =
-                          (tx['receivedAmount'] ?? tx['swapToAmount']) != null
-                          ? _asDouble((tx['receivedAmount'] ?? tx['swapToAmount']))
-                          : null;
-                      final createdAt =
-                          DateTime.tryParse(tx['createdAt'] ?? '') ??
-                          DateTime.now();
-                      final status = tx['status'] as String?;
-                      final accent = isSend
-                          ? DayFiColors.red
-                          : isSwap
-                          ? Theme.of(context).colorScheme.primary
-                          : DayFiColors.green;
+                child: Column(
+                  children: [
+                    Column(
+                      children: recentTxs.take(3).map((tx) {
+                        final isSend = tx['type'] == 'send';
+                        final isSwap = tx['type'] == 'swap';
+                        final amount = _asDouble(tx['amount']);
+                        final asset = tx['asset'] as String? ?? '';
+                        final swapToAsset = tx['swapToAsset'] as String? ?? '';
+                        final swapToAmount =
+                            (tx['receivedAmount'] ?? tx['swapToAmount']) != null
+                            ? _asDouble(
+                                (tx['receivedAmount'] ?? tx['swapToAmount']),
+                              )
+                            : null;
+                        final createdAt =
+                            DateTime.tryParse(tx['createdAt'] ?? '') ??
+                            DateTime.now();
+                        final status = tx['status'] as String?;
+                        final accent = isSend
+                            ? DayFiColors.red
+                            : isSwap
+                            ? Theme.of(context).colorScheme.primary
+                            : DayFiColors.green;
 
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            // Icon
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                SizedBox(
-                                  // width: 40,
-                                  height: 32,
-                                  // decoration: BoxDecoration(
-                                  //   color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-                                  //   borderRadius: BorderRadius.circular(12),
-                                  // ),
-                                  child: Align(
-                                    alignment: Alignment.topCenter,
-                                    child: SvgPicture.asset(
-                                      isSwap
-                                          ? 'assets/icons/svgs/swap.svg'
-                                          : (isSend
-                                                ? 'assets/icons/svgs/send.svg'
-                                                : 'assets/icons/svgs/receive.svg'),
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary.withOpacity(.75),
-                                      width: 22,
-                                      height: 22,
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Center(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(24),
-                                      child: Image.asset(
-                                        asset.toUpperCase() == 'USDC'
-                                            ? 'assets/images/usdc.png'
-                                            : 'assets/images/stellar.png',
-
-                                        width: 14,
-                                        height: 14,
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              // Icon
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  SizedBox(
+                                    // width: 40,
+                                    height: 32,
+                                    // decoration: BoxDecoration(
+                                    //   color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                                    //   borderRadius: BorderRadius.circular(12),
+                                    // ),
+                                    child: Align(
+                                      alignment: Alignment.topCenter,
+                                      child: SvgPicture.asset(
+                                        isSwap
+                                            ? 'assets/icons/svgs/swap.svg'
+                                            : (isSend
+                                                  ? 'assets/icons/svgs/send.svg'
+                                                  : 'assets/icons/svgs/receive.svg'),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary.withOpacity(.75),
+                                        width: 22,
+                                        height: 22,
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(24),
+                                        child: Image.asset(
+                                          asset.toUpperCase() == 'USDC'
+                                              ? 'assets/images/usdc.png'
+                                              : 'assets/images/stellar.png',
 
-                            const SizedBox(width: 14),
-                            // Label + time
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                          width: 14,
+                                          height: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(width: 14),
+                              // Label + time
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isSwap
+                                          ? 'Swapped $asset → $swapToAsset'
+                                          : '${isSend ? 'Sent' : 'Received'} $asset',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withOpacity(.95),
+                                          ),
+                                    ),
+                                    Text(
+                                      status?.toLowerCase() == 'confirmed'
+                                          ? DateFormat(
+                                              'h:mm a',
+                                            ).format(createdAt.toLocal())
+                                          : (status ?? ''),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withOpacity(.65),
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                            letterSpacing: -.1,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Amount
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
                                     isSwap
-                                        ? 'Swapped $asset → $swapToAsset'
-                                        : '${isSend ? 'Sent' : 'Received'} $asset',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
+                                        ? '${amount.toStringAsFixed(2)} $asset'
+                                        : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
-                                          fontWeight: FontWeight.w600,
                                           fontSize: 14,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(.95),
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
                                         ),
                                   ),
                                   Text(
-                                    status?.toLowerCase() == 'confirmed'
-                                        ? DateFormat(
-                                            'h:mm a',
-                                          ).format(createdAt.toLocal())
-                                        : (status ?? ''),
-                                    style: Theme.of(context).textTheme.bodySmall
+                                    isSwap
+                                        ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
+                                        : '${amount.toStringAsFixed(2)} $asset',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
                                         ?.copyWith(
                                           color: Theme.of(context)
                                               .colorScheme
-                                              .primary
+                                              .onSurface
                                               .withOpacity(.65),
                                           fontWeight: FontWeight.w500,
                                           fontSize: 14,
-                                          letterSpacing: -.1,
                                         ),
                                   ),
                                 ],
                               ),
-                            ),
-                            // Amount
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  isSwap
-                                      ? '${amount.toStringAsFixed(2)} $asset'
-                                      : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
-                                Text(
-                                  isSwap
-                                      ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
-                                      : '${amount.toStringAsFixed(2)} $asset',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withOpacity(.65),
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                      foregroundColor: ext.primaryText,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Full activity view is coming soon.'),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                        foregroundColor: ext.primaryText,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-                      child: Text(
-                        'VIEW ALL ',
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: .2,
-                          height: 1,
-                          color: ext.sectionHeader,
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Full activity view is coming soon.'),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                        child: Text(
+                          'VIEW ALL ',
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: .2,
+                            height: 1,
+                            color: ext.sectionHeader,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-
+            ],
             // ── Balance ──────────────────────────────────────────────
             // _buildBalanceSection(walletState, totalChange),
 

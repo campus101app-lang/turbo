@@ -13,8 +13,8 @@ String _getAssetDisplayName(String asset) {
   switch (asset.toUpperCase()) {
     case 'USDC':
       return 'Digital Dollar';
-    case 'XLM':
-      return 'Stellar Lumen';
+    case 'NGNT':
+      return 'Naira Token';
     default:
       return asset;
   }
@@ -24,10 +24,10 @@ String _getCurrencyLogoAsset(String asset) {
   switch (asset.toUpperCase()) {
     case 'USDC':
       return 'assets/images/usdc.png';
-    case 'XLM':
-      return 'assets/images/stellar.png';
+    case 'NGNT':
+      return 'assets/images/ng.png';
     default:
-      return 'assets/images/stellar.png';
+      return 'assets/images/ng.png';
   }
 }
 
@@ -70,10 +70,9 @@ String _getUsdAmount(double amount, String asset) {
   if (asset.toUpperCase() == 'USDC') {
     return '\$${amount.toStringAsFixed(2)}';
   }
-  // For XLM, use current rate (approximately 0.25 USD per XLM - update as needed)
-  if (asset.toUpperCase() == 'XLM') {
-    const xlmToUsd = 0.25; // Update with real-time rate from your backend
-    final usdAmount = amount * xlmToUsd;
+  if (asset.toUpperCase() == 'NGNT') {
+    const ngntToUsd = 0.00075;
+    final usdAmount = amount * ngntToUsd;
     return '\$${usdAmount.toStringAsFixed(2)}';
   }
   return '\$0.00';
@@ -162,7 +161,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     try {
       final result = await apiService.getTransactions(page: _page, limit: 20);
 
-      final txs = result['transactions'] as List;
+      final txs = (result['transactions'] as List).where((tx) {
+        final asset = (tx['asset'] as String?)?.toUpperCase() ?? '';
+        final swapFrom = (tx['swapFromAsset'] as String?)?.toUpperCase() ?? '';
+        final swapTo = (tx['swapToAsset'] as String?)?.toUpperCase() ?? '';
+        return asset != 'XLM' && swapFrom != 'XLM' && swapTo != 'XLM';
+      }).toList();
       final pagination = result['pagination'];
 
       if (mounted) {
@@ -753,9 +757,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               value: 'USDC',
             ),
             _filterOptionWithSubtitle(
-              label: 'Stellar Lumen',
-              subtitle: 'XLM',
-              value: 'XLM',
+              label: 'Naira Token',
+              subtitle: 'NGNT',
+              value: 'NGNT',
             ),
           ],
         ),

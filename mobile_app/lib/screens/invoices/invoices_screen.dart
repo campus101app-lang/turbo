@@ -8,6 +8,7 @@
 //   - Tap invoice → detail sheet with copy/share link
 
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -121,7 +122,7 @@ class InvoicesScreen extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(invoicesProvider),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 140, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
         children: [
           // Summary chips
           _SummaryRow(invoices: invoices),
@@ -177,50 +178,150 @@ class InvoicesScreen extends ConsumerWidget {
 
 // ─── Summary row ──────────────────────────────────────────────────────────────
 
-class _SummaryRow extends StatelessWidget {
+class _SummaryRow extends StatefulWidget {
   final List<Map<String, dynamic>> invoices;
   const _SummaryRow({required this.invoices});
 
   @override
-  Widget build(BuildContext context) {
-    double totalPaid = 0;
-    double totalPending = 0;
-    int overdueCount = 0;
+  State<_SummaryRow> createState() => _SummaryRowState();
+}
 
-    for (final inv in invoices) {
+class _SummaryRowState extends State<_SummaryRow> {
+  int _periodIndex = 1;
+  static const _periodLabels = ['1W', '1M', 'YTD', '3M', '1Y'];
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final start = _periodStart(now, _periodIndex);
+    final inPeriod = widget.invoices.where((inv) {
+      final createdAt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
+      if (createdAt == null) return true;
+      return !createdAt.isBefore(start);
+    }).toList();
+
+    double paidAmount = 0;
+    double pendingAmount = 0;
+    double overdueAmount = 0;
+
+    for (final inv in inPeriod) {
       final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
       final status = (inv['status'] as String?) ?? '';
-      if (status == 'paid') totalPaid += amount;
-      if (status == 'sent' || status == 'viewed') totalPending += amount;
-      if (status == 'overdue') overdueCount++;
+      if (status == 'paid') paidAmount += amount;
+      if (status == 'sent' || status == 'viewed') pendingAmount += amount;
+      if (status == 'overdue') overdueAmount += amount;
     }
 
-    return Row(
-      children: [
-        Expanded(
-          child: _SummaryCard(
-            label: 'Total Paid',
-            value: '₦${_fmt(totalPaid)}',
-            color: DayFiColors.green,
-          ),
+    final dueAmount = pendingAmount + overdueAmount;
+    final total = paidAmount + dueAmount;
+    final paidPct = total > 0 ? (paidAmount / total) * 100 : 0.0;
+    final duePct = total > 0 ? (dueAmount / total) * 100 : 0.0;
+
+    final paidSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'paid');
+    final dueSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'due');
+    final overdueSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'overdue');
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+          width: 1,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Pending',
-            value: '₦${_fmt(totalPending)}',
-            color: const Color(0xFFFFA726),
+        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.08),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryMetric(
+                  dotColor: const Color(0xFF598FE0),
+                  label: 'Paid',
+                  value: '₦${_fmt(paidAmount)}',
+                  percent: paidPct,
+                  positiveColor: DayFiColors.green,
+                ),
+              ),
+              Expanded(
+                child: _SummaryMetric(
+                  dotColor: const Color(0xFFFFA726),
+                  label: 'Pending',
+                  value: '₦${_fmt(dueAmount)}',
+                  percent: duePct,
+                  positiveColor: const Color(0xFFE57745),
+                ),
+              ),
+              Expanded(
+                child: _SummaryMetric(
+                  dotColor: DayFiColors.red,
+                  label: 'Overdue',
+                  value: '₦${_fmt(overdueAmount)}',
+                  percent: paidPct,
+                  positiveColor: DayFiColors.red,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Overdue',
-            value: overdueCount.toString(),
-            color: DayFiColors.red,
+
+          SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4, right: 10, top: 6),
+              child: LineChart(
+                _summaryLineChartData(
+                  paidSpots: paidSpots,
+                  dueSpots: dueSpots,
+                  overdueSpots: overdueSpots,
+                ),
+              ),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _periodLabels.asMap().entries.map((e) {
+                final selected = _periodIndex == e.key;
+                return GestureDetector(
+                  onTap: () => setState(() => _periodIndex = e.key),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.08)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Text(
+                      e.value,
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 12,
+                        letterSpacing: 0.6,
+                        fontWeight: FontWeight.w700,
+                        color: selected
+                            ? Theme.of(context).colorScheme.onSurface
+                            : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.45),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -231,48 +332,237 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  final String label, value;
-  final Color color;
-  const _SummaryCard({
+class _SummaryMetric extends StatelessWidget {
+  final Color dotColor;
+  final String label;
+  final String value;
+  final double percent;
+  final Color positiveColor;
+  final Widget? secondaryLegend;
+  const _SummaryMetric({
+    required this.dotColor,
     required this.label,
     required this.value,
-    required this.color,
+    required this.percent,
+    required this.positiveColor,
+    this.secondaryLegend,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.25,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.92),
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          value,
+          style: GoogleFonts.bricolageGrotesque(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.92),
           ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(44),
+            color: positiveColor.withOpacity(0.16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FaIcon(
+                FontAwesomeIcons.arrowTrendUp,
+                size: 12,
+                color: positiveColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${percent.toStringAsFixed(1)}%',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 12,
+                  color: positiveColor,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (secondaryLegend != null) ...[
+          const SizedBox(height: 6),
+          secondaryLegend!,
         ],
-      ),
+      ],
     );
   }
+}
+
+DateTime _periodStart(DateTime now, int periodIndex) {
+  switch (periodIndex) {
+    case 0:
+      return now.subtract(const Duration(days: 7));
+    case 1:
+      return now.subtract(const Duration(days: 30));
+    case 2:
+      return DateTime(now.year, 1, 1);
+    case 3:
+      return now.subtract(const Duration(days: 90));
+    case 4:
+      return now.subtract(const Duration(days: 365));
+    default:
+      return now.subtract(const Duration(days: 30));
+  }
+}
+
+List<FlSpot> _buildSeriesSpots(
+  List<Map<String, dynamic>> invoices,
+  int periodIndex,
+  String kind,
+) {
+  final now = DateTime.now();
+  final start = _periodStart(now, periodIndex);
+  final bucketCount = periodIndex == 2
+      ? now.month
+      : [7, 30, 30, 30, 30][periodIndex];
+  final values = List<double>.filled(bucketCount, 0);
+  final daysSpan = now.difference(start).inDays.clamp(1, 366);
+
+  for (final inv in invoices) {
+    final createdAt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
+    if (createdAt == null || createdAt.isBefore(start)) continue;
+    final status = (inv['status'] as String?) ?? '';
+    final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+
+    final isPaid = status == 'paid';
+    final isDue = status == 'sent' || status == 'viewed';
+    final isOverdue = status == 'overdue';
+
+    if (kind == 'paid' && !isPaid) continue;
+    if (kind == 'due' && !isDue) continue;
+    if (kind == 'overdue' && !isOverdue) continue;
+
+    int idx;
+    if (periodIndex == 2) {
+      idx = (createdAt.month - 1).clamp(0, bucketCount - 1);
+    } else {
+      final dayOffset = createdAt.difference(start).inDays.clamp(0, daysSpan);
+      idx = ((dayOffset / daysSpan) * (bucketCount - 1)).round().clamp(
+        0,
+        bucketCount - 1,
+      );
+    }
+    values[idx] += amount;
+  }
+
+  if (values.every((v) => v == 0)) {
+    return [const FlSpot(0, 0.5), const FlSpot(1, 0.5)];
+  }
+  final max = values.reduce((a, b) => a > b ? a : b);
+  return List.generate(values.length, (i) {
+    final y = max == 0 ? 0.5 : (values[i] / max).clamp(0.05, 1.0);
+    return FlSpot(i.toDouble(), y);
+  });
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String text;
+  const _LegendDot({required this.color, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: GoogleFonts.bricolageGrotesque(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+LineChartData _summaryLineChartData({
+  required List<FlSpot> paidSpots,
+  required List<FlSpot> dueSpots,
+  required List<FlSpot> overdueSpots,
+}) {
+  return LineChartData(
+    minX: 0,
+    maxX: (paidSpots.length - 1).toDouble(),
+    minY: 0,
+    maxY: 1,
+    gridData: const FlGridData(show: false),
+    borderData: FlBorderData(show: false),
+    titlesData: const FlTitlesData(show: false),
+    lineTouchData: const LineTouchData(enabled: false),
+    lineBarsData: [
+      LineChartBarData(
+        spots: paidSpots,
+        isCurved: true,
+        color: const Color(0xFF598FE0),
+        barWidth: 2.1,
+        dotData: const FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ),
+      LineChartBarData(
+        spots: dueSpots,
+        isCurved: true,
+        color: const Color(0xFFE57745),
+        barWidth: 2.1,
+        dotData: const FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ),
+      LineChartBarData(
+        spots: overdueSpots,
+        isCurved: true,
+        color: DayFiColors.red,
+        barWidth: 2.1,
+        dotData: const FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ),
+    ],
+  );
 }
 
 // ─── Section header ───────────────────────────────────────────────────────────
@@ -462,6 +752,21 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
   bool _markingPaid = false;
   bool _editing = false;
 
+  Future<void> _shareText(String text) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null &&
+        box.hasSize &&
+        box.size.width > 0 &&
+        box.size.height > 0) {
+      await Share.share(
+        text,
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      );
+      return;
+    }
+    await Share.share(text);
+  }
+
   Future<void> _sendInvoice() async {
     setState(() => _sending = true);
     try {
@@ -486,9 +791,9 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
       widget.onRefresh();
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invoice marked as paid.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice marked as paid.')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -603,7 +908,7 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () =>
-                        Share.share('Pay my invoice here: $paymentLink'),
+                        _shareText('Pay my invoice here: $paymentLink'),
                     child: const Icon(Icons.share_rounded, size: 16),
                   ),
                 ],
@@ -647,7 +952,9 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                     : const Text('Send Invoice'),
               ),
             ),
-          ] else if (status == 'sent' || status == 'viewed' || status == 'overdue') ...[
+          ] else if (status == 'sent' ||
+              status == 'viewed' ||
+              status == 'overdue') ...[
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -701,10 +1008,18 @@ class _EditInvoiceSheetState extends State<_EditInvoiceSheet> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(text: widget.invoice['title']?.toString() ?? '');
-    _clientNameCtrl = TextEditingController(text: widget.invoice['clientName']?.toString() ?? '');
-    _clientEmailCtrl = TextEditingController(text: widget.invoice['clientEmail']?.toString() ?? '');
-    _descriptionCtrl = TextEditingController(text: widget.invoice['description']?.toString() ?? '');
+    _titleCtrl = TextEditingController(
+      text: widget.invoice['title']?.toString() ?? '',
+    );
+    _clientNameCtrl = TextEditingController(
+      text: widget.invoice['clientName']?.toString() ?? '',
+    );
+    _clientEmailCtrl = TextEditingController(
+      text: widget.invoice['clientEmail']?.toString() ?? '',
+    );
+    _descriptionCtrl = TextEditingController(
+      text: widget.invoice['description']?.toString() ?? '',
+    );
     _currency = (widget.invoice['currency'] as String?) ?? 'NGNT';
     _dueDate = widget.invoice['dueDate'] != null
         ? DateTime.tryParse(widget.invoice['dueDate'] as String)
@@ -727,18 +1042,25 @@ class _EditInvoiceSheetState extends State<_EditInvoiceSheet> {
       final payload = {
         'title': _titleCtrl.text.trim(),
         'clientName': _clientNameCtrl.text.trim(),
-        'clientEmail': _clientEmailCtrl.text.trim().isEmpty ? null : _clientEmailCtrl.text.trim(),
-        'description': _descriptionCtrl.text.trim().isEmpty ? null : _descriptionCtrl.text.trim(),
+        'clientEmail': _clientEmailCtrl.text.trim().isEmpty
+            ? null
+            : _clientEmailCtrl.text.trim(),
+        'description': _descriptionCtrl.text.trim().isEmpty
+            ? null
+            : _descriptionCtrl.text.trim(),
         'currency': _currency,
         'dueDate': _dueDate?.toIso8601String(),
       };
-      final res = await apiService.updateInvoice(widget.invoice['id'] as String, payload);
+      final res = await apiService.updateInvoice(
+        widget.invoice['id'] as String,
+        payload,
+      );
       if (mounted) Navigator.pop(context, res['invoice']);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiService.parseError(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -757,7 +1079,10 @@ class _EditInvoiceSheetState extends State<_EditInvoiceSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Edit Invoice', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Edit Invoice',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: const Icon(Icons.close),
@@ -768,13 +1093,16 @@ class _EditInvoiceSheetState extends State<_EditInvoiceSheet> {
             TextFormField(
               controller: _titleCtrl,
               decoration: const InputDecoration(labelText: 'Title'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Title is required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Title is required' : null,
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _clientNameCtrl,
               decoration: const InputDecoration(labelText: 'Client name'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Client name is required' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Client name is required'
+                  : null,
             ),
             const SizedBox(height: 10),
             TextFormField(
@@ -816,7 +1144,8 @@ class _EditInvoiceSheetState extends State<_EditInvoiceSheet> {
                 onPressed: () async {
                   final picked = await showDatePicker(
                     context: context,
-                    initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 7)),
+                    initialDate:
+                        _dueDate ?? DateTime.now().add(const Duration(days: 7)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );

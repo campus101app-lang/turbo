@@ -14,7 +14,7 @@ import '../../theme/app_theme.dart';
 
 final Map<String, String> _assetEmojis = {
   'USDC': 'assets/images/usdc.png',
-  'NGNT': 'assets/images/ngnt.png',
+  'NGNT': 'assets/images/ng.png',
 };
 
 // ─── Virtual account model ────────────────────────────────────────────────────
@@ -205,7 +205,17 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
   }
 
-  void _share(String text) => Share.share(text);
+  Future<void> _share(String text) async {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+      await Share.share(
+        text,
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      );
+      return;
+    }
+    await Share.share(text);
+  }
 
   String _getAddressForNetwork() {
     if (_selectedNetworkKey == null) return '';

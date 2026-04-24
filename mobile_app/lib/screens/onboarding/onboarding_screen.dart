@@ -16,21 +16,21 @@ class OnboardingScreen extends StatelessWidget {
       body: Stack(
         children: [
           // Background image placeholder — replace with your asset
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/onboarding_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF0A0A0A), Color(0xFF000000)],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // Positioned.fill(
+          //   child: Image.asset(
+          //     'assets/images/onboarding_bg.png',
+          //     fit: BoxFit.cover,
+          //     errorBuilder: (_, __, ___) => Container(
+          //       decoration: const BoxDecoration(
+          //         gradient: LinearGradient(
+          //           begin: Alignment.topCenter,
+          //           end: Alignment.bottomCenter,
+          //           colors: [Color(0xFF0A0A0A), Color(0xFF000000)],
+          //         ),
+          //       ),
+          //     ),
+          //   ),
+          // ),
 
           // Dark gradient overlay at bottom
           Positioned.fill(

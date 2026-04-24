@@ -20,7 +20,7 @@ class DayFiAsset {
 
 const Map<String, DayFiAsset> kAssets = {
   'USDC': DayFiAsset(code: 'USDC', name: 'USD Coin',        emoji: 'assets/images/usdc.png'),
-  'NGNT': DayFiAsset(code: 'NGNT', name: 'Naira Token',     emoji: 'assets/images/ngnt.png'),
+  'NGNT': DayFiAsset(code: 'NGNT', name: 'Naira Token',     emoji: 'assets/images/ng.png'),
 };
 
 const List<String> kAssetList = ['USDC', 'NGNT'];
