@@ -387,7 +387,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               const SizedBox(height: 6),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12),
-                height: 100,
+                height: 96,
                 child: Row(
                   children: [
                     // const SizedBox(width: 8),
@@ -592,7 +592,7 @@ class _AccountMoverCard extends StatelessWidget {
           ),
           const Spacer(),
           Expanded(
-            flex: 4,
+            flex: 2,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -629,17 +629,17 @@ class _AccountMoverCard extends StatelessWidget {
                   ),
                 ),
 
-                Text(
-                  balanceLabel.toString().split(" ").last,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(.65),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                    height: 1,
-                  ),
-                ),
+                // Text(
+                //   balanceLabel.toString().split(" ").last,
+                //   style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                //     color: Theme.of(
+                //       context,
+                //     ).colorScheme.onSurface.withOpacity(.65),
+                //     fontWeight: FontWeight.w500,
+                //     fontSize: 12,
+                //     height: 1,
+                //   ),
+                // ),
               ],
             ),
           ),

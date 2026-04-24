@@ -515,25 +515,25 @@ class _HeaderOverlay extends StatelessWidget {
     // final ext = AppThemeExtension.of(context);
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: .95),
-            const Color(0xff010E1F).withValues(alpha: 0),
-          ],
-        ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
+      decoration: const BoxDecoration(
+        // gradient: LinearGradient(
+        //   begin: Alignment.topCenter,
+        //   end: Alignment.bottomCenter,
+        //   colors: [
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: .95),
+        //     const Color(0xff010E1F).withValues(alpha: 0),
+        //   ],
+        // ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
