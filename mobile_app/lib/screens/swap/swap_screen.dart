@@ -1,6 +1,5 @@
 // lib/screens/swap/swap_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -23,8 +22,8 @@ class SwapScreen extends ConsumerStatefulWidget {
 }
 
 class _SwapScreenState extends ConsumerState<SwapScreen> {
-  String _fromAsset = 'XLM';
-  String _toAsset = 'USDC';
+  String _fromAsset = 'USDC';
+  String _toAsset = 'NGNT';
 
   final _fromAmountController = TextEditingController();
   final _toAmountController = TextEditingController();
@@ -42,10 +41,10 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
     // Auto-select USDC as "from" asset if user has USDC balance
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wallet = ref.read(walletProvider);
-      if (wallet.usdcBalance > 0) {
+      if (wallet.ngntBalance > 0) {
         setState(() {
-          _fromAsset = 'USDC';
-          _toAsset = 'XLM';
+          _fromAsset = 'NGNT';
+          _toAsset = 'USDC';
         });
       }
     });
@@ -61,29 +60,10 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
 
   // ─── Balance helpers ──────────────────────────────────────
 
-  double _balanceFor(String asset) {
-    final w = ref.read(walletProvider);
-    switch (asset) {
-      case 'USDC':
-        return w.usdcBalance;
-      case 'XLM':
-        return w.xlmBalance;
-      default:
-        return 0;
-    }
-  }
-
-  // XLM: reserve 2.0 for multi-hop swaps (0.5 base + 0.5 USDC trustline + 0.5-1.0 for path intermediates)
-  // USDC: no reserve needed
-  // Fee: negligible (~0.00001 XLM per operation)
   double _availableFor(String asset) {
-    final balance = _balanceFor(asset);
-    if (asset == 'XLM') {
-      // Reserve 2.0 XLM minimum to handle multi-hop swap paths with intermediate assets
-      return (balance - 2.0).clamp(0, double.infinity);
-    }
-    // USDC: can use full balance (fee is paid in XLM)
-    return balance;
+    final w = ref.read(walletProvider);
+    if (asset == 'NGNT') return w.ngntBalance;
+    return w.usdcBalance;
   }
 
   // Estimate swap fee in XLM (Stellar base fee is ~1 stroop = 0.00001 XLM)
@@ -215,9 +195,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
               });
             } else {
               // Update "You Pay" field with calculated amount
-              _fromAmountController.text = requiredFromAmount.toStringAsFixed(
-                _fromAsset == 'XLM' ? 4 : 2,
-              );
+              _fromAmountController.text = requiredFromAmount.toStringAsFixed(2);
               setState(() {
                 _quote = result;
                 _quoteError = null;
@@ -356,7 +334,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
         if (displayMsg.isEmpty || displayMsg.contains('DioException')) {
           displayMsg = 'Swap failed - please check your balance and try again';
         } else if (displayMsg.contains('Insufficient')) {
-          displayMsg = 'Not enough XLM available. Need 2.0 XLM reserved.';
+          displayMsg = 'Insufficient balance for this swap.';
         } else if (displayMsg.contains('Server processing')) {
           displayMsg = 'Server processing error - please try again in a moment';
         }
@@ -643,26 +621,29 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
 
                     // Empty wallet warning
                     if (walletEmpty)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset(
-                            "assets/icons/svgs/alert2.svg",
-                            color: const Color.fromARGB(255, 232, 172, 9),
-                            height: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'your account has no funds to swap.',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: const Color.fromARGB(255, 232, 172, 9),
-                                  fontSize: 14,
-                                  letterSpacing: -0.2,
-                                ),
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 32.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SvgPicture.asset(
+                              "assets/icons/svgs/alert2.svg",
+                              color: const Color.fromARGB(255, 232, 172, 9),
+                              height: 15,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'your account has no funds to swap.',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: const Color.fromARGB(255, 232, 172, 9),
+                                    fontSize: 12,
+                                    letterSpacing: -0.2,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
                 // .animate().fadeIn(),
                     // FROM label
@@ -823,10 +804,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                             ? null
                             : () {
                                 final toUse = available - _estimatedFeeXLM();
-                                _fromAmountController.text = toUse
-                                    .toStringAsFixed(
-                                      _fromAsset == 'XLM' ? 4 : 2,
-                                    );
+                                  _fromAmountController.text = toUse.toStringAsFixed(2);
                                 _onAmountChanged(
                                   _fromAmountController.text,
                                   field: 'from',
@@ -835,7 +813,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                         child: Text(
                           _hasInsufficientBalance && _quoteError != null
                               ? _quoteError!
-                              : 'Available: ${available.toStringAsFixed(_fromAsset == 'XLM' ? 4 : 6)} $_fromAsset',
+                              : 'Available: ${available.toStringAsFixed(2)} $_fromAsset',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: _hasInsufficientBalance
@@ -1096,8 +1074,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                             color:
                                 (_quote == null ||
                                     _executing ||
-                                    _hasInsufficientBalance ||
-                                    walletEmpty)
+                                    _hasInsufficientBalance)
                                 ? Theme.of(
                                     context,
                                   ).colorScheme.onSurface.withOpacity(.45)
@@ -1113,8 +1090,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                         onPressed:
                             (_quote == null ||
                                 _executing ||
-                                _hasInsufficientBalance ||
-                                walletEmpty)
+                                _hasInsufficientBalance)
                             ? null
                             : _executeSwap,
 
@@ -1131,8 +1107,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                                     color:
                                         (_quote == null ||
                                             _executing ||
-                                            _hasInsufficientBalance ||
-                                            walletEmpty)
+                                            _hasInsufficientBalance)
                                         ? Theme.of(context)
                                               .colorScheme
                                               .onSurface
@@ -1202,7 +1177,6 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
               final a = kAssets[code]!;
               final isDisabled = code == excluded;
               final isSelected = code == (isFrom ? _fromAsset : _toAsset);
-              final bal = _availableFor(code);
               return InkWell(
                 splashColor: Colors.transparent,
                 highlightColor: Colors.transparent,
@@ -1369,27 +1343,3 @@ class _QuoteDetails extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Row({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-}

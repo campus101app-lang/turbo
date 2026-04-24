@@ -11,7 +11,7 @@ import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import 'package:mobile_app/screens/cards/cards_screen.dart';
 import 'package:mobile_app/screens/home/home_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
-import 'package:mobile_app/screens/expenses/expenses_screen.dart';
+// import 'package:mobile_app/screens/expenses/expenses_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
 // import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/settings/settings_screen.dart';
@@ -138,7 +138,7 @@ class _MainShellState extends ConsumerState<MainShell>
                                   controller: _tabController,
                                   children: [
                                     const InvoicesScreen(),
-                                    const ExpensesScreen(),
+                                    // const ExpensesScreen(),
                                     TransactionsScreen(
                                       tabController: _tabController,
                                     ),
@@ -174,15 +174,8 @@ class _MainShellState extends ConsumerState<MainShell>
                 ),
               ),
             ),
-            // bottomNavigationBar:
-            // _tabController.index == 0
-            //     ?
-
-            // : null,
           ),
         ),
-
-        _buildActionRow(),
       ],
     );
   }
@@ -195,7 +188,7 @@ class _MainShellState extends ConsumerState<MainShell>
       child: Material(
         type: MaterialType.transparency,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 112, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 112, vertical: 48),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
@@ -311,12 +304,6 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TabData {
-  final String icon;
-  final String label;
-  const _TabData({required this.icon, required this.label});
 }
 
 // ─── Menu Overlay (separate route, no flash) ─────────────────────────────────

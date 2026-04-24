@@ -3,7 +3,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://turbo-production-afee.up.railway.app';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://turbo-production-afee.up.railway.app',
+  );
 
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -275,6 +278,7 @@ class ApiService {
     required String bankCode,
     required String accountNumber,
     required String accountName,
+    String? idempotencyKey,
   }) async =>
       (await _dio.post(
         '/api/payments/flutterwave/withdraw',
@@ -283,7 +287,21 @@ class ApiService {
           'bankCode': bankCode,
           'accountNumber': accountNumber,
           'accountName': accountName,
+          if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
         },
+      )).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> getNigeriaBanks() async =>
+      (await _dio.get('/api/payments/flutterwave/banks')).data
+          as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> resolveBankAccount({
+    required String bankCode,
+    required String accountNumber,
+  }) async =>
+      (await _dio.post(
+        '/api/payments/flutterwave/resolve-account',
+        data: {'bankCode': bankCode, 'accountNumber': accountNumber},
       )).data as Map<String, dynamic>;
 
   // ─── Invoices ─────────────────────────────────────────────────────────────
@@ -320,6 +338,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> sendInvoice(String id) async =>
       (await _dio.post('/api/invoices/$id/send')).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> markInvoicePaid(String id) async =>
+      (await _dio.post('/api/invoices/$id/mark-paid')).data as Map<String, dynamic>;
 
   // ─── Expenses ─────────────────────────────────────────────────────────────
 
@@ -494,6 +515,14 @@ class ApiService {
   Future<Map<String, dynamic>> cancelRequest(String id) async =>
       (await _dio.delete('/api/requests/$id')).data as Map<String, dynamic>;
 
+  /// PUT /api/requests/:id — edit pending request
+  Future<Map<String, dynamic>> updateRequest(
+    String id,
+    Map<String, dynamic> payload,
+  ) async =>
+      (await _dio.put('/api/requests/$id', data: payload)).data
+          as Map<String, dynamic>;
+
   /// POST /api/requests/:id/mark-paid — manually mark as paid
   Future<Map<String, dynamic>> markRequestPaid(String id) async =>
       (await _dio.post('/api/requests/$id/mark-paid')).data
@@ -570,6 +599,7 @@ class ApiService {
   String parseError(dynamic error) {
     if (error is DioException) {
       final data = error.response?.data;
+      if (data is Map && data['message'] != null) return data['message'];
       if (data is Map && data['error'] != null)   return data['error'];
       if (data is Map && data['errors'] != null) {
         return (data['errors'] as List).map((e) => e['msg']).join(', ');

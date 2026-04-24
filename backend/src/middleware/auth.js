@@ -1,6 +1,7 @@
 // src/middleware/auth.js
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { sendForbidden, sendUnauthorized } from '../utils/http.js';
 
 const prisma = new PrismaClient();
 
@@ -8,7 +9,7 @@ export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required' });
+    return sendUnauthorized(res, 'Authorization token required.');
   }
 
   const token = authHeader.split(' ')[1];
@@ -17,7 +18,7 @@ export async function authenticate(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     if (decoded.setupMode) {
-      return res.status(401).json({ error: 'Setup token cannot be used here' });
+      return sendUnauthorized(res, 'Setup token cannot be used here.');
     }
 
     const user = await prisma.user.findUnique({
@@ -28,16 +29,37 @@ export async function authenticate(req, res, next) {
         username: true,
         stellarPublicKey: true,
         isVerified: true,
+        isMerchant: true,
       }
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return sendUnauthorized(res, 'User not found.');
     }
 
-    req.user = user;
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const isAdmin = adminEmails.includes((user.email || '').toLowerCase());
+
+    req.user = { ...user, isAdmin };
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return sendUnauthorized(res, 'Invalid or expired token.');
   }
+}
+
+export function requireMerchant(req, res, next) {
+  if (!req.user?.isMerchant) {
+    return sendForbidden(res, 'Merchant permission is required.');
+  }
+  return next();
+}
+
+export function requireManager(req, res, next) {
+  if (!(req.user?.isMerchant || req.user?.isAdmin)) {
+    return sendForbidden(res, 'Manager permission is required.');
+  }
+  return next();
 }

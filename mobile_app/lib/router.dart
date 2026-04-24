@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_app/screens/buy/buy_screen.dart';
 import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
+import 'package:mobile_app/screens/requests/public_request_pay_screen.dart';
 import 'package:mobile_app/screens/shell/main_shell.dart';
 import 'package:mobile_app/screens/swap/swap_screen.dart';
 import 'package:mobile_app/screens/auth/backup_screen.dart';
@@ -35,11 +36,12 @@ final appRouter = GoRouter(
 
     // These are allowed even when authenticated (post-signup flow)
     final isPostSignup = loc == '/auth/biometric' || loc == '/auth/backup';
+    final isPublicRequestPay = loc.startsWith('/requests/pay/');
     final isAuthRoute = loc.startsWith('/auth') && !isPostSignup;
     final isOnboarding = loc == '/onboarding';
 
     if (isAuth && (isAuthRoute || isOnboarding)) return '/mainshell';
-    if (!isAuth && !isAuthRoute && !isOnboarding && !isPostSignup) {
+    if (!isAuth && !isAuthRoute && !isOnboarding && !isPostSignup && !isPublicRequestPay) {
       return '/onboarding';
     }
     return null;
@@ -156,6 +158,12 @@ final appRouter = GoRouter(
     GoRoute(path: '/expenses', builder: (_, __) => const ExpensesScreen()),
 
     GoRoute(path: '/requests', builder: (_, __) => const RequestsScreen()),
+    GoRoute(
+      path: '/requests/pay/:requestNumber',
+      builder: (_, state) => PublicRequestPayScreen(
+        requestNumber: state.pathParameters['requestNumber'] ?? '',
+      ),
+    ),
 
     GoRoute(path: '/workflows', builder: (_, __) => const WorkflowsScreen()),
 

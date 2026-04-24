@@ -674,7 +674,7 @@ export async function getStellarTransactions(publicKey, limit = 20) {
 export async function fundNewUserWallet(userPublicKey, userId = null) {
   const masterPublicKey = process.env.MASTER_WALLET_PUBLIC_KEY;
   const masterSecretEncrypted = process.env.MASTER_WALLET_SECRET_KEY;
-  const fundingAmount = process.env.FUNDING_AMOUNT || "5";
+  const fundingAmount = process.env.FUNDING_AMOUNT || "1.5"; // Changed from 5 to 1.5
 
   if (!masterPublicKey || !masterSecretEncrypted) {
     console.warn("⚠️  Master wallet not configured. Skipping auto-funding.");
@@ -725,7 +725,7 @@ export async function fundNewUserWallet(userPublicKey, userId = null) {
     tx.sign(masterKeypair);
     const result = await server.submitTransaction(tx);
 
-    console.log(`✅ Funded ${userPublicKey} with ${fundingAmount} XLM`);
+    console.log(`✅ Funded ${userPublicKey} with ${fundingAmount} XLM (all reserved)`);
 
     // Record transaction if userId is provided
     if (userId) {
@@ -740,10 +740,17 @@ export async function fundNewUserWallet(userPublicKey, userId = null) {
           fromAddress: masterPublicKey,
           toAddress: userPublicKey,
           stellarTxHash: result.hash,
-          memo: "Initial account funding",
+          memo: "Initial account funding (reserved)",
         },
       });
       console.log(`📝 Recorded funding transaction for user ${userId}`);
+
+      // Mark all funding as reserved
+      await prisma.user.update({
+        where: { id: userId },
+        data: { xlmReserved: parseFloat(fundingAmount) },
+      });
+      console.log(`🔒 Locked ${fundingAmount} XLM as reserved for user ${userId}`);
     }
 
     return result;
@@ -761,6 +768,16 @@ export async function sendFromMasterWallet(
   amount,
   memo = "",
 ) {
+  return sendAssetFromMasterWallet(recipientAddress, amount, "XLM", memo);
+}
+
+// ─── Send any supported asset from master wallet ─────────────────────────────
+export async function sendAssetFromMasterWallet(
+  recipientAddress,
+  amount,
+  assetCode = "XLM",
+  memo = "",
+) {
   const masterPublicKey = process.env.MASTER_WALLET_PUBLIC_KEY;
   const masterSecretEncrypted = process.env.MASTER_WALLET_SECRET_KEY;
 
@@ -772,6 +789,13 @@ export async function sendFromMasterWallet(
   const amountNum = parseFloat(amount);
   if (isNaN(amountNum) || amountNum <= 0) {
     throw new Error("Invalid amount");
+  }
+
+  const normalizedAsset = String(assetCode || "XLM").toUpperCase();
+  const asset =
+    normalizedAsset === "XLM" ? StellarSdk.Asset.native() : ASSETS[normalizedAsset];
+  if (!asset) {
+    throw new Error(`Unsupported asset for master settlement: ${normalizedAsset}`);
   }
 
   // Validate recipient address
@@ -806,7 +830,7 @@ export async function sendFromMasterWallet(
     txBuilder.addOperation(
       StellarSdk.Operation.payment({
         destination: recipientAddress,
-        asset: StellarSdk.Asset.native(),
+        asset,
         amount: amountNum.toString(),
       }),
     );
@@ -819,11 +843,14 @@ export async function sendFromMasterWallet(
     tx.sign(masterKeypair);
     const result = await server.submitTransaction(tx);
 
-    console.log(`✅ Sent ${amountNum} XLM from master to ${recipientAddress}`);
+    console.log(
+      `✅ Sent ${amountNum} ${normalizedAsset} from master to ${recipientAddress}`,
+    );
     return {
       success: true,
       hash: result.hash,
       amount: amountNum,
+      asset: normalizedAsset,
       recipient: recipientAddress,
       memo: memo || null,
     };

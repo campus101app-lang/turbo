@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart' show DateFormat;
+import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import '../../providers/wallet_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
@@ -62,6 +65,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _moversExpanded = true;
   Timer? _refreshTimer;
 
+  double _asDouble(dynamic value, [double fallback = 0.0]) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  // ── Chart data helpers (ported from portfolio_screen) ──────────────────────
+  // ── Chart helpers ──────────────────────────────────────────────────────────
 
   List<double> _buildPoints(
     List<Map<String, dynamic>> txs,
@@ -124,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     for (final tx in filtered) {
       final dt = DateTime.parse(tx['createdAt']);
-      final amt = (tx['amount'] as num).toDouble().abs();
+      final amt = _asDouble(tx['amount']).abs();
       final type = tx['type'] as String? ?? '';
       final swapToAsset = tx['swapToAsset'] as String? ?? '';
 
@@ -139,7 +148,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           running += amt;
         }
       }
-
       running = running.clamp(0, double.infinity);
       snapshots.add(MapEntry(dt, running));
     }
@@ -168,7 +176,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return dt != null && dt.isAfter(cutoff);
     }).toList()..sort((a, b) => a.key.compareTo(b.key));
 
-    if (relevant.isEmpty) return [balance * currentPrice, balance * currentPrice];
+    if (relevant.isEmpty) {
+      return [balance * currentPrice, balance * currentPrice];
+    }
     return relevant.map((e) => balance * e.value).toList()
       ..add(balance * currentPrice);
   }
@@ -198,6 +208,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return ((points.last - first) / first) * 100;
   }
 
+  List<FlSpot> _toSpots(List<double> points) {
+    if (points.isEmpty) return [const FlSpot(0, 0.5), const FlSpot(1, 0.5)];
+    final min = points.reduce((a, b) => a < b ? a : b);
+    final max = points.reduce((a, b) => a > b ? a : b);
+    final range = max - min;
+    if (range == 0) {
+      return List.generate(points.length, (i) => FlSpot(i.toDouble(), 0.5));
+    }
+    return List.generate(
+      points.length,
+      (i) => FlSpot(i.toDouble(), (points[i] - min) / range),
+    );
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -206,110 +230,427 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final txAsync = ref.watch(_txHomeProvider);
     final priceHistoryAsync = ref.watch(_xlmPriceHistoryHomeProvider);
     final priceHistory = priceHistoryAsync.value ?? {};
+    final ngnRateAsync = ref.watch(ngnRateProvider);
 
-    const xlmReserve = 2.0;
-    final xlmPrice = walletState.xlmPriceUSD ?? 0.0;
+    const xlmReserve = 1.5;
+    final xlmPrice = walletState.xlmPriceUSD;
     final xlmDisplayBalance = (walletState.xlmBalance - xlmReserve > 0)
         ? (walletState.xlmBalance - xlmReserve)
         : 0.0;
     final xlmUSD = xlmDisplayBalance * xlmPrice;
     final usdcUSD = walletState.usdcBalance;
 
-    final txs = txAsync.value ?? [];
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
 
-    final xlmPoints = _buildPoints(txs, 'XLM', xlmDisplayBalance, xlmPrice, priceHistory);
-    final usdcPoints = _buildPoints(txs, 'USDC', walletState.usdcBalance, 1.0, priceHistory);
+    final txs = txAsync.value ?? [];
+    final recentTxs = [...txs]..sort((a, b) {
+      final aDate = DateTime.tryParse(a['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = DateTime.tryParse(b['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+
+    final xlmPoints = _buildPoints(
+      txs,
+      'XLM',
+      xlmDisplayBalance,
+      xlmPrice,
+      priceHistory,
+    );
+    final usdcPoints = _buildPoints(
+      txs,
+      'USDC',
+      walletState.usdcBalance,
+      1.0,
+      priceHistory,
+    );
     final combinedPoints = _combinePoints(xlmPoints, usdcPoints);
 
     final xlmChange = _computeChange(xlmPoints);
     final usdcChange = _computeChange(usdcPoints);
     final totalChange = _computeChange(combinedPoints);
 
+    // Reserve-adjusted total
+    const xlmReserveUSD = xlmReserve;
+    final reservedUSD = xlmReserveUSD * xlmPrice;
+    final adjustedTotalUSD = (walletState.totalUSD - reservedUSD).clamp(
+      0.0,
+      double.infinity,
+    );
+    final ext = AppThemeExtension.of(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
+      bottomNavigationBar: _buildActionRow(),
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(walletProvider.notifier).refresh();
           ref.invalidate(userProvider);
           ref.invalidate(_txHomeProvider);
           ref.invalidate(_xlmPriceHistoryHomeProvider);
+          ref.invalidate(ngnRateProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+          padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
           children: [
-            const SizedBox(height: 140),
+            // ── NGN / USD summary cards ──────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Container(
+                      height: 54,
+                      width: MediaQuery.of(context).size.width * .85,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: ext.cardBorder.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                        color: ext.monthlyCardSurface,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: ext.cardBorder, width: .5),
+                      color: ext.cardSurface,
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                '\$',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  letterSpacing: 2,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              adjustedTotalUSD.toStringAsFixed(2),
+                              style: GoogleFonts.bricolageGrotesque(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                                letterSpacing: .4,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'total balance',
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color.fromARGB(255, 91, 157, 233),
+                            height: 1,
+                            letterSpacing: 0.65,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            _SectionHeader(
+              label: 'Most recent',
+              trailing: '',
+              onTrailingTap: () => context.push('/transactions'),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: ext.cardBorder, width: 1),
+                color: ext.cardSurface,
+              ),
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+
+              child: Column(
+                children: [
+                  Column(
+                    children: recentTxs.take(3).map((tx) {
+                      final isSend = tx['type'] == 'send';
+                      final isSwap = tx['type'] == 'swap';
+                      final amount = _asDouble(tx['amount']);
+                      final asset = tx['asset'] as String? ?? '';
+                      final swapToAsset = tx['swapToAsset'] as String? ?? '';
+                      final swapToAmount =
+                          (tx['receivedAmount'] ?? tx['swapToAmount']) != null
+                          ? _asDouble((tx['receivedAmount'] ?? tx['swapToAmount']))
+                          : null;
+                      final createdAt =
+                          DateTime.tryParse(tx['createdAt'] ?? '') ??
+                          DateTime.now();
+                      final status = tx['status'] as String?;
+                      final accent = isSend
+                          ? DayFiColors.red
+                          : isSwap
+                          ? Theme.of(context).colorScheme.primary
+                          : DayFiColors.green;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            // Icon
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  // width: 40,
+                                  height: 32,
+                                  // decoration: BoxDecoration(
+                                  //   color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                                  //   borderRadius: BorderRadius.circular(12),
+                                  // ),
+                                  child: Align(
+                                    alignment: Alignment.topCenter,
+                                    child: SvgPicture.asset(
+                                      isSwap
+                                          ? 'assets/icons/svgs/swap.svg'
+                                          : (isSend
+                                                ? 'assets/icons/svgs/send.svg'
+                                                : 'assets/icons/svgs/receive.svg'),
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(.75),
+                                      width: 22,
+                                      height: 22,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(24),
+                                      child: Image.asset(
+                                        asset.toUpperCase() == 'USDC'
+                                            ? 'assets/images/usdc.png'
+                                            : 'assets/images/stellar.png',
+
+                                        width: 14,
+                                        height: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(width: 14),
+                            // Label + time
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isSwap
+                                        ? 'Swapped $asset → $swapToAsset'
+                                        : '${isSend ? 'Sent' : 'Received'} $asset',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(.95),
+                                        ),
+                                  ),
+                                  Text(
+                                    status?.toLowerCase() == 'confirmed'
+                                        ? DateFormat(
+                                            'h:mm a',
+                                          ).format(createdAt.toLocal())
+                                        : (status ?? ''),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(.65),
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                          letterSpacing: -.1,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Amount
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  isSwap
+                                      ? '${amount.toStringAsFixed(2)} $asset'
+                                      : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                                Text(
+                                  isSwap
+                                      ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
+                                      : '${amount.toStringAsFixed(2)} $asset',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withOpacity(.65),
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                      foregroundColor: ext.primaryText,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Full activity view is coming soon.'),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                      child: Text(
+                        'VIEW ALL ',
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .2,
+                          height: 1,
+                          color: ext.sectionHeader,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             // ── Balance ──────────────────────────────────────────────
-            _buildBalanceSection(walletState, totalChange),
+            // _buildBalanceSection(walletState, totalChange),
 
-            const SizedBox(height: 20),
+            // const SizedBox(height: 20),
 
-            // ── Portfolio chip ───────────────────────────────────────
-            _buildPortfolioChip(walletState),
+            // // ── Portfolio chip ───────────────────────────────────────
+            // _buildPortfolioChip(walletState),
 
-            const SizedBox(height: 28),
+            // const SizedBox(height: 28),
 
-            // ── Chart ────────────────────────────────────────────────
-            if (combinedPoints.length >= 2)
-              _buildChart(combinedPoints, totalChange),
+            // // ── Chart ────────────────────────────────────────────────
+            // if (combinedPoints.length >= 2)
+            //   _buildChart(combinedPoints, totalChange),
 
-            const SizedBox(height: 32),
+            // const SizedBox(height: 32),
 
             // ── Top Movers ───────────────────────────────────────────
-            _buildSectionHeader(
-              title: 'Top movers today',
-              rightLabel: 'XLM · USDC',
-              expanded: _moversExpanded,
-              onTap: () => setState(() => _moversExpanded = !_moversExpanded),
-            ),
+            // _buildSectionHeader(
+            //   title: 'Top movers today',
+            //   rightLabel: 'XLM · USDC',
+            //   expanded: _moversExpanded,
+            //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
+            // ),
 
-            if (_moversExpanded) ...[
-              const SizedBox(height: 6),
-              _buildMoversRow(
-                xlmBalance: xlmDisplayBalance,
-                xlmUSD: xlmUSD,
-                xlmChange: xlmChange,
-                xlmPoints: xlmPoints,
-                usdcBalance: walletState.usdcBalance,
-                usdcUSD: usdcUSD,
-                usdcChange: usdcChange,
-                usdcPoints: usdcPoints,
-              ),
-            ],
+            // if (_moversExpanded) ...[
+            //   const SizedBox(height: 6),
+            //   _buildMoversRow(
+            //     xlmBalance: xlmDisplayBalance,
+            //     xlmUSD: xlmUSD,
+            //     xlmChange: xlmChange,
+            //     xlmPoints: xlmPoints,
+            //     usdcBalance: walletState.usdcBalance,
+            //     usdcUSD: usdcUSD,
+            //     usdcChange: usdcChange,
+            //     usdcPoints: usdcPoints,
+            //   ),
+            // ],
 
-            const SizedBox(height: 32),
+            // const SizedBox(height: 32),
 
-            // ── Holdings ─────────────────────────────────────────────
-            _buildSectionHeader(
-              title: 'Holdings',
-              rightLabel: 'ALL',
-              expanded: _holdingsExpanded,
-              onTap: () => setState(() => _holdingsExpanded = !_holdingsExpanded),
-            ),
+            // // ── Holdings ─────────────────────────────────────────────
+            // _buildSectionHeader(
+            //   title: 'Holdings',
+            //   rightLabel: 'ALL',
+            //   expanded: _holdingsExpanded,
+            //   onTap: () =>
+            //       setState(() => _holdingsExpanded = !_holdingsExpanded),
+            // ),
 
-            if (_holdingsExpanded) ...[
-              const SizedBox(height: 12),
-              _HoldingRow(
-                imagePath: 'assets/images/stellar.png',
-                code: 'XLM',
-                name: 'Stellar Lumen',
-                balance: xlmDisplayBalance,
-                usdValue: xlmUSD,
-                changePercent: xlmChange,
-                points: xlmPoints,
-              ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.04, end: 0),
-              const SizedBox(height: 8),
-              _HoldingRow(
-                imagePath: 'assets/images/usdc.png',
-                code: 'USDC',
-                name: 'Digital Dollar',
-                balance: walletState.usdcBalance,
-                usdValue: usdcUSD,
-                changePercent: usdcChange,
-                points: usdcPoints,
-              ).animate().fadeIn(delay: 180.ms).slideX(begin: 0.04, end: 0),
-            ],
-
+            // if (_holdingsExpanded) ...[
+            //   const SizedBox(height: 12),
+            //   _HoldingRow(
+            //     imagePath: 'assets/images/stellar.png',
+            //     code: 'XLM',
+            //     name: 'Stellar Lumen',
+            //     balance: xlmDisplayBalance,
+            //     usdValue: xlmUSD,
+            //     changePercent: xlmChange,
+            //     points: xlmPoints,
+            //   ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.04, end: 0),
+            //   const SizedBox(height: 8),
+            //   _HoldingRow(
+            //     imagePath: 'assets/images/usdc.png',
+            //     code: 'USDC',
+            //     name: 'Digital Dollar',
+            //     balance: walletState.usdcBalance,
+            //     usdValue: usdcUSD,
+            //     changePercent: usdcChange,
+            //     points: usdcPoints,
+            //   ).animate().fadeIn(delay: 180.ms).slideX(begin: 0.04, end: 0),
+            // ],
             const SizedBox(height: 20),
           ],
         ),
@@ -317,10 +658,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildActionRow() {
+    final walletState = ref.watch(walletProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 120, vertical: 48),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+          ),
+        ),
+        child: Row(
+          children: [
+            _ActionButton(
+              icon: "assets/icons/svgs/receive.svg",
+              label: 'Receive',
+              onTap: () => context.push('/receive'),
+            ),
+            _ActionButton(
+              icon: "assets/icons/svgs/send.svg",
+              label: 'Send',
+              onTap: () => _handleSendTap(walletState),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  void _handleSendTap(WalletState walletState) {
+    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Cannot send: wallet has no balance'),
+          backgroundColor: Color(0xFFFFA726),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    context.push('/send');
+  }
+
+  void _handleSwapTap(WalletState walletState) {
+    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Cannot swap: wallet has no balance'),
+          backgroundColor: Color(0xFFFFA726),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    context.push('/swap');
+  }
+
   // ── Balance section ────────────────────────────────────────────────────────
 
   Widget _buildBalanceSection(WalletState walletState, double changePct) {
-    const xlmReserve = 2.0;
+    const xlmReserve = 1.5;
     final xlmPrice = walletState.xlmPriceUSD ?? 0.0;
     final reservedUSD = xlmReserve * xlmPrice;
     final rawTotal = walletState.totalUSD - reservedUSD;
@@ -364,7 +764,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         const SizedBox(height: 8),
 
-        // Balance label row
+        // Balance label + eye toggle
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -415,7 +815,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBalanceRow(String whole, String decimal, {bool isHidden = false}) {
+  Widget _buildBalanceRow(
+    String whole,
+    String decimal, {
+    bool isHidden = false,
+  }) {
     final opacity = isHidden ? .40 : .85;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -450,7 +854,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w400,
               fontSize: 30,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(opacity),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withOpacity(opacity),
               letterSpacing: 0.4,
               height: 1.1,
             ),
@@ -475,10 +881,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
             decoration: BoxDecoration(
-              color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+              color: Theme.of(
+                context,
+              ).textTheme.bodySmall!.color!.withOpacity(0.1),
               borderRadius: BorderRadius.circular(40),
               border: Border.all(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.04),
               ),
             ),
             child: Row(
@@ -504,7 +914,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: Image.asset(
                                 assets[i],
                                 fit: BoxFit.contain,
-                                height: assets[i] == "assets/images/stellar.png" ? 20 : 24,
+                                height: assets[i] == "assets/images/stellar.png"
+                                    ? 20
+                                    : 24,
                               ),
                             ),
                           ),
@@ -518,7 +930,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   'Portfolio',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w400,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(.60),
                     letterSpacing: 0.4,
                     fontSize: 12,
                   ),
@@ -529,7 +943,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: SvgPicture.asset(
                     "assets/icons/svgs/dropdown.svg",
                     height: 18,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.4),
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -585,7 +1001,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(
-              expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+              expanded
+                  ? Icons.keyboard_arrow_down_rounded
+                  : Icons.keyboard_arrow_right_rounded,
               size: 18,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
             ),
@@ -605,7 +1023,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.35),
                 letterSpacing: .3,
               ),
             ),
@@ -691,7 +1111,6 @@ class _MoverCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -727,7 +1146,6 @@ class _MoverCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // Sparkline
           if (points.length >= 2)
             SizedBox(
               height: 32,
@@ -742,7 +1160,6 @@ class _MoverCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
-          // Value + change pill
           Row(
             children: [
               Expanded(
@@ -815,13 +1232,11 @@ class _HoldingRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Logo
           ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: Image.asset(imagePath, width: 36, height: 36),
           ),
           const SizedBox(width: 12),
-          // Name + balance
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,21 +1247,24 @@ class _HoldingRow extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                     letterSpacing: -0.1,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.88),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.88),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${balance.toStringAsFixed(code == 'USDC' ? 2 : 4)} $code',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.45),
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          // Sparkline
           if (points.length >= 2)
             SizedBox(
               width: 52,
@@ -861,7 +1279,6 @@ class _HoldingRow extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 20),
-          // Value + change
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -871,7 +1288,9 @@ class _HoldingRow extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                   letterSpacing: -0.1,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.88),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.88),
                 ),
               ),
               const SizedBox(height: 3),
@@ -915,18 +1334,25 @@ class _SparklinePainter extends CustomPainter {
 
     Offset pt(int i) => Offset(
       i * xStep,
-      size.height - ((points[i] - min) / range) * size.height * 0.82 - size.height * 0.09,
+      size.height -
+          ((points[i] - min) / range) * size.height * 0.82 -
+          size.height * 0.09,
     );
 
-    // fill
     final fill = Path()..moveTo(0, size.height);
     for (int i = 0; i < points.length; i++) {
       fill.lineTo(pt(i).dx, pt(i).dy);
     }
-    fill..lineTo(size.width, size.height)..close();
-    canvas.drawPath(fill, Paint()..color = fillColor..style = PaintingStyle.fill);
+    fill
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
 
-    // line
     final line = Path()..moveTo(pt(0).dx, pt(0).dy);
     for (int i = 1; i < points.length; i++) {
       final p = pt(i - 1), c = pt(i);
@@ -945,5 +1371,101 @@ class _SparklinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SparklinePainter o) => o.points != points || o.color != color;
+  bool shouldRepaint(_SparklinePainter o) =>
+      o.points != points || o.color != color;
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.label,
+    this.trailing,
+    this.onTrailingTap,
+  });
+
+  final String label;
+  final String? trailing;
+  final VoidCallback? onTrailingTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = AppThemeExtension.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.bricolageGrotesque(
+              fontWeight: FontWeight.w600,
+              color: ext.sectionHeader,
+              // letterSpacing: -.1,
+              fontSize: 12,
+            ),
+          ),
+          if (trailing != null)
+            GestureDetector(
+              onTap: onTrailingTap,
+              child: Text(
+                trailing!.toUpperCase(),
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  // letterSpacing: -.1,
+                  color: ext.sectionHeader.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                icon,
+                height: 22,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.60),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -5,8 +5,9 @@ import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -26,7 +27,7 @@ final _ngnRateProvider = FutureProvider<double>((ref) async {
       return (data['rates']['NGN'] as num).toDouble();
     }
   } catch (_) {}
-  return 1700.0;
+  return 1354.92;
 });
 
 final _txAccountsProvider = FutureProvider<List<Map<String, dynamic>>>((
@@ -76,6 +77,12 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   bool _moversExpanded = true;
   bool _accountsExpanded = true;
   Timer? _refreshTimer;
+
+  double _asDouble(dynamic value, [double fallback = 0.0]) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
 
   @override
   void initState() {
@@ -159,7 +166,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
     for (final tx in filtered) {
       final dt = DateTime.parse(tx['createdAt']);
-      final amt = (tx['amount'] as num).toDouble().abs();
+      final amt = _asDouble(tx['amount']).abs();
       final type = tx['type'] as String? ?? '';
       final swapToAsset = tx['swapToAsset'] as String? ?? '';
 
@@ -202,8 +209,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       return dt != null && dt.isAfter(cutoff);
     }).toList()..sort((a, b) => a.key.compareTo(b.key));
 
-    if (relevant.isEmpty)
+    if (relevant.isEmpty) {
       return [balance * currentPrice, balance * currentPrice];
+    }
     return relevant.map((e) => balance * e.value).toList()
       ..add(balance * currentPrice);
   }
@@ -225,36 +233,37 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final priceHistoryAsync = ref.watch(_xlmPriceHistoryAccountsProvider);
     final ext = AppThemeExtension.of(context);
 
-    const xlmReserve = 2.0;
-    final xlmPrice = w.xlmPriceUSD ?? 0.0;
-    final xlmDisplay = (w.xlmBalance - xlmReserve).clamp(0.0, double.infinity);
+    // const xlmReserve = 1.5;
+    // final xlmPrice = w.xlmPriceUSD ?? 0.0;
+    // final xlmDisplay = (w.xlmBalance - xlmReserve).clamp(0.0, double.infinity);
 
     final usdToNgn = ngnRateAsync.when(
       data: (rate) => rate,
       loading: () => (w.ngnRate != null && w.ngnRate! > 0)
           ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
-          : 1700.0,
+          : 1354.92,
       error: (_, __) => (w.ngnRate != null && w.ngnRate! > 0)
           ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
-          : 1700.0,
+          : 1354.92,
     );
 
     final priceHistory = priceHistoryAsync.value ?? {};
     final txs = txAsync.value ?? [];
 
-    final xlmUSD = xlmDisplay * xlmPrice;
+    // final xlmUSD = xlmDisplay * xlmPrice;
     final ngntUSD = w.ngntBalance * (w.ngnRate ?? 0);
-    final assetsInUSD = ngntUSD + w.usdcBalance + xlmUSD;
-    final assetsInNGN = assetsInUSD * usdToNgn;
+    final assetsInUSD = ngntUSD + w.usdcBalance;
+
+    // final assetsInNGN = assetsInUSD * usdToNgn;
 
     // Build sparkline points per asset
-    final xlmPoints = _buildPoints(
-      txs,
-      'XLM',
-      xlmDisplay,
-      xlmPrice,
-      priceHistory,
-    );
+    // final xlmPoints = _buildPoints(
+    //   txs,
+    //   'XLM',
+    //   xlmDisplay,
+    //   xlmPrice,
+    //   priceHistory,
+    // );
     final usdcPoints = _buildPoints(
       txs,
       'USDC',
@@ -267,19 +276,20 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       w.ngntBalance.toDouble(),
     ); // flat, stable
 
-    final xlmChange = _computeChange(xlmPoints);
+    // final xlmChange = _computeChange(xlmPoints);
     final usdcChange = _computeChange(usdcPoints);
-    const ngntChange = 0.0;
+    // const ngntChange = 0.0;
 
     // For portfolio-level change use lastKnownTotal
-    final last = w.lastKnownTotal;
-    final totalChangePct = (last != null && last > 0)
-        ? ((assetsInUSD - last) / last) * 100
-        : 0.0;
-    final totalUp = totalChangePct >= 0;
+    // final last = w.lastKnownTotal;
+    // final totalChangePct = (last != null && last > 0)
+    // ? ((assetsInUSD - last) / last) * 100
+    // : 0.0;
+    // final totalUp = totalChangePct >= 0;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      bottomNavigationBar: _buildActionRow(),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(_ngnRateProvider);
@@ -288,8 +298,79 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           await ref.read(walletProvider.notifier).refresh();
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 124, 0, 100),
+          padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
           children: [
+            //    // ── Top movers ────────────────────────────────────────────
+            // _FoldableSectionHeader(
+            //   title: 'ALL ASSETS',
+            //   rightLabel: 'ALL ASSETS',
+            //   expanded: _moversExpanded,
+            //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
+            // ),
+            if (_moversExpanded) ...[
+              const SizedBox(height: 6),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                height: 100,
+                child: Row(
+                  children: [
+                    // const SizedBox(width: 8),
+                    Expanded(
+                      child: AccountMoverCard(
+                        ticker: 'NGN',
+                        name: 'NG Naira',
+                        gainUp: true,
+                        gainAmountAbsNgn: 0,
+                        accent: const Color(0xFF008751),
+                        line: _toSpots(ngntPoints),
+                        imagePath: 'assets/images/ng.png',
+                        valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
+                        balanceLabel:
+                            '${w.ngntBalance.toStringAsFixed(2)} NGNT',
+                      ),
+                    ),
+                    Expanded(
+                      child: AccountMoverCard(
+                        ticker: 'USD',
+                        name: 'US Dollar',
+                        gainUp: usdcChange >= 0,
+                        gainAmountAbsNgn:
+                            (w.usdcBalance * usdToNgn * usdcChange.abs() / 100),
+                        accent: usdcChange >= 0
+                            ? DayFiColors.green
+                            : ext.errorColor,
+                        line: _toSpots(usdcPoints),
+                        imagePath: 'assets/images/us.png',
+                        valueUSD: w.usdcBalance, // ← ADD
+                        balanceLabel:
+                            '${w.usdcBalance.toStringAsFixed(2)} USDC',
+                      ),
+                    ),
+                    // Expanded(
+                    //   child: _AccountMoverCard(
+                    //     ticker: 'XLM',
+                    //     name: 'Stellar Lumens',
+                    //     gainUp: xlmChange >= 0,
+                    //     gainAmountAbsNgn:
+                    //         (xlmDisplay *
+                    //         w.xlmPriceUSD *
+                    //         xlmChange.abs() /
+                    //         100),
+                    //     accent: xlmChange >= 0
+                    //         ? DayFiColors.green
+                    //         : ext.errorColor,
+                    //     line: _toSpots(xlmPoints),
+                    //     imagePath: 'assets/images/stellar.png',
+                    //     valueUSD: xlmDisplay,
+                    //     balanceLabel: '${xlmDisplay.toStringAsFixed(2)} XLM',
+                    //   ),
+                    // ),
+                    // ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Stack(
@@ -348,7 +429,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                                 fontSize: 28,
                                 fontWeight: FontWeight.w600,
                                 color: Theme.of(context).colorScheme.primary,
-                                letterSpacing: 1.4,
+                                letterSpacing: .4,
                                 height: 1,
                               ),
                             ),
@@ -373,63 +454,256 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 34),
+            const SizedBox(height: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Container(
+                      height: 54,
+                      width: MediaQuery.of(context).size.width * .85,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: ext.cardBorder.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                        color: ext.monthlyCardSurface,
+                      ),
+                    ),
+                  ),
 
-            // ── Top movers ────────────────────────────────────────────
-            _FoldableSectionHeader(
-              title: 'ALL ASSETS',
-              rightLabel: 'ALL ASSETS',
-              expanded: _moversExpanded,
-              onTap: () => setState(() => _moversExpanded = !_moversExpanded),
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: ext.cardBorder, width: .5),
+                      color: ext.cardSurface,
+                    ),
+                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'make it yours',
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: .4,
+                            color: ext.sectionHeader,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  backgroundColor: ext.primaryText.withOpacity(
+                                    .06,
+                                  ),
+                                  foregroundColor: ext.primaryText,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Account customization is coming soon.'),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    0,
+                                    15,
+                                    0,
+                                    15,
+                                  ),
+                                  child: Text(
+                                    'TRY IT',
+                                    style: GoogleFonts.bricolageGrotesque(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: .2,
+                                      height: 1,
+                                      color: ext.sectionHeader,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  backgroundColor: ext.primaryText.withOpacity(
+                                    .06,
+                                  ),
+                                  foregroundColor: ext.primaryText,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('More account options are coming soon.'),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    0,
+                                    15,
+                                    0,
+                                    15,
+                                  ),
+                                  child: Text(
+                                    'OKAY',
+                                    style: GoogleFonts.bricolageGrotesque(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: .2,
+                                      height: 1,
+                                      color: ext.sectionHeader,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 28),
+          ],
+        ),
+      ),
+    );
+  }
 
-            if (_moversExpanded) ...[
-              const SizedBox(height: 6),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-                height: 96,
-                child: Row(
-                  children: [
-                    // const SizedBox(width: 8),
-                    Expanded(
-                      child: _AccountMoverCard(
-                        ticker: 'NGN',
-                        name: 'NG Naira',
-                        gainUp: true,
-                        gainAmountAbsNgn: 0,
-                        accent: const Color(0xFF008751),
-                        line: _toSpots(ngntPoints),
-                        imagePath: 'assets/images/ng.png',
-                        valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
-                        balanceLabel:
-                            '${w.ngntBalance.toStringAsFixed(2)} NGNT',
-                      ),
-                    ),
-                    Expanded(
-                      child: _AccountMoverCard(
-                        ticker: 'USD',
-                        name: 'US Dollar',
-                        gainUp: usdcChange >= 0,
-                        gainAmountAbsNgn:
-                            (w.usdcBalance * usdToNgn * usdcChange.abs() / 100),
-                        accent: usdcChange >= 0
-                            ? DayFiColors.green
-                            : ext.errorColor,
-                        line: _toSpots(usdcPoints),
-                        imagePath: 'assets/images/us.png',
-                        valueUSD: w.usdcBalance, // ← ADD
-                        balanceLabel:
-                            '${w.usdcBalance.toStringAsFixed(2)} USDC',
-                      ),
-                    ),
-                    // ],
-                  ],
+  Widget _buildActionRow() {
+    final walletState = ref.watch(walletProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 88, vertical: 48),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+          ),
+        ),
+        child: Row(
+          children: [
+            _ActionButton(
+              icon: "assets/icons/svgs/receive.svg",
+              label: 'Receive',
+              onTap: () => context.push('/receive'),
+            ),
+            _ActionButton(
+              icon: "assets/icons/svgs/swap.svg",
+              label: 'Swap',
+              onTap: () => _handleSwapTap(walletState),
+            ),
+            _ActionButton(
+              icon: "assets/icons/svgs/send.svg",
+              label: 'Send',
+              onTap: () => _handleSendTap(walletState),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
+  }
+
+  void _handleSendTap(WalletState walletState) {
+    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Cannot send: wallet has no balance'),
+          backgroundColor: Color(0xFFFFA726),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    context.push('/send');
+  }
+
+  void _handleSwapTap(WalletState walletState) {
+    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Cannot swap: wallet has no balance'),
+          backgroundColor: Color(0xFFFFA726),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    context.push('/swap');
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                icon,
+                height: 22,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.60),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.1,
                 ),
               ),
             ],
-
-            const SizedBox(height: 28),
-          ],
+          ),
         ),
       ),
     );
@@ -475,10 +749,10 @@ class _FoldableSectionHeader extends StatelessWidget {
               child: Text(
                 title,
                 style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: .3,
-                  color: ext.primaryText,
+                  fontWeight: FontWeight.w600,
+                  color: ext.sectionHeader,
+                  // letterSpacing: -.1,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -501,8 +775,8 @@ class _FoldableSectionHeader extends StatelessWidget {
 
 // ─── Mover card (exact styling from doc 7, adapted for accounts) ─────────────
 
-class _AccountMoverCard extends StatelessWidget {
-  const _AccountMoverCard({
+class AccountMoverCard extends StatelessWidget {
+  const AccountMoverCard({
     required this.ticker,
     required this.name,
     required this.gainUp,
@@ -561,16 +835,15 @@ class _AccountMoverCard extends StatelessWidget {
                           color: ext.primaryText,
                         ),
                       ),
-                      // const SizedBox(height: 2),
                       // Text(
-                      //   name,
-                      //   maxLines: 1,
-                      //   overflow: TextOverflow.ellipsis,
-                      //   style: GoogleFonts.bricolageGrotesque(
-                      //     fontSize: 14,
-                      //     fontWeight: FontWeight.w400,
-                      //     letterSpacing: .3,
-                      //     color: ext.primaryText,
+                      //   balanceLabel.toString().split(" ").last,
+                      //   style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      //     color: Theme.of(
+                      //       context,
+                      //     ).colorScheme.onSurface.withOpacity(.65),
+                      //     fontWeight: FontWeight.w500,
+                      //     fontSize: 10,
+                      //     height: 1,
                       //   ),
                       // ),
                     ],
@@ -609,7 +882,7 @@ class _AccountMoverCard extends StatelessWidget {
                             ? '₦'
                             : '',
                         style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 17,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: ext.primaryText.withValues(alpha: 0.82),
                           letterSpacing: 1,
@@ -621,22 +894,22 @@ class _AccountMoverCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
+                          letterSpacing: .2,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
                   ),
                 ),
-
+                // const SizedBox(height: 2),
                 // Text(
-                //   balanceLabel.toString().split(" ").last,
+                //   "USD ${valueUSD.toStringAsFixed(2)}",
                 //   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 //     color: Theme.of(
                 //       context,
                 //     ).colorScheme.onSurface.withOpacity(.65),
                 //     fontWeight: FontWeight.w500,
-                //     fontSize: 12,
+                //     fontSize: 10,
                 //     height: 1,
                 //   ),
                 // ),

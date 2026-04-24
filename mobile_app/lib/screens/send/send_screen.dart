@@ -1,6 +1,5 @@
 // lib/screens/send/send_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -34,6 +33,13 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   Map<String, dynamic>? _resolvedRecipient;
   String? _recipientError;
   Timer? _debounce;
+  String _sendRail = 'blockchain';
+  List<Map<String, String>> _banks = [];
+  String? _selectedBankCode;
+  String? _selectedBankName;
+  final _bankAccountController = TextEditingController();
+  String? _resolvedBankAccountName;
+  String? _lastBankTransferStatus;
 
   @override
   void initState() {
@@ -58,6 +64,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     _toController.dispose();
     _amountController.dispose();
     _memoController.dispose();
+    _bankAccountController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -87,7 +94,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         // ← epsilon tolerance
         _invalidAmount = true;
         _amountError =
-            'Insufficient balance. Available: ${available.toStringAsFixed(_selectedAsset == 'XLM' ? 4 : 2)} $_selectedAsset';
+            'Insufficient balance. Available: ${available.toStringAsFixed(2)} $_selectedAsset';
       } else {
         _invalidAmount = false;
         _amountError = null;
@@ -97,11 +104,22 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
   double _availableBalance(String asset) {
     final wallet = ref.read(walletProvider);
-    if (asset == 'XLM') {
-      // Reserve 2.0 XLM for Stellar minimum + trustlines, fee is negligible
-      return (wallet.xlmBalance - 2.0).clamp(0, double.infinity);
-    }
+    if (asset == 'NGNT') return wallet.ngntBalance;
     return wallet.usdcBalance;
+  }
+
+  Future<void> _loadBanks() async {
+    if (_banks.isNotEmpty) return;
+    try {
+      final res = await apiService.getNigeriaBanks();
+      final raw = List<Map<String, dynamic>>.from(res['banks'] ?? []);
+      if (!mounted) return;
+      setState(() {
+        _banks = raw
+            .map((e) => {'code': '${e['code']}', 'name': '${e['name']}'})
+            .toList();
+      });
+    } catch (_) {}
   }
 
   Future<void> _resolveRecipient(String value) async {
@@ -141,7 +159,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     final to = _toController.text.trim();
     final amount = double.tryParse(_amountController.text.trim());
 
-    if (to.isEmpty || amount == null || amount <= 0) {
+    final missingRecipient = _sendRail == 'blockchain' && to.isEmpty;
+    if (missingRecipient || amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid recipient and amount')),
       );
@@ -209,14 +228,37 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
 
     try {
-      final result = await apiService.sendFunds(
-        to: _resolvedRecipient?['stellarAddress'] ?? to,
-        amount: amount,
-        asset: _selectedAsset,
-        memo: _memoController.text.trim().isEmpty
-            ? null
-            : _memoController.text.trim(),
-      );
+      Map<String, dynamic> result;
+      if (_sendRail == 'bank') {
+        if (_selectedAsset != 'NGNT') {
+          throw Exception('Bank transfer is available for NGNT only');
+        }
+        if (_selectedBankCode == null || _bankAccountController.text.trim().length != 10) {
+          throw Exception('Select bank and enter a valid 10-digit account number');
+        }
+        if (_resolvedBankAccountName == null || _resolvedBankAccountName!.isEmpty) {
+          throw Exception('Resolve beneficiary account before sending');
+        }
+        final idempotencyKey =
+            '${_selectedBankCode}_${_bankAccountController.text.trim()}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
+        result = await apiService.withdrawToBank(
+          ngntAmount: amount,
+          bankCode: _selectedBankCode!,
+          accountNumber: _bankAccountController.text.trim(),
+          accountName: _resolvedBankAccountName!,
+          idempotencyKey: idempotencyKey,
+        );
+        _lastBankTransferStatus = (result['status'] as String?)?.toLowerCase();
+      } else {
+        result = await apiService.sendFunds(
+          to: _resolvedRecipient?['stellarAddress'] ?? to,
+          amount: amount,
+          asset: _selectedAsset,
+          memo: _memoController.text.trim().isEmpty
+              ? null
+              : _memoController.text.trim(),
+        );
+      }
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         _showSendSuccess(result);
@@ -325,6 +367,20 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   void _showSendSuccess(Map<String, dynamic> result) {
+    final bankStatus = (_lastBankTransferStatus ?? '').toLowerCase();
+    final isBank = _sendRail == 'bank';
+    final isPending = isBank && bankStatus == 'pending';
+    final isFailed = isBank && bankStatus == 'failed';
+    final title = isBank
+        ? (isPending ? 'Transfer Pending' : isFailed ? 'Transfer Failed' : 'Transfer Sent')
+        : 'Sent!';
+    final subtitle = isBank
+        ? (isPending
+            ? 'Your bank transfer is processing. We will update your transactions shortly.'
+            : isFailed
+                ? 'Bank transfer failed. Please retry with correct beneficiary details.'
+                : '${_amountController.text} $_selectedAsset transfer submitted successfully.')
+        : '${_amountController.text} $_selectedAsset sent successfully.';
     showDayFiBottomSheet(
       context: context,
       child: Padding(
@@ -345,7 +401,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             const SizedBox(height: 4),
 
             Text(
-              'Sent!',
+              title,
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
@@ -356,7 +412,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
             const SizedBox(height: 10),
 
             Text(
-              '${_amountController.text} $_selectedAsset sent successfully.',
+              subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontSize: 17,
                 letterSpacing: -.5,
@@ -373,6 +429,14 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(letterSpacing: 0.2),
+              ),
+            ],
+            if (isBank && result['txRef'] != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Ref: ${result['txRef']}',
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
               ),
             ],
 
@@ -545,7 +609,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       child: Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Text(
-          'Available: ${available.toStringAsFixed(assetCode == 'XLM' ? 4 : 2)} $assetCode',
+          'Available: ${available.toStringAsFixed(2)} $assetCode',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
             fontSize: 12,
@@ -555,7 +619,12 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     );
   }
 
-  double _estimatedFeeXLM() => 0.00001;
+  bool get _canSendBankRail {
+    return _selectedAsset == 'NGNT' &&
+        _selectedBankCode != null &&
+        _bankAccountController.text.trim().length == 10 &&
+        (_resolvedBankAccountName?.isNotEmpty ?? false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -597,7 +666,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                     const SizedBox(height: 20),
                     Center(
                       child: Text(
-                        'Send USDC or XLM',
+                        'Send USDC or NGNT',
                         style: Theme.of(context).textTheme.headlineMedium,
                         textAlign: TextAlign.center,
                       ),
@@ -637,14 +706,23 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                     ),
 
                     const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(child: _railChip('blockchain', 'Blockchain')),
+                        const SizedBox(width: 8),
+                        Expanded(child: _railChip('bank', 'Nigerian Bank')),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 420),
                       child: TextField(
                         controller: _toController,
                         autocorrect: false,
+                        enabled: _sendRail == 'blockchain',
                         onChanged: (v) {
-                          if (v.length > 2) _resolveRecipient(v);
+                          if (_sendRail == 'blockchain' && v.length > 2) _resolveRecipient(v);
                         },
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(
@@ -665,8 +743,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           fillColor: Theme.of(
                             context,
                           ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                          hintText:
-                              'Type recipient\'s username or wallet address',
+                          hintText: _sendRail == 'bank'
+                              ? 'Blockchain recipient disabled on bank rail'
+                              : 'Type recipient\'s username or wallet address',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -749,6 +828,106 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         ),
                       ),
 
+                    if (_sendRail == 'bank') ...[
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedBankCode,
+                          onTap: _loadBanks,
+                          items: _banks
+                              .map(
+                                (b) => DropdownMenuItem<String>(
+                                  value: b['code'],
+                                  child: Text(b['name'] ?? ''),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            Map<String, String>? selected;
+                            for (final b in _banks) {
+                              if (b['code'] == v) {
+                                selected = b;
+                                break;
+                              }
+                            }
+                            setState(() {
+                              _selectedBankCode = v;
+                              _selectedBankName = selected?['name'];
+                              _resolvedBankAccountName = null;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Select bank',
+                            filled: true,
+                            fillColor: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: TextField(
+                          controller: _bankAccountController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 10,
+                          decoration: InputDecoration(
+                            hintText: '10-digit account number',
+                            counterText: '',
+                            filled: true,
+                            fillColor: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (v) async {
+                            if (v.length == 10 && _selectedBankCode != null) {
+                              try {
+                                final r = await apiService.resolveBankAccount(
+                                  bankCode: _selectedBankCode!,
+                                  accountNumber: v,
+                                );
+                                if (mounted) {
+                                  setState(() => _resolvedBankAccountName = r['accountName']?.toString());
+                                }
+                              } catch (_) {
+                                if (mounted) setState(() => _resolvedBankAccountName = null);
+                              }
+                            } else {
+                              setState(() => _resolvedBankAccountName = null);
+                            }
+                          },
+                        ),
+                      ),
+                      if (_resolvedBankAccountName != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, left: 4),
+                          child: Text(
+                            '${_resolvedBankAccountName!} • ${_selectedBankName ?? ''}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: DayFiColors.green,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      if (_resolvedBankAccountName == null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, left: 4),
+                          child: Text(
+                            'Select bank + enter account number to resolve beneficiary',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+
                     const SizedBox(height: 20),
 
                     // Amount
@@ -822,7 +1001,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       onTap: () {
                         final maxAmount = _availableBalance(_selectedAsset);
                         _amountController.text = maxAmount.toStringAsFixed(
-                          _selectedAsset == 'XLM' ? 4 : 2,
+                          2,
                         );
                       },
                       child: _buildSendBalanceInfo(
@@ -903,7 +1082,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                 _loading ||
                                     _invalidAmount ||
                                     _amountController.text.isEmpty ||
-                                    _toController.text.trim().isEmpty
+                                    (_sendRail == 'blockchain' &&
+                                        _toController.text.trim().isEmpty) ||
+                                    (_sendRail == 'bank' && !_canSendBankRail)
                                 ? Theme.of(
                                     context,
                                   ).colorScheme.onSurface.withOpacity(.45)
@@ -920,18 +1101,22 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                             _loading ||
                                 _invalidAmount ||
                                 _amountController.text.isEmpty ||
-                                _toController.text.trim().isEmpty
+                                (_sendRail == 'blockchain' &&
+                                    _toController.text.trim().isEmpty) ||
+                                (_sendRail == 'bank' && !_canSendBankRail)
                             ? null
                             : _send,
                         child: Text(
-                          'Send',
+                          _sendRail == 'bank' ? 'Send to Bank' : 'Send',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color:
                                     _loading ||
                                         _invalidAmount ||
                                         _amountController.text.isEmpty ||
-                                        _toController.text.trim().isEmpty
+                                        (_sendRail == 'blockchain' &&
+                                            _toController.text.trim().isEmpty) ||
+                                        (_sendRail == 'bank' && !_canSendBankRail)
                                     ? Theme.of(
                                         context,
                                       ).colorScheme.onSurface.withOpacity(.45)
@@ -947,6 +1132,31 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _railChip(String value, String label) {
+    final selected = _sendRail == value;
+    return GestureDetector(
+      onTap: () => setState(() => _sendRail = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+              : Theme.of(context).colorScheme.onSurface.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
         ),
@@ -1007,3 +1217,4 @@ class _DropdownBox extends StatelessWidget {
     );
   }
 }
+

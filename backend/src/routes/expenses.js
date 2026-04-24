@@ -12,8 +12,9 @@
 
 import express from "express";
 import { body, validationResult } from "express-validator";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireManager } from "../middleware/auth.js";
 import { PrismaClient } from "@prisma/client";
+import { sendError, sendNotFound, sendValidationError } from "../utils/http.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -76,7 +77,7 @@ router.get("/", authenticate, async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
 });
 
@@ -88,6 +89,10 @@ router.post(
   [
     body("title").notEmpty().withMessage("Title is required"),
     body("amount").isFloat({ min: 0 }).withMessage("Amount must be positive"),
+    body("currency")
+      .optional()
+      .isIn(["NGNT", "USDC"])
+      .withMessage("Currency must be NGNT or USDC"),
     body("category")
       .isIn([
         "travel",
@@ -105,7 +110,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array()[0].msg });
+      return sendValidationError(res, errors.array());
     }
 
     try {
@@ -115,7 +120,7 @@ router.post(
           title: req.body.title,
           description: req.body.description ?? null,
           amount: parseFloat(req.body.amount),
-          currency: req.body.currency ?? "NGN",
+          currency: req.body.currency ?? "NGNT",
           category: req.body.category,
           receiptUrl: req.body.receiptUrl ?? null,
           status: "pending",
@@ -128,7 +133,7 @@ router.post(
       res.status(201).json({ expense });
     } catch (err) {
       console.error("Create expense error:", err.message);
-      res.status(500).json({ error: err.message });
+      sendError(res, 500, "INTERNAL_ERROR", err.message);
     }
   },
 );
@@ -145,7 +150,7 @@ router.get("/:id", authenticate, async (req, res) => {
       },
     });
 
-    if (!expense) return res.status(404).json({ error: "Expense not found" });
+    if (!expense) return sendNotFound(res, "Expense");
 
     // Check authorization: 
     // - Owner of expense (submittedById)
@@ -161,12 +166,12 @@ router.get("/:id", authenticate, async (req, res) => {
     const isMerchantViewingPending = user?.isMerchant && expense.status === "pending";
 
     if (!isOwner && !isApprover && !isMerchantViewingPending) {
-      return res.status(403).json({ error: "Unauthorized" });
+      return sendError(res, 403, "FORBIDDEN", "Unauthorized.");
     }
 
     res.json({ expense });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
 });
 
@@ -181,6 +186,10 @@ router.put(
       .optional()
       .isFloat({ min: 0 })
       .withMessage("Amount must be positive"),
+    body("currency")
+      .optional()
+      .isIn(["NGNT", "USDC"])
+      .withMessage("Currency must be NGNT or USDC"),
     body("category")
       .optional()
       .isIn([
@@ -199,7 +208,7 @@ router.put(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array()[0].msg });
+      return sendValidationError(res, errors.array());
     }
 
     try {
@@ -211,22 +220,26 @@ router.put(
         where: { id },
       });
 
-      if (!existing) return res.status(404).json({ error: "Expense not found" });
+      if (!existing) return sendNotFound(res, "Expense");
 
       // FIX: Using submittedById from your schema to check ownership
       if (existing.submittedById !== req.user.id) {
-        return res
-          .status(403)
-          .json({ error: "Unauthorized: You did not create this expense" });
+        return sendError(
+          res,
+          403,
+          "FORBIDDEN",
+          "Unauthorized: You did not create this expense",
+        );
       }
 
       // Business Logic: Prevent editing once a manager has acted on it
       if (existing.status !== "pending") {
-        return res
-          .status(400)
-          .json({
-            error: `Cannot edit an expense that is already ${existing.status}`,
-          });
+        return sendError(
+          res,
+          400,
+          "INVALID_STATE",
+          `Cannot edit an expense that is already ${existing.status}`,
+        );
       }
 
       const updated = await prisma.expense.update({
@@ -247,7 +260,7 @@ router.put(
       res.json({ expense: updated });
     } catch (err) {
       console.error("Update expense error:", err);
-      res.status(500).json({ error: "Internal server error" });
+      sendError(res, 500, "INTERNAL_ERROR", "Internal server error.");
     }
   },
 );
@@ -261,20 +274,18 @@ router.delete("/:id", authenticate, async (req, res) => {
       where: { id: req.params.id },
     });
 
-    if (!existing) return res.status(404).json({ error: "Expense not found" });
+    if (!existing) return sendNotFound(res, "Expense");
     if (existing.submittedById !== req.user.id) {
-      return res.status(403).json({ error: "Unauthorized" });
+      return sendError(res, 403, "FORBIDDEN", "Unauthorized.");
     }
     if (existing.status !== "pending") {
-      return res
-        .status(400)
-        .json({ error: "Only pending expenses can be edited" });
+      return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be edited.");
     }
 
     await prisma.expense.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
 });
 
@@ -287,52 +298,39 @@ router.post("/:id/submit", authenticate, async (req, res) => {
       where: { id: req.params.id },
     });
 
-    if (!existing) return res.status(404).json({ error: "Expense not found" });
+    if (!existing) return sendNotFound(res, "Expense");
     if (existing.submittedById !== req.user.id) {
-      return res.status(403).json({ error: "Unauthorized" });
+      return sendError(res, 403, "FORBIDDEN", "Unauthorized.");
     }
     if (existing.status !== "pending") {
-      return res
-        .status(400)
-        .json({ error: "Only pending expenses can be submitted" });
+      return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be submitted.");
     }
 
     // Expense is already in pending status, ready for approval
     res.json({ expense: existing });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
 });
 
 // ─── POST /api/expenses/:id/approve ───────────────────────────────────────────
 // Manager approves expense
 
-router.post("/:id/approve", authenticate, async (req, res) => {
+router.post("/:id/approve", authenticate, requireManager, async (req, res) => {
   try {
-    // Check if user is merchant/manager
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { isMerchant: true },
-    });
-
-    if (!user?.isMerchant) {
-      return res
-        .status(403)
-        .json({ error: "Only managers can approve expenses" });
-    }
-
     const existing = await prisma.expense.findUnique({
       where: { id: req.params.id },
     });
 
-    if (!existing) return res.status(404).json({ error: "Expense not found" });
+    if (!existing) return sendNotFound(res, "Expense");
+    if (existing.submittedById === req.user.id) {
+      return sendError(res, 403, "FORBIDDEN", "Managers cannot approve their own expenses.");
+    }
     if (existing.status === "approved") {
-      return res.status(400).json({ error: "Expense already approved" });
+      return sendError(res, 400, "INVALID_STATE", "Expense already approved.");
     }
     if (existing.status !== "pending") {
-      return res
-        .status(400)
-        .json({ error: "Only pending expenses can be approved" });
+      return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be approved.");
     }
 
     const updated = await prisma.expense.update({
@@ -350,7 +348,7 @@ router.post("/:id/approve", authenticate, async (req, res) => {
 
     res.json({ expense: updated });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, "INTERNAL_ERROR", err.message);
   }
 });
 
@@ -360,6 +358,7 @@ router.post("/:id/approve", authenticate, async (req, res) => {
 router.post(
   "/:id/reject",
   authenticate,
+  requireManager,
   [
     body("rejectionNote")
       .notEmpty()
@@ -368,35 +367,23 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: errors.array()[0].msg });
+      return sendValidationError(res, errors.array());
     }
 
     try {
-      // Check if user is merchant/manager
-      const user = await prisma.user.findUnique({
-        where: { id: req.user.id },
-        select: { isMerchant: true },
-      });
-
-      if (!user?.isMerchant) {
-        return res
-          .status(403)
-          .json({ error: "Only managers can reject expenses" });
-      }
-
       const existing = await prisma.expense.findUnique({
         where: { id: req.params.id },
       });
 
-      if (!existing)
-        return res.status(404).json({ error: "Expense not found" });
+      if (!existing) return sendNotFound(res, "Expense");
+      if (existing.submittedById === req.user.id) {
+        return sendError(res, 403, "FORBIDDEN", "Managers cannot reject their own expenses.");
+      }
       if (existing.status === "rejected") {
-        return res.status(400).json({ error: "Expense already rejected" });
+        return sendError(res, 400, "INVALID_STATE", "Expense already rejected.");
       }
       if (existing.status !== "pending") {
-        return res
-          .status(400)
-          .json({ error: "Only pending expenses can be rejected" });
+        return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be rejected.");
       }
 
       const updated = await prisma.expense.update({
@@ -414,7 +401,7 @@ router.post(
 
       res.json({ expense: updated });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      sendError(res, 500, "INTERNAL_ERROR", err.message);
     }
   },
 );

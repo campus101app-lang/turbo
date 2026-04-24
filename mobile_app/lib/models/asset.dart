@@ -20,12 +20,12 @@ class DayFiAsset {
 
 const Map<String, DayFiAsset> kAssets = {
   'USDC': DayFiAsset(code: 'USDC', name: 'USD Coin',        emoji: 'assets/images/usdc.png'),
-  'XLM':  DayFiAsset(code: 'XLM',  name: 'Stellar Lumens',  emoji: 'assets/images/stellar.png'),
+  'NGNT': DayFiAsset(code: 'NGNT', name: 'Naira Token',     emoji: 'assets/images/ngnt.png'),
 };
 
-const List<String> kAssetList = ['USDC', 'XLM'];
+const List<String> kAssetList = ['USDC', 'NGNT'];
 
 const Map<String, double> kApproxPrices = {
   'USDC': 1.0,
-  'XLM':  0.11,
+  'NGNT': 0.00075,
 };

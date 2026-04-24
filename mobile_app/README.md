@@ -1,16 +1,30 @@
-# mobile_app
+# Mobile App
 
-A new Flutter project.
+Flutter client for DayFi/Turbo.
 
-## Getting Started
+## Run Locally
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://localhost:3001
+```
 
-A few resources to get you started if this is your first Flutter project:
+If `API_BASE_URL` is omitted, the app uses the default production API URL.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Requirements
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Flutter stable (3.x)
+- iOS and/or Android toolchain configured
+- Backend API running locally or reachable remotely
+
+## Push Notifications
+
+Configure Firebase for each platform:
+
+- Android: add `google-services.json` to `android/app/`
+- iOS: add `GoogleService-Info.plist` to `ios/Runner/`
+
+## Biometric Auth
+
+- iOS: ensure Face ID usage description exists in `ios/Runner/Info.plist`
+- Android: ensure biometric permission is declared in `AndroidManifest.xml`

@@ -4,6 +4,7 @@
 // GET    /api/requests                      → list user's payment requests
 // POST   /api/requests                      → create payment request
 // GET    /api/requests/:id                  → get single request
+// PUT    /api/requests/:id                  → edit pending request
 // DELETE /api/requests/:id                  → cancel request
 // POST   /api/requests/:id/mark-paid        → manually mark as paid
 // GET    /api/requests/pay/:requestNumber   → public payment page (no auth)
@@ -69,7 +70,7 @@ router.get('/', authenticate, async (req, res) => {
 
 router.post('/', authenticate, [
   body('amount').isFloat({ min: 0.000001 }).withMessage('Amount must be positive'),
-  body('asset').isIn(['USDC', 'NGNT', 'XLM']).withMessage('Asset must be USDC, NGNT, or XLM'),
+  body('asset').isIn(['USDC', 'NGNT']).withMessage('Asset must be USDC or NGNT'),
   body('note').optional().isString().isLength({ max: 200 }),
   body('payerName').optional().isString().isLength({ max: 80 }),
   body('payerEmail').optional().isEmail().withMessage('Invalid payer email'),
@@ -107,6 +108,54 @@ router.post('/', authenticate, [
   }
 });
 
+// ─── GET /api/requests/pay/:requestNumber (public — no auth) ─────────────────
+// Used by the public payment page. Returns safe request details + payee info.
+
+router.get('/pay/:requestNumber', async (req, res) => {
+  try {
+    const request = await prisma.paymentRequest.findUnique({
+      where: { requestNumber: req.params.requestNumber },
+      select: {
+        id:            true,
+        requestNumber: true,
+        amount:        true,
+        asset:         true,
+        note:          true,
+        payerName:     true,
+        status:        true,
+        expiresAt:     true,
+        createdAt:     true,
+        user: {
+          select: {
+            stellarPublicKey: true,
+            businessName:     true,
+            username:         true,
+          },
+        },
+      },
+    });
+
+    if (!request) return res.status(404).json({ error: 'Payment request not found' });
+
+    // Auto-expire if past expiresAt
+    if (
+      request.status === 'pending' &&
+      request.expiresAt &&
+      new Date() > new Date(request.expiresAt)
+    ) {
+      await prisma.paymentRequest.update({
+        where: { id: request.id },
+        data:  { status: 'expired' },
+      });
+      request.status = 'expired';
+    }
+
+    res.json({ request });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/requests/:id ────────────────────────────────────────────────────
 
 router.get('/:id', authenticate, async (req, res) => {
@@ -118,6 +167,48 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!request) return res.status(404).json({ error: 'Payment request not found' });
 
     res.json({ request });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PUT /api/requests/:id ────────────────────────────────────────────────────
+// Edits a pending request
+router.put('/:id', authenticate, [
+  body('amount').optional().isFloat({ min: 0.000001 }).withMessage('Amount must be positive'),
+  body('asset').optional().isIn(['USDC', 'NGNT']).withMessage('Asset must be USDC or NGNT'),
+  body('note').optional({ nullable: true }).isString().isLength({ max: 200 }),
+  body('payerName').optional({ nullable: true }).isString().isLength({ max: 80 }),
+  body('payerEmail').optional({ nullable: true }).isEmail().withMessage('Invalid payer email'),
+  body('expiresAt').optional({ nullable: true }).isISO8601().withMessage('expiresAt must be a valid date'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+  try {
+    const existing = await prisma.paymentRequest.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+    if (!existing) return res.status(404).json({ error: 'Payment request not found' });
+    if (existing.status !== 'pending') {
+      return res.status(400).json({ error: `Cannot edit request in ${existing.status} state` });
+    }
+
+    const updated = await prisma.paymentRequest.update({
+      where: { id: req.params.id },
+      data: {
+        ...(req.body.amount != null ? { amount: parseFloat(req.body.amount) } : {}),
+        ...(req.body.asset != null ? { asset: req.body.asset } : {}),
+        ...(req.body.note !== undefined ? { note: req.body.note || null } : {}),
+        ...(req.body.payerName !== undefined ? { payerName: req.body.payerName || null } : {}),
+        ...(req.body.payerEmail !== undefined ? { payerEmail: req.body.payerEmail || null } : {}),
+        ...(req.body.expiresAt !== undefined
+          ? { expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null }
+          : {}),
+      },
+    });
+    res.json({ request: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -179,52 +270,5 @@ router.post('/:id/mark-paid', authenticate, async (req, res) => {
   }
 });
 
-// ─── GET /api/requests/pay/:requestNumber (public — no auth) ─────────────────
-// Used by the public payment page. Returns safe request details + payee info.
-
-router.get('/pay/:requestNumber', async (req, res) => {
-  try {
-    const request = await prisma.paymentRequest.findUnique({
-      where: { requestNumber: req.params.requestNumber },
-      select: {
-        id:            true,
-        requestNumber: true,
-        amount:        true,
-        asset:         true,
-        note:          true,
-        payerName:     true,
-        status:        true,
-        expiresAt:     true,
-        createdAt:     true,
-        user: {
-          select: {
-            stellarPublicKey: true,
-            businessName:     true,
-            username:         true,
-          },
-        },
-      },
-    });
-
-    if (!request) return res.status(404).json({ error: 'Payment request not found' });
-
-    // Auto-expire if past expiresAt
-    if (
-      request.status === 'pending' &&
-      request.expiresAt &&
-      new Date() > new Date(request.expiresAt)
-    ) {
-      await prisma.paymentRequest.update({
-        where: { id: request.id },
-        data:  { status: 'expired' },
-      });
-      request.status = 'expired';
-    }
-
-    res.json({ request });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 export default router;
+

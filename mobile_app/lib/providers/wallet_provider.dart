@@ -11,10 +11,11 @@ import '../services/api_service.dart';
 class WalletState {
   final double usdcBalance;
   final double xlmBalance;
-  final double ngntBalance;     // 1 NGNT = 1 NGN
+  final double ngntBalance; // 1 NGNT = 1 NGN
+  final double xlmReserved; // XLM locked by master wallet
   final double xlmPriceUSD;
-  final double? ngntPriceUSD;   // USD value of 1 NGN  (e.g. 0.00059)
-  final double? ngnRate;        // NGN per 1 USD        (e.g. 1700)
+  final double? ngntPriceUSD; // USD value of 1 NGN  (e.g. 0.00059)
+  final double? ngnRate; // NGN per 1 USD        (e.g. 1700)
   final String? stellarAddress;
   final String? dayfiUsername;
   final bool isLoading;
@@ -29,6 +30,7 @@ class WalletState {
     this.usdcBalance = 0.0,
     this.xlmBalance = 0.0,
     this.ngntBalance = 0.0,
+    this.xlmReserved = 0.0,
     this.xlmPriceUSD = 0.169,
     this.ngntPriceUSD,
     this.ngnRate,
@@ -44,12 +46,10 @@ class WalletState {
   });
 
   // Total USD value across all assets
-  double get totalUSD =>
-      usdcBalance +
-      (xlmBalance * xlmPriceUSD) +
-      (ngntBalance * (ngntPriceUSD ?? 0));
+  double get totalUSD => usdcBalance + (ngntBalance * (ngntPriceUSD ?? 0));
 
-  double get availableXLM => xlmBalance > 1.0 ? xlmBalance - 1.0 : 0.0;
+  // Available XLM = total balance - reserved (all reserved XLM is locked)
+  double get availableXLM => (xlmBalance - xlmReserved).clamp(0, double.infinity);
   double get availableXLMUSD => availableXLM * xlmPriceUSD;
 
   // NGN display value of NGNT (1:1)
@@ -59,6 +59,7 @@ class WalletState {
     double? usdcBalance,
     double? xlmBalance,
     double? ngntBalance,
+    double? xlmReserved,
     double? xlmPriceUSD,
     double? ngntPriceUSD,
     double? ngnRate,
@@ -73,20 +74,21 @@ class WalletState {
     double? lastKnownTotal,
   }) {
     return WalletState(
-      usdcBalance:   usdcBalance   ?? this.usdcBalance,
-      xlmBalance:    xlmBalance    ?? this.xlmBalance,
-      ngntBalance:   ngntBalance   ?? this.ngntBalance,
-      xlmPriceUSD:   xlmPriceUSD   ?? this.xlmPriceUSD,
-      ngntPriceUSD:  ngntPriceUSD  ?? this.ngntPriceUSD,
-      ngnRate:       ngnRate       ?? this.ngnRate,
+      usdcBalance: usdcBalance ?? this.usdcBalance,
+      xlmBalance: xlmBalance ?? this.xlmBalance,
+      ngntBalance: ngntBalance ?? this.ngntBalance,
+      xlmReserved: xlmReserved ?? this.xlmReserved,
+      xlmPriceUSD: xlmPriceUSD ?? this.xlmPriceUSD,
+      ngntPriceUSD: ngntPriceUSD ?? this.ngntPriceUSD,
+      ngnRate: ngnRate ?? this.ngnRate,
       stellarAddress: stellarAddress ?? this.stellarAddress,
-      dayfiUsername:  dayfiUsername  ?? this.dayfiUsername,
-      isLoading:     isLoading     ?? this.isLoading,
-      isRefreshing:  isRefreshing  ?? this.isRefreshing,
-      error:         error,          // nullable — always overwrite
-      lastUpdated:   lastUpdated   ?? this.lastUpdated,
-      hasError:      hasError      ?? this.hasError,
-      isOffline:     isOffline     ?? this.isOffline,
+      dayfiUsername: dayfiUsername ?? this.dayfiUsername,
+      isLoading: isLoading ?? this.isLoading,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      error: error, // nullable — always overwrite
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      hasError: hasError ?? this.hasError,
+      isOffline: isOffline ?? this.isOffline,
       lastKnownTotal: lastKnownTotal ?? this.lastKnownTotal,
     );
   }
@@ -104,10 +106,12 @@ class WalletNotifier extends StateNotifier<WalletState> {
   Future<double> _fetchXlmPrice() async {
     try {
       final res = await http
-          .get(Uri.parse(
-            'https://api.coingecko.com/api/v3/simple/price'
-            '?ids=stellar&vs_currencies=usd',
-          ))
+          .get(
+            Uri.parse(
+              'https://api.coingecko.com/api/v3/simple/price'
+              '?ids=stellar&vs_currencies=usd',
+            ),
+          )
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -123,10 +127,12 @@ class WalletNotifier extends StateNotifier<WalletState> {
   Future<(double, double)> _fetchNgnRate() async {
     try {
       final res = await http
-          .get(Uri.parse(
-            'https://api.coingecko.com/api/v3/simple/price'
-            '?ids=usd&vs_currencies=ngn',
-          ))
+          .get(
+            Uri.parse(
+              'https://api.coingecko.com/api/v3/simple/price'
+              '?ids=usd&vs_currencies=ngn',
+            ),
+          )
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -137,7 +143,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
       }
     } catch (_) {}
     // Fallback: ₦1700 per USD
-    const fallbackRate = 1700.0;
+    const fallbackRate = 1354.92;
     return (1.0 / fallbackRate, fallbackRate);
   }
 
@@ -150,9 +156,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
     required double xlmPrice,
     required double ngntPriceUsd,
   }) {
-    final live = usdcBalance +
-        (xlmBalance * xlmPrice) +
-        (ngntBalance * ngntPriceUsd);
+    final live =
+        usdcBalance + (xlmBalance * xlmPrice) + (ngntBalance * ngntPriceUsd);
     return live > 0 ? live : state.lastKnownTotal;
   }
 
@@ -186,31 +191,33 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
       final balanceData = results[0] as Map<String, dynamic>;
       final addressData = results[1] as Map<String, dynamic>;
-      final xlmPrice    = results[2] as double;
+      final xlmPrice = results[2] as double;
       final (ngntPriceUsd, ngnPerUsd) = results[3] as (double, double);
 
       final balances = balanceData['balances'] as Map<String, dynamic>? ?? {};
       final usdc = (balances['USDC'] as num?)?.toDouble() ?? 0.0;
-      final xlm  = (balances['XLM']  as num?)?.toDouble() ?? 0.0;
+      final xlm = (balances['XLM'] as num?)?.toDouble() ?? 0.0;
       final ngnt = (balances['NGNT'] as num?)?.toDouble() ?? 0.0;
+      final xlmReserved = (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
 
       state = state.copyWith(
-        usdcBalance:    usdc,
-        xlmBalance:     xlm,
-        ngntBalance:    ngnt,
-        xlmPriceUSD:    xlmPrice,
-        ngntPriceUSD:   ngntPriceUsd,
-        ngnRate:        ngnPerUsd,
+        usdcBalance: usdc,
+        xlmBalance: xlm,
+        ngntBalance: ngnt,
+        xlmReserved: xlmReserved,
+        xlmPriceUSD: xlmPrice,
+        ngntPriceUSD: ngntPriceUsd,
+        ngnRate: ngnPerUsd,
         stellarAddress: addressData['stellarAddress'] as String?,
-        dayfiUsername:  addressData['dayfiUsername']  as String?,
-        isLoading:      false,
-        hasError:       false,
-        isOffline:      false,
+        dayfiUsername: addressData['dayfiUsername'] as String?,
+        isLoading: false,
+        hasError: false,
+        isOffline: false,
         lastKnownTotal: _computeLastKnown(
-          usdcBalance:  usdc,
-          xlmBalance:   xlm,
-          ngntBalance:  ngnt,
-          xlmPrice:     xlmPrice,
+          usdcBalance: usdc,
+          xlmBalance: xlm,
+          ngntBalance: ngnt,
+          xlmPrice: xlmPrice,
           ngntPriceUsd: ngntPriceUsd,
         ),
         lastUpdated: DateTime.now(),
@@ -219,9 +226,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
       final offline = _isNetworkError(e);
       state = state.copyWith(
         isLoading: false,
-        hasError:  !offline,
+        hasError: !offline,
         isOffline: offline,
-        error:     e.toString(),
+        error: e.toString(),
       );
     }
   }
@@ -237,9 +244,9 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
     state = state.copyWith(
       isRefreshing: true,
-      hasError:     false,
-      isOffline:    false,
-      error:        null,
+      hasError: false,
+      isOffline: false,
+      error: null,
     );
 
     try {
@@ -250,29 +257,31 @@ class WalletNotifier extends StateNotifier<WalletState> {
       ]);
 
       final balanceData = results[0] as Map<String, dynamic>;
-      final xlmPrice    = results[1] as double;
+      final xlmPrice = results[1] as double;
       final (ngntPriceUsd, ngnPerUsd) = results[2] as (double, double);
 
       final balances = balanceData['balances'] as Map<String, dynamic>? ?? {};
       final usdc = (balances['USDC'] as num?)?.toDouble() ?? 0.0;
-      final xlm  = (balances['XLM']  as num?)?.toDouble() ?? 0.0;
+      final xlm = (balances['XLM'] as num?)?.toDouble() ?? 0.0;
       final ngnt = (balances['NGNT'] as num?)?.toDouble() ?? 0.0;
+      final xlmReserved = (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
 
       state = state.copyWith(
-        usdcBalance:   usdc,
-        xlmBalance:    xlm,
-        ngntBalance:   ngnt,
-        xlmPriceUSD:   xlmPrice,
-        ngntPriceUSD:  ngntPriceUsd,
-        ngnRate:       ngnPerUsd,
-        isRefreshing:  false,
-        hasError:      false,
-        isOffline:     false,
+        usdcBalance: usdc,
+        xlmBalance: xlm,
+        ngntBalance: ngnt,
+        xlmReserved: xlmReserved,
+        xlmPriceUSD: xlmPrice,
+        ngntPriceUSD: ngntPriceUsd,
+        ngnRate: ngnPerUsd,
+        isRefreshing: false,
+        hasError: false,
+        isOffline: false,
         lastKnownTotal: _computeLastKnown(
-          usdcBalance:  usdc,
-          xlmBalance:   xlm,
-          ngntBalance:  ngnt,
-          xlmPrice:     xlmPrice,
+          usdcBalance: usdc,
+          xlmBalance: xlm,
+          ngntBalance: ngnt,
+          xlmPrice: xlmPrice,
           ngntPriceUsd: ngntPriceUsd,
         ),
         lastUpdated: DateTime.now(),
@@ -280,13 +289,13 @@ class WalletNotifier extends StateNotifier<WalletState> {
     } catch (e) {
       final offline = _isNetworkError(e);
       state = state.copyWith(
-        isRefreshing:  false,
-        hasError:      !offline,
-        isOffline:     offline,
-        error:         e.toString(),
-        usdcBalance:   state.usdcBalance,
-        xlmBalance:    state.xlmBalance,
-        ngntBalance:   state.ngntBalance,
+        isRefreshing: false,
+        hasError: !offline,
+        isOffline: offline,
+        error: e.toString(),
+        usdcBalance: state.usdcBalance,
+        xlmBalance: state.xlmBalance,
+        ngntBalance: state.ngntBalance,
         lastKnownTotal: previousTotal,
       );
     }
@@ -337,33 +346,42 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
-final walletProvider =
-    StateNotifierProvider<WalletNotifier, WalletState>((ref) {
+final walletProvider = StateNotifierProvider<WalletNotifier, WalletState>((
+  ref,
+) {
   return WalletNotifier();
 });
 
-final usdcBalanceProvider =
-    Provider<double>((ref) => ref.watch(walletProvider).usdcBalance);
+final usdcBalanceProvider = Provider<double>(
+  (ref) => ref.watch(walletProvider).usdcBalance,
+);
 
-final xlmBalanceProvider =
-    Provider<double>((ref) => ref.watch(walletProvider).xlmBalance);
+final xlmBalanceProvider = Provider<double>(
+  (ref) => ref.watch(walletProvider).xlmBalance,
+);
 
-final ngntBalanceProvider =
-    Provider<double>((ref) => ref.watch(walletProvider).ngntBalance);
+final ngntBalanceProvider = Provider<double>(
+  (ref) => ref.watch(walletProvider).ngntBalance,
+);
 
-final xlmPriceProvider =
-    Provider<double>((ref) => ref.watch(walletProvider).xlmPriceUSD);
+final xlmPriceProvider = Provider<double>(
+  (ref) => ref.watch(walletProvider).xlmPriceUSD,
+);
 
 /// USD value of 1 NGN (e.g. ~0.00059)
-final ngntPriceUSDProvider =
-    Provider<double?>((ref) => ref.watch(walletProvider).ngntPriceUSD);
+final ngntPriceUSDProvider = Provider<double?>(
+  (ref) => ref.watch(walletProvider).ngntPriceUSD,
+);
 
 /// NGN per 1 USD (e.g. ~1700)
-final ngnRateProvider =
-    Provider<double?>((ref) => ref.watch(walletProvider).ngnRate);
+final ngnRateProvider = Provider<double?>(
+  (ref) => ref.watch(walletProvider).ngnRate,
+);
 
-final walletAddressProvider =
-    Provider<String?>((ref) => ref.watch(walletProvider).stellarAddress);
+final walletAddressProvider = Provider<String?>(
+  (ref) => ref.watch(walletProvider).stellarAddress,
+);
 
-final dayfiUsernameProvider =
-    Provider<String?>((ref) => ref.watch(walletProvider).dayfiUsername);
+final dayfiUsernameProvider = Provider<String?>(
+  (ref) => ref.watch(walletProvider).dayfiUsername,
+);

@@ -21,6 +21,8 @@ import cardsRoutes       from './routes/cards.js';
 import workflowsRoutes   from './routes/workflows.js';
 import requestsRoutes    from './routes/requests.js';
 import { errorHandler }  from './middleware/errorHandler.js';
+import { attachRequestContext } from './middleware/requestContext.js';
+import { sendError }     from './utils/http.js';
 
 dotenv.config();
 
@@ -46,11 +48,16 @@ const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 const authLimiter   = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: 'Too many auth attempts, try again later.' },
+  message: {
+    code: 'RATE_LIMITED',
+    message: 'Too many auth attempts, try again later.',
+    details: null,
+  },
 });
 const sep10Limiter  = rateLimit({ windowMs: 60 * 1000, max: 30 });
 
 app.use(globalLimiter);
+app.use(attachRequestContext);
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -94,17 +101,22 @@ app.get('/resolve/:username', async (req, res) => {
   const { resolveUsername } = await import('./services/walletService.js');
   try {
     const result = await resolveUsername(req.params.username);
-    if (!result) return res.status(404).json({ error: 'Username not found' });
+    if (!result) return sendError(res, 404, 'NOT_FOUND', 'Username not found.');
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
+});
+
+app.use((req, res) => {
+  sendError(res, 404, 'NOT_FOUND', 'Route not found.');
 });
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`
   ╔════════════════════════════════════════╗
   ║          DAYFI BACKEND v1.0            ║
   ║  Mode    : PRODUCTION                  ║
@@ -113,6 +125,7 @@ app.listen(PORT, () => {
   ║  Status  : LIVE & MONITORING           ║
   ╚════════════════════════════════════════╝
   `);
-});
+  });
+}
 
 export default app;

@@ -44,16 +44,30 @@ export async function authenticate(req, res, next) {
 }
 
 // src/middleware/errorHandler.js
+import { sendError } from '../utils/http.js';
+
 export function errorHandler(err, req, res, next) {
-  console.error('Unhandled error:', err);
+  console.error('[api_error]', {
+    requestId: req.requestId || null,
+    method: req.method,
+    path: req.originalUrl || req.url,
+    code: err.code || 'INTERNAL_ERROR',
+    message: err.message,
+  });
 
   if (err.code === 'P2002') {
-    return res.status(409).json({ error: 'Record already exists' });
+    return sendError(res, 409, 'CONFLICT', 'Record already exists.', {
+      requestId: req.requestId || null,
+    });
   }
 
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message,
+  const status = err.status || 500;
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Internal server error.'
+    : (err.message || 'Internal server error.');
+
+  return sendError(res, status, err.code || 'INTERNAL_ERROR', message, {
+    ...(err.details || {}),
+    requestId: req.requestId || null,
   });
 }

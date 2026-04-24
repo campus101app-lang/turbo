@@ -14,7 +14,6 @@ import '../../theme/app_theme.dart';
 
 final Map<String, String> _assetEmojis = {
   'USDC': 'assets/images/usdc.png',
-  'XLM': 'assets/images/stellar.png',
   'NGNT': 'assets/images/ngnt.png',
 };
 
@@ -63,6 +62,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   _VirtualAccount? _virtualAccount;
   bool _vaLoading = false; // spinner while fetching/creating
   bool _vaChecked = false; // true once we've attempted GET at least once
+  String? _latestSettlementStatus;
 
   // ── BVN form state
   final _bvnController = TextEditingController();
@@ -108,7 +108,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               configData['assets'] as Map<String, dynamic>? ??
               {
                 'USDC': ['stellar'],
-                'XLM': ['stellar'],
+                'NGNT': ['stellar'],
               };
           _loading = false;
         });
@@ -119,7 +119,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
           _loading = false;
           _rawAssets = {
             'USDC': ['stellar'],
-            'XLM': ['stellar'],
+            'NGNT': ['stellar'],
           };
         });
       }
@@ -133,6 +133,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     setState(() => _vaLoading = true);
     try {
       final data = await apiService.getVirtualAccount();
+      await _loadLatestSettlementStatus();
       if (mounted) {
         setState(() {
           _vaChecked = true;
@@ -149,6 +150,22 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
           _vaChecked = true;
         });
     }
+  }
+
+  Future<void> _loadLatestSettlementStatus() async {
+    try {
+      final txRes = await apiService.getTransactions(
+        page: 1,
+        limit: 10,
+        type: 'fiatDeposit',
+      );
+      final txs = List<Map<String, dynamic>>.from(txRes['transactions'] ?? []);
+      if (txs.isEmpty) return;
+      final status = (txs.first['flutterwaveStatus'] as String?)?.toLowerCase();
+      if (status != null && mounted) {
+        setState(() => _latestSettlementStatus = status);
+      }
+    } catch (_) {}
   }
 
   // ─── Create virtual account with BVN ─────────────────────
@@ -651,6 +668,31 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         ),
 
         const SizedBox(height: 28),
+
+        if (_latestSettlementStatus != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: (_latestSettlementStatus == 'settled'
+                      ? DayFiColors.green
+                      : const Color(0xFFFFA726))
+                  .withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              _latestSettlementStatus == 'settled'
+                  ? 'Latest top-up settlement: settled'
+                  : 'Latest top-up settlement: pending',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: _latestSettlementStatus == 'settled'
+                    ? DayFiColors.green
+                    : const Color(0xFFFFA726),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // Share + Copy buttons
         ConstrainedBox(

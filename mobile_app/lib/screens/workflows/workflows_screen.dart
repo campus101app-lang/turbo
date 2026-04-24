@@ -1,6 +1,8 @@
 // lib/screens/workflows/workflows_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
@@ -94,18 +96,32 @@ class WorkflowsScreen extends ConsumerWidget {
         error: (e, _) => _buildError(context, ref, e.toString()),
         data: (workflows) => _buildBody(context, ref, workflows),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateSheet(context, ref),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: Text(
-          'New Workflow',
-          style: GoogleFonts.outfit(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+
+        floatingActionButton: Container(
+        height: 60,
+        width: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
           ),
         ),
-      ),
+        child: InkWell(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          onTap: () => _showCreateSheet(context, ref),
+          child: Center(
+            child: FaIcon(
+              FontAwesomeIcons.add,
+              size: 22,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+            ),
+          ),
+        ),
+      ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0),
     );
   }
 
@@ -293,7 +309,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.bricolageGrotesque(
               color: color,
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -302,7 +318,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.bricolageGrotesque(
               color: color,
               fontWeight: FontWeight.w700,
               fontSize: 22,
@@ -338,7 +354,7 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           label,
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.bricolageGrotesque(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -347,7 +363,7 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           '$count',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.bricolageGrotesque(
             fontSize: 12,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
           ),
@@ -411,7 +427,7 @@ class _WorkflowTile extends StatelessWidget {
                     w.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.bricolageGrotesque(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                       color: ext.primaryText,
@@ -420,7 +436,7 @@ class _WorkflowTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${_triggerLabel(w.triggerType)} → ${_actionLabel(w.actionType)}',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.bricolageGrotesque(
                       fontSize: 12,
                       color: ext.secondaryText,
                     ),
@@ -429,7 +445,7 @@ class _WorkflowTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Last run ${DateFormat('MMM d').format(w.lastRunAt!)}',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.bricolageGrotesque(
                         fontSize: 11,
                         color: Theme.of(
                           context,
@@ -539,38 +555,132 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.account_tree_rounded,
-            size: 56,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+    final ext = AppThemeExtension.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Stack(
+            children: [
+              Center(
+                child: Container(
+                  height: 54,
+                  width: MediaQuery.of(context).size.width * .85,
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: ext.cardBorder.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                    color: ext.monthlyCardSurface,
+                  ),
+                ),
+              ),
+
+              Container(
+                margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ext.cardBorder, width: .5),
+                  color: ext.cardSurface,
+                ),
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'automate recurring tasks and payments',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: .4,
+                        color: ext.sectionHeader,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: ext.primaryText,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            onPressed: onTap,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                              child: Text(
+                                'CREATE',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
+                                  height: 1,
+                                  color: ext.sectionHeader,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: ext.primaryText,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Workflow templates are coming soon.'),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                              child: Text(
+                                'LEARN MORE',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
+                                  height: 1,
+                                  color: ext.sectionHeader,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'No workflows yet',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Automate recurring tasks and payments',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
-            ),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Create Workflow'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -721,7 +831,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
             const SizedBox(height: 20),
             Text(
               'New Workflow',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.bricolageGrotesque(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: ext.primaryText,
@@ -790,7 +900,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
                       const SizedBox(width: 10),
                       Text(
                         item.$2,
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.bricolageGrotesque(
                           fontWeight: selected
                               ? FontWeight.w600
                               : FontWeight.w400,
@@ -847,7 +957,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
                         child: Center(
                           child: Text(
                             '${iv[0].toUpperCase()}${iv.substring(1)}',
-                            style: GoogleFonts.outfit(
+                            style: GoogleFonts.bricolageGrotesque(
                               fontSize: 13,
                               fontWeight: sel
                                   ? FontWeight.w600
@@ -914,7 +1024,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
                       const SizedBox(width: 10),
                       Text(
                         item.$2,
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.bricolageGrotesque(
                           fontWeight: selected
                               ? FontWeight.w600
                               : FontWeight.w400,
@@ -1000,7 +1110,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
                       )
                     : Text(
                         'Create Workflow',
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.bricolageGrotesque(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -1030,6 +1140,7 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
   bool _running = false;
   bool _toggling = false;
   bool _deleting = false;
+  bool _editing = false;
 
   Future<void> _runNow() async {
     setState(() => _running = true);
@@ -1110,6 +1221,24 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
       }
     } finally {
       if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _edit() async {
+    setState(() => _editing = true);
+    try {
+      final changed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _EditWorkflowSheet(workflow: widget.workflow),
+      );
+      if (changed == true) {
+        widget.onRefresh();
+        if (mounted) Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) setState(() => _editing = false);
     }
   }
 
@@ -1226,6 +1355,29 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
           // Actions
           Row(
             children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _editing ? null : _edit,
+                  icon: _editing
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(
+                    'Edit',
+                    style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
               // Run now
               Expanded(
                 child: OutlinedButton.icon(
@@ -1245,7 +1397,7 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
                       : const Icon(Icons.play_arrow_rounded, size: 18),
                   label: Text(
                     'Run now',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                    style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -1282,7 +1434,7 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
                         ),
                   label: Text(
                     w.isActive ? 'Pause' : 'Resume',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.bricolageGrotesque(
                       fontWeight: FontWeight.w600,
                       color: w.isActive
                           ? const Color(0xFFFFA726)
@@ -1373,7 +1525,7 @@ class _StatChip extends StatelessWidget {
           children: [
             Text(
               value,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.bricolageGrotesque(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: color,
@@ -1381,7 +1533,7 @@ class _StatChip extends StatelessWidget {
             ),
             Text(
               label,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.bricolageGrotesque(
                 fontSize: 10,
                 color: color.withOpacity(0.7),
               ),
@@ -1439,7 +1591,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: GoogleFonts.outfit(
+    style: GoogleFonts.bricolageGrotesque(
       fontWeight: FontWeight.w500,
       fontSize: 12,
       color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
@@ -1465,7 +1617,7 @@ class _Field extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
-      style: GoogleFonts.outfit(fontSize: 14),
+      style: GoogleFonts.bricolageGrotesque(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
@@ -1521,7 +1673,7 @@ class _SegmentPicker extends StatelessWidget {
             ),
             child: Text(
               o,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.bricolageGrotesque(
                 fontSize: 13,
                 fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
                 color: isSel
@@ -1532,6 +1684,261 @@ class _SegmentPicker extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+class _EditWorkflowSheet extends StatefulWidget {
+  final Workflow workflow;
+  const _EditWorkflowSheet({required this.workflow});
+
+  @override
+  State<_EditWorkflowSheet> createState() => _EditWorkflowSheetState();
+}
+
+class _EditWorkflowSheetState extends State<_EditWorkflowSheet> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _descCtrl;
+  late final TextEditingController _toCtrl;
+  late final TextEditingController _amountCtrl;
+  late final TextEditingController _msgCtrl;
+  late String _triggerType;
+  late String _actionType;
+  late String _interval;
+  late String _asset;
+  bool _saving = false;
+
+  static const _triggers = [
+    ('scheduled', 'Scheduled', Icons.schedule_rounded),
+    ('balanceThreshold', 'Balance Threshold', Icons.account_balance_wallet_rounded),
+    ('invoicePaid', 'Invoice Paid', Icons.receipt_long_rounded),
+    ('expenseApproved', 'Expense Approved', Icons.check_circle_outline_rounded),
+    ('manualRun', 'Manual Trigger', Icons.play_circle_outline_rounded),
+  ];
+
+  static const _actions = [
+    ('sendPayment', 'Send Payment', Icons.send_rounded),
+    ('sendReminder', 'Send Reminder', Icons.notifications_rounded),
+    ('notifyUser', 'Push Notify', Icons.notification_important_rounded),
+    ('createInvoice', 'Create Invoice', Icons.note_add_rounded),
+    ('flagExpense', 'Flag Expense', Icons.flag_rounded),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.workflow.name);
+    _descCtrl = TextEditingController(text: widget.workflow.description ?? '');
+    _toCtrl = TextEditingController(
+      text: (widget.workflow.actionConfig['to'] ?? widget.workflow.actionConfig['recipient'] ?? '').toString(),
+    );
+    _amountCtrl = TextEditingController(
+      text: (widget.workflow.actionConfig['amount'] ??
+              widget.workflow.triggerConfig['threshold'] ??
+              '')
+          .toString(),
+    );
+    _msgCtrl = TextEditingController(
+      text: (widget.workflow.actionConfig['message'] ?? '').toString(),
+    );
+    _triggerType = widget.workflow.triggerType;
+    _actionType = widget.workflow.actionType;
+    _interval = (widget.workflow.triggerConfig['interval'] ?? 'monthly').toString();
+    _asset = (widget.workflow.actionConfig['asset'] ??
+            widget.workflow.triggerConfig['asset'] ??
+            'USDC')
+        .toString();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _toCtrl.dispose();
+    _amountCtrl.dispose();
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic> _buildTriggerConfig() {
+    switch (_triggerType) {
+      case 'scheduled':
+        return {'interval': _interval, 'hour': 9};
+      case 'balanceThreshold':
+        return {'asset': _asset, 'threshold': double.tryParse(_amountCtrl.text) ?? 10};
+      default:
+        return {};
+    }
+  }
+
+  Map<String, dynamic> _buildActionConfig() {
+    switch (_actionType) {
+      case 'sendPayment':
+        return {
+          'to': _toCtrl.text.trim(),
+          'amount': double.tryParse(_amountCtrl.text) ?? 0,
+          'asset': _asset,
+        };
+      case 'notifyUser':
+      case 'sendReminder':
+        return {'message': _msgCtrl.text.trim()};
+      case 'flagExpense':
+        return {'reason': _msgCtrl.text.trim().isEmpty ? 'Flagged by workflow' : _msgCtrl.text.trim()};
+      default:
+        return {};
+    }
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await apiService.updateWorkflow(widget.workflow.id, {
+        'name': _nameCtrl.text.trim(),
+        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        'triggerType': _triggerType,
+        'triggerConfig': _buildTriggerConfig(),
+        'actionType': _actionType,
+        'actionConfig': _buildActionConfig(),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiService.parseError(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Edit Workflow', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          _Field(controller: _nameCtrl, hint: 'Workflow name'),
+          const SizedBox(height: 10),
+          _Field(controller: _descCtrl, hint: 'Description', maxLines: 2),
+          const SizedBox(height: 14),
+          const _Label('Trigger'),
+          const SizedBox(height: 6),
+          ..._triggers.map(((String code, String label, IconData icon) t) {
+            final selected = _triggerType == t.$1;
+            return GestureDetector(
+              onTap: () => setState(() => _triggerType = t.$1),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary.withOpacity(0.10)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(t.$3, size: 16),
+                    const SizedBox(width: 8),
+                    Text(t.$2),
+                  ],
+                ),
+              ),
+            );
+          }),
+          if (_triggerType == 'scheduled') ...[
+            const SizedBox(height: 8),
+            _SegmentPicker(
+              options: const ['daily', 'weekly', 'monthly'],
+              selected: _interval,
+              onChanged: (v) => setState(() => _interval = v),
+            ),
+          ],
+          if (_triggerType == 'balanceThreshold') ...[
+            const SizedBox(height: 8),
+            _Field(controller: _amountCtrl, hint: 'Threshold amount', keyboardType: TextInputType.number),
+          ],
+          const SizedBox(height: 14),
+          const _Label('Action'),
+          const SizedBox(height: 6),
+          ..._actions.map(((String code, String label, IconData icon) a) {
+            final selected = _actionType == a.$1;
+            return GestureDetector(
+              onTap: () => setState(() => _actionType = a.$1),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary.withOpacity(0.10)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(a.$3, size: 16),
+                    const SizedBox(width: 8),
+                    Text(a.$2),
+                  ],
+                ),
+              ),
+            );
+          }),
+          if (_actionType == 'sendPayment') ...[
+            const SizedBox(height: 8),
+            _Field(controller: _toCtrl, hint: 'Recipient username or address'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _Field(
+                    controller: _amountCtrl,
+                    hint: 'Amount',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _SegmentPicker(
+                  options: const ['USDC', 'NGNT'],
+                  selected: _asset,
+                  onChanged: (v) => setState(() => _asset = v),
+                ),
+              ],
+            ),
+          ],
+          if (_actionType == 'notifyUser' || _actionType == 'sendReminder' || _actionType == 'flagExpense') ...[
+            const SizedBox(height: 8),
+            _Field(controller: _msgCtrl, hint: 'Message / Reason', maxLines: 2),
+          ],
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save changes'),
+            ),
+          ),
+        ],
+        ),
+      ),
     );
   }
 }

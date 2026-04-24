@@ -1,6 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireManager } from '../middleware/auth.js';
+import { sendError, sendValidationError } from '../utils/http.js';
 import {
   getWalletBalances,
   sendAsset,
@@ -33,16 +34,16 @@ const ASSET_CONFIG = {
       },
     ],
   },
-  XLM: {
-    name: 'Stellar Lumens',
-    emoji: '🌟',
-    description: 'Native Stellar asset',
-    regulated: false,
+  NGNT: {
+    name: 'Naira Token',
+    emoji: '🇳🇬',
+    description: 'Nigerian Naira token on Stellar',
+    regulated: true,
     issuers: [
       {
-        key: 'stellar_xlm',
-        label: 'Stellar',
-        description: 'Native Stellar Network token',
+        key: 'stellar_ngnt',
+        label: 'NGNT (Stellar)',
+        description: 'Issued on Stellar Network',
         emoji: '⭐',
       },
     ],
@@ -134,7 +135,7 @@ router.get('/networks', authenticate, (req, res) => {
   // Assets available on Stellar
   const assets = {
     'USDC': ['stellar'],
-    'XLM': ['stellar'],
+    'NGNT': ['stellar'],
   };
 
   // Network configuration
@@ -157,7 +158,9 @@ router.get('/networks', authenticate, (req, res) => {
 
 router.get('/swap-quote', authenticate, async (req, res) => {
   const { from, to, amount } = req.query;
-  if (!from || !to || !amount) return res.status(400).json({ error: 'Missing params' });
+  if (!from || !to || !amount) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Missing required params: from, to, amount.');
+  }
 
   console.log(`🔵 QUOTE REQUEST: ${from} -> ${to} | Amount: ${amount}`);
 
@@ -203,7 +206,7 @@ router.get('/swap-quote', authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error(`❌ QUOTE ERROR:`, err.message);
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
@@ -215,10 +218,10 @@ router.post('/swap', authenticate, [
   body('amount').isFloat({ min: 0.000001 }),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   const { fromAsset, toAsset, amount } = req.body;
-  if (fromAsset === toAsset) return res.status(400).json({ error: 'Same asset' });
+  if (fromAsset === toAsset) return sendError(res, 400, 'VALIDATION_ERROR', 'fromAsset and toAsset must differ.');
 
   console.log(`🔵 SWAP INITIATED: ${req.user.id} | ${fromAsset} -> ${toAsset} | Amount: ${amount}`);
 
@@ -241,7 +244,7 @@ router.post('/swap', authenticate, [
     } else if (err.message.includes('Stellar wallet not found')) {
       userMessage = 'Wallet not initialized. Please reload the app.';
     }
-    res.status(400).json({ error: userMessage });
+    sendError(res, 400, 'SWAP_FAILED', userMessage);
   }
 });
 
@@ -266,9 +269,10 @@ router.get('/balance', authenticate, async (req, res) => {
       balances,
       balancesUSD,
       totalUSD: parseFloat(totalUSD.toFixed(2)),
+      xlmReserved: req.user.xlmReserved || 0,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
@@ -278,7 +282,10 @@ router.get('/address', authenticate, (req, res) => {
   res.json({
     stellarAddress: req.user.stellarPublicKey,
     dayfiUsername: `${req.user.username}@dayfi.me`,
-    assets: [{ code: 'USDC', name: 'USD Coin', issuer: ISSUERS.USDC }],
+    assets: [
+      { code: 'USDC', name: 'USD Coin', issuer: ISSUERS.USDC },
+      { code: 'NGNT', name: 'Naira Token', issuer: ISSUERS.NGNT },
+    ],
   });
 });
 
@@ -290,14 +297,14 @@ router.post('/send', authenticate, [
   body('asset').isIn(SUPPORTED_ASSETS),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   let { to, amount, asset, memo } = req.body;
   try {
     const result = await sendAsset(req.user.id, to, parseFloat(amount), asset, memo);
     res.json({ success: true, transaction: result });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    sendError(res, 400, 'SEND_FAILED', err.message);
   }
 });
 
@@ -308,7 +315,7 @@ router.get('/stellar-history', authenticate, async (req, res) => {
     const history = await getStellarTransactions(req.user.stellarPublicKey);
     res.json({ transactions: history });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
@@ -333,32 +340,26 @@ router.get('/check-trustlines', authenticate, async (req, res) => {
       trustlines: hasTrustlines,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
 // ─── POST /api/wallet/admin/send (Master Wallet) ─────────────────────────────
 
-router.post('/admin/send', authenticate, [
+router.post('/admin/send', authenticate, requireManager, [
   body('recipientAddress').notEmpty().isLength({ min: 56, max: 56 }),
   body('amount').isFloat({ min: 0.000001 }),
   body('memo').optional().isString().isLength({ max: 28 }),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-  // Simple admin check: verify user is admin (you can add more sophisticated checks)
-  const isAdmin = process.env.ADMIN_EMAILS?.split(',').includes(req.user.email);
-  if (!isAdmin) {
-    return res.status(403).json({ error: 'Only admins can send from master wallet' });
-  }
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   const { recipientAddress, amount, memo } = req.body;
   try {
     const result = await sendFromMasterWallet(recipientAddress, parseFloat(amount), memo);
     res.json({ success: true, transaction: result });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    sendError(res, 400, 'MASTER_SEND_FAILED', err.message);
   }
 });
 
@@ -370,7 +371,7 @@ router.post('/test-funding', authenticate, async (req, res) => {
     const userAddress = req.user.stellarPublicKey;
 
     if (!userAddress) {
-      return res.status(400).json({ error: 'User wallet not created' });
+      return sendError(res, 400, 'WALLET_NOT_READY', 'User wallet not created.');
     }
 
     const result = await sendFromMasterWallet(userAddress, fundingAmount, 'Test funding');
@@ -380,7 +381,7 @@ router.post('/test-funding', authenticate, async (req, res) => {
       transaction: result,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    sendError(res, 400, 'FUNDING_FAILED', err.message);
   }
 });
 
@@ -395,7 +396,7 @@ router.post('/sync-transactions', authenticate, async (req, res) => {
       synced: result.synced,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    sendError(res, 400, 'SYNC_FAILED', err.message);
   }
 });
 

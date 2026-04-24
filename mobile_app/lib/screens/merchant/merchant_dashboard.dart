@@ -1644,7 +1644,13 @@ class _AddItemSheetState extends State<_AddItemSheet> {
                     ),
                     backgroundColor: const Color(0xFF9B8EF8).withOpacity(0.1),
                   ),
-                  onPressed: () {}, // TODO: image picker
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Image upload is coming soon.'),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.upload_rounded, size: 16),
                   label: const Text(
                     'Choose File',

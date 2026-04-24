@@ -45,6 +45,12 @@ String _getStatusLabel(String? status) {
   }
 }
 
+String _getSettlementLabel(Map<String, dynamic> tx) {
+  if (tx['type'] != 'fiatDeposit') return '';
+  final s = (tx['flutterwaveStatus'] as String?)?.toLowerCase() ?? '';
+  return s == 'settled' ? 'Settlement settled' : 'Settlement pending';
+}
+
 Color _getStatusColor(BuildContext context, String? status) {
   switch (status?.toLowerCase()) {
     case 'confirmed':
@@ -323,7 +329,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           // Search bar overlay
           SizedBox(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 124, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1009,6 +1015,8 @@ void _showTxDetails(BuildContext context, Map<String, dynamic> tx) {
             label: 'Type',
             value: isSwap ? 'Swapped' : (isSend ? 'Sent' : 'Received'),
           ),
+          if (tx['type'] == 'fiatDeposit')
+            _DetailRow(label: 'Settlement', value: _getSettlementLabel(tx)),
           if (toUsername != null)
             _DetailRow(label: isSend ? 'To' : 'From', value: '@$toUsername'),
           _DetailRow(
@@ -1152,7 +1160,7 @@ class _TxTile extends StatelessWidget {
       onTap: () => _showTxDetails(context, tx),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        padding: const EdgeInsets.only(top: 8, bottom: 8, left: 8, right: 8),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primary.withOpacity(0),
           borderRadius: BorderRadius.circular(14),
@@ -1165,12 +1173,13 @@ class _TxTile extends StatelessWidget {
               children: [
                 SizedBox(
                   // width: 40,
-                  height: 40,
+                  height: 32,
                   // decoration: BoxDecoration(
                   //   color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
                   //   borderRadius: BorderRadius.circular(12),
                   // ),
-                  child: Center(
+                  child: Align(
+                    alignment: Alignment.topCenter,
                     child: SvgPicture.asset(
                       isSwap
                           ? 'assets/icons/svgs/swap.svg'
@@ -1180,8 +1189,8 @@ class _TxTile extends StatelessWidget {
                       color: Theme.of(
                         context,
                       ).colorScheme.primary.withOpacity(.75),
-                      width: 24,
-                      height: 24,
+                      width: 22,
+                      height: 22,
                     ),
                   ),
                 ),
@@ -1193,8 +1202,8 @@ class _TxTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       child: Image.asset(
                         _getCurrencyLogoAsset(asset),
-                        width: 12,
-                        height: 12,
+                        width: 14,
+                        height: 14,
                       ),
                     ),
                   ),
@@ -1230,8 +1239,9 @@ class _TxTile extends StatelessWidget {
                         : _getStatusLabel(status),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: _getStatusColor(context, status),
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       fontSize: 14,
+                      letterSpacing: -.1,
                     ),
                   ),
                 ],
@@ -1241,6 +1251,18 @@ class _TxTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (tx['type'] == 'fiatDeposit')
+                  Text(
+                    _getSettlementLabel(tx).replaceFirst('Settlement ', ''),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: ((tx['flutterwaveStatus'] as String?)?.toLowerCase() == 'settled')
+                          ? DayFiColors.green
+                          : const Color(0xFFFFA726),
+                    ),
+                  ),
+                if (tx['type'] == 'fiatDeposit') const SizedBox(height: 2),
                 // USD Amount
                 Text(
                   _getUsdAmount(amount, asset),

@@ -83,7 +83,7 @@ router.post('/verify-otp', [
       return res.status(400).json({ error: 'Invalid code.', attemptsLeft: 5 - (user.otpAttempts + 1) });
     }
 
-    const needsUsername = user.username.startsWith('user_');
+    const needsUsername = !user.username || user.username.startsWith('user_');
     await prisma.user.update({
       where: { email },
       data: { otpCode: null, otpExpiry: null, otpAttempts: 0, isVerified: true },

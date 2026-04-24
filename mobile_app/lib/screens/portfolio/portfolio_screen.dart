@@ -305,7 +305,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     final priceHistoryAsync = ref.watch(_xlmPriceHistoryProvider);
     final priceHistory = priceHistoryAsync.value ?? {};
 
-    const xlmReserve = 2.0;
+    const xlmReserve = 1.5;
     final xlmPrice = w.xlmPriceUSD;
 
     // Deduct reserve from XLM balance everywhere
@@ -387,7 +387,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
 
   Widget _buildTotalBalance(WalletState walletState) {
     final xlmPriceUSD = walletState.xlmPriceUSD ?? 0.0;
-    const xlmReserve = 2.0;
+    const xlmReserve = 1.5;
     final reservedUSD = xlmReserve * xlmPriceUSD;
 
     // ── Determine what value to actually display ──────────────

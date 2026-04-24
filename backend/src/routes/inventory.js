@@ -1,7 +1,8 @@
 // src/routes/inventoryRoutes.js
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireMerchant } from '../middleware/auth.js';
+import { sendError, sendNotFound, sendValidationError } from '../utils/http.js';
 import {
   getInventory,
   createItem,
@@ -25,7 +26,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ─── POST /api/inventory ──────────────────────────────────────────────────────
-router.post('/', authenticate, [
+router.post('/', authenticate, requireMerchant, [
   body('name').notEmpty().trim(),
   body('priceUsdc').isFloat({ min: 0 }),
   body('stock').optional().isInt({ min: 0 }),
@@ -34,77 +35,80 @@ router.post('/', authenticate, [
   body('category').optional().trim(),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   try {
     const item = await createItem(req.user.id, req.body);
     res.status(201).json({ item });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
 // ─── PATCH /api/inventory/:id/stock ──────────────────────────────────────────
-router.patch('/:id/stock', authenticate, async (req, res) => {
+router.patch('/:id/stock', authenticate, requireMerchant, async (req, res) => {
   const { delta, absolute } = req.body;
   if (delta === undefined && absolute === undefined) {
-    return res.status(400).json({ error: 'Provide delta or absolute' });
+    return sendValidationError(res, [{ field: 'delta|absolute', message: 'Provide delta or absolute' }]);
   }
   try {
     const item = await updateStock(req.user.id, req.params.id, { delta, absolute });
     res.json({ item });
   } catch (err) {
-    res.status(err.message === 'Item not found' ? 404 : 500).json({ error: err.message });
+    if (err.message === 'Item not found') return sendNotFound(res, 'Item');
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
 // ─── PATCH /api/inventory/:id ─────────────────────────────────────────────────
-router.patch('/:id', authenticate, [
+router.patch('/:id', authenticate, requireMerchant, [
   body('priceUsdc').optional().isFloat({ min: 0 }),
   body('stock').optional().isInt({ min: 0 }),
   body('threshold').optional().isInt({ min: 0 }),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   try {
     const item = await updateItem(req.user.id, req.params.id, req.body);
     res.json({ item });
   } catch (err) {
-    res.status(err.message === 'Item not found' ? 404 : 500).json({ error: err.message });
+    if (err.message === 'Item not found') return sendNotFound(res, 'Item');
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
 // ─── DELETE /api/inventory/:id ────────────────────────────────────────────────
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, requireMerchant, async (req, res) => {
   try {
     await deleteItem(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
-    res.status(err.message === 'Item not found' ? 404 : 500).json({ error: err.message });
+    if (err.message === 'Item not found') return sendNotFound(res, 'Item');
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 
 // ─── POST /api/inventory/checkout/uri ─────────────────────────────────────────
 // Returns SEP-0007 URI for QR code + NFC payload
-router.post('/checkout/uri', authenticate, [
+router.post('/checkout/uri', authenticate, requireMerchant, [
   body('items').isArray({ min: 1 }),
   body('totalUsdc').isFloat({ min: 0.000001 }),
 ], async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
 
   try {
     const { items, totalUsdc } = req.body;
     const destination = req.user.stellarPublicKey;
-    if (!destination) return res.status(400).json({ error: 'Merchant wallet not set up' });
+    if (!destination) return sendError(res, 400, 'WALLET_NOT_READY', 'Merchant wallet not set up.');
 
     const memo = generateMemoReceipt(items, totalUsdc);
     const uri  = buildStellarPayUri({ destination, amountUsdc: totalUsdc, memo });
 
     res.json({ uri, memo, destination, totalUsdc });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
   }
 });
 

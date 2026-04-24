@@ -216,6 +216,35 @@ router.post('/:id/send', authenticate, async (req, res) => {
   }
 });
 
+// ─── POST /api/invoices/:id/mark-paid ─────────────────────────────────────────
+// Marks an invoice as paid manually (e.g. off-app settlement confirmed).
+router.post('/:id/mark-paid', authenticate, async (req, res) => {
+  try {
+    const existing = await prisma.invoice.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+    if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+    if (existing.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already paid' });
+    }
+    if (existing.status === 'cancelled') {
+      return res.status(400).json({ error: 'Cancelled invoice cannot be marked as paid' });
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'paid',
+        paidAt: new Date(),
+      },
+    });
+
+    res.json({ invoice: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/invoices/pay/:invoiceNumber (public — no auth) ──────────────────
 // Used by the payment page. Returns invoice details without sensitive user data.
 

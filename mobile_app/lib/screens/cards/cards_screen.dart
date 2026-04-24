@@ -1,6 +1,8 @@
 // lib/screens/cards/cards_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
@@ -45,27 +47,27 @@ class DayFiCard {
   });
 
   factory DayFiCard.fromJson(Map<String, dynamic> j) => DayFiCard(
-        id: j['id'] ?? '',
-        cardNumber: j['cardNumber'] ?? '**** **** **** ****',
-        last4: j['last4'] ?? '0000',
-        cardholderName: j['cardholderName'] ?? '',
-        expiryMonth: j['expiryMonth'] ?? 1,
-        expiryYear: j['expiryYear'] ?? 2028,
-        type: j['type'] ?? 'virtual',
-        currency: j['currency'] ?? 'USDC',
-        status: j['status'] ?? 'active',
-        label: j['label'],
-        color: j['color'] ?? '#6C47FF',
-        spendingLimit: j['spendingLimit'] != null
-            ? (j['spendingLimit'] as num).toDouble()
-            : null,
-        spendingLimitPeriod: j['spendingLimitPeriod'],
-        createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
-        frozenAt: j['frozenAt'] != null ? DateTime.tryParse(j['frozenAt']) : null,
-      );
+    id: j['id'] ?? '',
+    cardNumber: j['cardNumber'] ?? '**** **** **** ****',
+    last4: j['last4'] ?? '0000',
+    cardholderName: j['cardholderName'] ?? '',
+    expiryMonth: j['expiryMonth'] ?? 1,
+    expiryYear: j['expiryYear'] ?? 2028,
+    type: j['type'] ?? 'virtual',
+    currency: j['currency'] ?? 'USDC',
+    status: j['status'] ?? 'active',
+    label: j['label'],
+    color: j['color'] ?? '#6C47FF',
+    spendingLimit: j['spendingLimit'] != null
+        ? (j['spendingLimit'] as num).toDouble()
+        : null,
+    spendingLimitPeriod: j['spendingLimitPeriod'],
+    createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
+    frozenAt: j['frozenAt'] != null ? DateTime.tryParse(j['frozenAt']) : null,
+  );
 
-  bool get isActive   => status == 'active';
-  bool get isFrozen   => status == 'frozen';
+  bool get isActive => status == 'active';
+  bool get isFrozen => status == 'frozen';
   Color get cardColor {
     try {
       final hex = color.replaceAll('#', '');
@@ -98,29 +100,66 @@ class CardsScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: cardsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => _buildError(context, ref, e.toString()),
-        data:    (cards) => _buildBody(context, ref, cards),
+        error: (e, _) => _buildError(context, ref, e.toString()),
+        data: (cards) => _buildBody(context, ref, cards),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateSheet(context, ref),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: Text('New Card',
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
-      ),
+      floatingActionButton: Container(
+        height: 60,
+        width: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+          ),
+        ),
+        child: InkWell(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          onTap: () => _showCreateSheet(context, ref),
+          child: Center(
+            child: FaIcon(
+              FontAwesomeIcons.add,
+              size: 22,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+            ),
+          ),
+        ),
+      ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0),
+
+  
     );
   }
 
   Widget _buildError(BuildContext context, WidgetRef ref, String err) {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Text('Failed to load cards', style: Theme.of(context).textTheme.bodyMedium),
-      const SizedBox(height: 8),
-      TextButton(onPressed: () => ref.invalidate(_cardsProvider), child: const Text('Retry')),
-    ]));
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Failed to load cards',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => ref.invalidate(_cardsProvider),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, List<DayFiCard> cards) {
-    if (cards.isEmpty) return _EmptyState(onTap: () => _showCreateSheet(context, ref));
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    List<DayFiCard> cards,
+  ) {
+    if (cards.isEmpty)
+      // ignore: curly_braces_in_flow_control_structures
+      return _EmptyState(onTap: () => _showCreateSheet(context, ref));
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(_cardsProvider),
@@ -147,16 +186,21 @@ class CardsScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // List
-          Text('All Cards',
-              style: GoogleFonts.outfit(
-                fontSize: 14, fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              )),
+          Text(
+            'All Cards',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
           const SizedBox(height: 10),
-          ...cards.map((c) => _CardTile(
-                card: c,
-                onTap: () => _showDetailSheet(context, ref, c),
-              )),
+          ...cards.map(
+            (c) => _CardTile(
+              card: c,
+              onTap: () => _showDetailSheet(context, ref, c),
+            ),
+          ),
         ],
       ),
     );
@@ -174,7 +218,10 @@ class CardsScreen extends ConsumerWidget {
     showDayFiBottomSheet(
       context: context,
       isScrollControlled: true,
-      child: _CardDetailSheet(card: card, onRefresh: () => ref.invalidate(_cardsProvider)),
+      child: _CardDetailSheet(
+        card: card,
+        onRefresh: () => ref.invalidate(_cardsProvider),
+      ),
     );
   }
 }
@@ -198,10 +245,7 @@ class _CardVisual extends StatelessWidget {
           gradient: LinearGradient(
             colors: card.isFrozen
                 ? [Colors.grey.shade700, Colors.grey.shade900]
-                : [
-                    card.cardColor,
-                    card.cardColor.withOpacity(0.7),
-                  ],
+                : [card.cardColor, card.cardColor.withOpacity(0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -215,101 +259,143 @@ class _CardVisual extends StatelessWidget {
             ),
           ],
         ),
-        child: Stack(children: [
-          // Frosted overlay if frozen
-          if (card.isFrozen)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.ac_unit_rounded, color: Colors.white70, size: 18),
-                    const SizedBox(width: 6),
-                    Text('FROZEN',
-                        style: GoogleFonts.outfit(
+        child: Stack(
+          children: [
+            // Frosted overlay if frozen
+            if (card.isFrozen)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.ac_unit_rounded,
                           color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 4,
-                        )),
-                  ]),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'FROZEN',
+                          style: GoogleFonts.bricolageGrotesque(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
 
-          Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Top row
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(card.label ?? '${card.currency} Card',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      )),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(card.type.toUpperCase(),
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
-                        )),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Top row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        card.label ?? '${card.currency} Card',
+                        style: GoogleFonts.bricolageGrotesque(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          card.type.toUpperCase(),
+                          style: GoogleFonts.bricolageGrotesque(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ]),
 
-                // Card number
-                Text(card.cardNumber,
+                  // Card number
+                  Text(
+                    card.cardNumber,
                     style: GoogleFonts.spaceMono(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 15,
                       letterSpacing: 2,
-                    )),
-
-                // Bottom row
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('CARDHOLDER',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 9, letterSpacing: 1,
-                        )),
-                    Text(card.cardholderName.toUpperCase(),
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 12, fontWeight: FontWeight.w600,
-                        )),
-                  ]),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('EXPIRES',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 9, letterSpacing: 1,
-                        )),
-                    Text(
-                      '${card.expiryMonth.toString().padLeft(2, '0')}/${card.expiryYear.toString().substring(2)}',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 12, fontWeight: FontWeight.w600,
-                      ),
                     ),
-                  ]),
-                ]),
-              ],
+                  ),
+
+                  // Bottom row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CARDHOLDER',
+                            style: GoogleFonts.bricolageGrotesque(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 9,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            card.cardholderName.toUpperCase(),
+                            style: GoogleFonts.bricolageGrotesque(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'EXPIRES',
+                            style: GoogleFonts.bricolageGrotesque(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 9,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            '${card.expiryMonth.toString().padLeft(2, '0')}/${card.expiryYear.toString().substring(2)}',
+                            style: GoogleFonts.bricolageGrotesque(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -323,24 +409,48 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active   = cards.where((c) => c.isActive).length;
-    final frozen   = cards.where((c) => c.isFrozen).length;
+    final active = cards.where((c) => c.isActive).length;
+    final frozen = cards.where((c) => c.isFrozen).length;
     final usdcCards = cards.where((c) => c.currency == 'USDC').length;
 
-    return Row(children: [
-      Expanded(child: _SummaryCard(label: 'Active', value: '$active', color: DayFiColors.green)),
-      const SizedBox(width: 10),
-      Expanded(child: _SummaryCard(label: 'Frozen', value: '$frozen', color: const Color(0xFF64B5F6))),
-      const SizedBox(width: 10),
-      Expanded(child: _SummaryCard(label: 'USDC', value: '$usdcCards', color: const Color(0xFF6C47FF))),
-    ]);
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryCard(
+            label: 'Active',
+            value: '$active',
+            color: DayFiColors.green,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _SummaryCard(
+            label: 'Frozen',
+            value: '$frozen',
+            color: const Color(0xFF64B5F6),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _SummaryCard(
+            label: 'USDC',
+            value: '$usdcCards',
+            color: const Color(0xFF6C47FF),
+          ),
+        ),
+      ],
+    );
   }
 }
 
 class _SummaryCard extends StatelessWidget {
   final String label, value;
   final Color color;
-  const _SummaryCard({required this.label, required this.value, required this.color});
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -351,15 +461,28 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: GoogleFonts.outfit(
-              color: color, fontSize: 11, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: GoogleFonts.outfit(
-              color: color, fontWeight: FontWeight.w700, fontSize: 22)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.bricolageGrotesque(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.bricolageGrotesque(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 22,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -384,35 +507,50 @@ class _CardTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: ext.cardBorder, width: .5),
         ),
-        child: Row(children: [
-          // Color dot
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: card.cardColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            // Color dot
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: card.cardColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                card.isFrozen
+                    ? Icons.ac_unit_rounded
+                    : Icons.credit_card_rounded,
+                color: card.isFrozen ? Colors.blueAccent : card.cardColor,
+                size: 20,
+              ),
             ),
-            child: Icon(
-              card.isFrozen ? Icons.ac_unit_rounded : Icons.credit_card_rounded,
-              color: card.isFrozen ? Colors.blueAccent : card.cardColor,
-              size: 20,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    card.label ?? '${card.currency} Card',
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: ext.primaryText,
+                    ),
+                  ),
+                  Text(
+                    '•••• ${card.last4} · ${card.currency}',
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 12,
+                      color: ext.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(card.label ?? '${card.currency} Card',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w600, fontSize: 14,
-                    color: ext.primaryText,
-                  )),
-              Text('•••• ${card.last4} · ${card.currency}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12, color: ext.secondaryText)),
-            ]),
-          ),
-          _StatusPill(status: card.status),
-        ]),
+            _StatusPill(status: card.status),
+          ],
+        ),
       ),
     );
   }
@@ -436,18 +574,25 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         '${status[0].toUpperCase()}${status.substring(1)}',
-        style: GoogleFonts.outfit(
-          fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style: GoogleFonts.bricolageGrotesque(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
 
   Color _color(String s) {
     switch (s) {
-      case 'active':    return DayFiColors.green;
-      case 'frozen':    return const Color(0xFF64B5F6);
-      case 'cancelled': return DayFiColors.red;
-      default:          return const Color(0xFF6C47FF);
+      case 'active':
+        return DayFiColors.green;
+      case 'frozen':
+        return const Color(0xFF64B5F6);
+      case 'cancelled':
+        return DayFiColors.red;
+      default:
+        return const Color(0xFF6C47FF);
     }
   }
 }
@@ -458,29 +603,134 @@ class _EmptyState extends StatelessWidget {
   final VoidCallback onTap;
   const _EmptyState({required this.onTap});
 
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Card tips and walkthrough are coming soon.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.credit_card_rounded, size: 56,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08)),
-        const SizedBox(height: 6),
-        Text('No cards yet', style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 4),
-        Text('Create a virtual card to start spending',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
-            )),
-        const SizedBox(height: 24),
-        OutlinedButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Create Card'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    final ext = AppThemeExtension.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Stack(
+            children: [
+              Center(
+                child: Container(
+                  height: 54,
+                  width: MediaQuery.of(context).size.width * .85,
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: ext.cardBorder.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                    color: ext.monthlyCardSurface,
+                  ),
+                ),
+              ),
+
+              Container(
+                margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ext.cardBorder, width: .5),
+                  color: ext.cardSurface,
+                ),
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'spend globally with a virtual card',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: .4,
+                        color: ext.sectionHeader,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: Theme.of(
+                context,
+              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: ext.primaryText,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            onPressed: onTap,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                              child: Text(
+                                'CREATE CARD',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
+                                  height: 1,
+                                  color: ext.sectionHeader,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: Theme.of(
+                context,
+              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: ext.primaryText,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            onPressed: () => _showComingSoon(context),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+                              child: Text(
+                                'LEARN MORE',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: .2,
+                                  height: 1,
+                                  color: ext.sectionHeader,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      ]),
+      ],
     );
   }
 }
@@ -496,15 +746,20 @@ class _CreateCardSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateCardSheetState extends ConsumerState<_CreateCardSheet> {
-  final _nameCtrl  = TextEditingController();
+  final _nameCtrl = TextEditingController();
   final _labelCtrl = TextEditingController();
   String _currency = 'USDC';
-  String _color    = '#6C47FF';
-  bool   _loading  = false;
+  String _color = '#6C47FF';
+  bool _loading = false;
 
   static const _palette = [
-    '#6C47FF', '#FF6B6B', '#00BFA5', '#FF8F00',
-    '#1E88E5', '#E91E63', '#43A047',
+    '#6C47FF',
+    '#FF6B6B',
+    '#00BFA5',
+    '#FF8F00',
+    '#1E88E5',
+    '#E91E63',
+    '#43A047',
   ];
 
   @override
@@ -516,17 +771,18 @@ class _CreateCardSheetState extends ConsumerState<_CreateCardSheet> {
 
   Future<void> _submit() async {
     if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Cardholder name is required')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cardholder name is required')),
+      );
       return;
     }
     setState(() => _loading = true);
     try {
       final result = await apiService.createCard({
         'cardholderName': _nameCtrl.text.trim(),
-        'currency':       _currency,
-        'label':          _labelCtrl.text.trim().isEmpty ? null : _labelCtrl.text.trim(),
-        'color':          _color,
+        'currency': _currency,
+        'label': _labelCtrl.text.trim().isEmpty ? null : _labelCtrl.text.trim(),
+        'color': _color,
       });
 
       // Show CVV once
@@ -543,8 +799,9 @@ class _CreateCardSheetState extends ConsumerState<_CreateCardSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -557,100 +814,135 @@ class _CreateCardSheetState extends ConsumerState<_CreateCardSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 24, right: 24, top: 20,
+        left: 24,
+        right: 24,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 40,
       ),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(
-          child: Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        Text('New Virtual Card',
-            style: GoogleFonts.outfit(
-              fontSize: 20, fontWeight: FontWeight.w700, color: ext.primaryText)),
-        const SizedBox(height: 20),
-
-        _Label('Cardholder Name'),
-        const SizedBox(height: 6),
-        _Field(controller: _nameCtrl, hint: 'e.g. Tunde Okafor'),
-        const SizedBox(height: 16),
-
-        _Label('Card Label (optional)'),
-        const SizedBox(height: 6),
-        _Field(controller: _labelCtrl, hint: 'e.g. Marketing Card'),
-        const SizedBox(height: 16),
-
-        _Label('Currency'),
-        const SizedBox(height: 8),
-        Row(children: [
-          _CurrencyOption(
-            label: 'USDC', subtitle: 'Spend globally',
-            selected: _currency == 'USDC',
-            onTap: () => setState(() => _currency = 'USDC'),
+          const SizedBox(height: 20),
+          Text(
+            'New Virtual Card',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: ext.primaryText,
+            ),
           ),
-          const SizedBox(width: 12),
-          _CurrencyOption(
-            label: 'NGN', subtitle: 'Naira spending',
-            selected: _currency == 'NGN',
-            onTap: () => setState(() => _currency = 'NGN'),
-          ),
-        ]),
-        const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-        _Label('Card Color'),
-        const SizedBox(height: 8),
-        Row(
-          children: _palette.map((hex) {
-            Color c;
-            try { c = Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16)); }
-            catch (_) { c = const Color(0xFF6C47FF); }
-            final selected = _color == hex;
-            return GestureDetector(
-              onTap: () => setState(() => _color = hex),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.only(right: 10),
-                width: 28, height: 28,
-                decoration: BoxDecoration(
-                  color: c,
-                  shape: BoxShape.circle,
-                  border: selected
-                      ? Border.all(color: Colors.white, width: 2.5)
-                      : null,
-                  boxShadow: selected
-                      ? [BoxShadow(color: c.withOpacity(0.5), blurRadius: 8)]
-                      : null,
+          _Label('Cardholder Name'),
+          const SizedBox(height: 6),
+          _Field(controller: _nameCtrl, hint: 'e.g. Tunde Okafor'),
+          const SizedBox(height: 16),
+
+          _Label('Card Label (optional)'),
+          const SizedBox(height: 6),
+          _Field(controller: _labelCtrl, hint: 'e.g. Marketing Card'),
+          const SizedBox(height: 16),
+
+          _Label('Currency'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _CurrencyOption(
+                label: 'USDC',
+                subtitle: 'Spend globally',
+                selected: _currency == 'USDC',
+                onTap: () => setState(() => _currency = 'USDC'),
+              ),
+              const SizedBox(width: 12),
+              _CurrencyOption(
+                label: 'NGN',
+                subtitle: 'Naira spending',
+                selected: _currency == 'NGN',
+                onTap: () => setState(() => _currency = 'NGN'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          _Label('Card Color'),
+          const SizedBox(height: 8),
+          Row(
+            children: _palette.map((hex) {
+              Color c;
+              try {
+                c = Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
+              } catch (_) {
+                c = const Color(0xFF6C47FF);
+              }
+              final selected = _color == hex;
+              return GestureDetector(
+                onTap: () => setState(() => _color = hex),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.only(right: 10),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: selected
+                        ? Border.all(color: Colors.white, width: 2.5)
+                        : null,
+                    boxShadow: selected
+                        ? [BoxShadow(color: c.withOpacity(0.5), blurRadius: 8)]
+                        : null,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 28),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 28),
-
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _loading ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: _loading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Create Card',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
-            child: _loading
-                ? const SizedBox(height: 20, width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                : Text('Create Card',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -660,8 +952,10 @@ class _CurrencyOption extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   const _CurrencyOption({
-    required this.label, required this.subtitle,
-    required this.selected, required this.onTap,
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
   });
 
   @override
@@ -677,22 +971,34 @@ class _CurrencyOption extends StatelessWidget {
             color: selected ? primary.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? primary.withOpacity(0.4)
+              color: selected
+                  ? primary.withOpacity(0.4)
                   : Theme.of(context).colorScheme.onSurface.withOpacity(0.12),
             ),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label,
-                style: GoogleFonts.outfit(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.bricolageGrotesque(
                   fontWeight: FontWeight.w700,
-                  color: selected ? primary : Theme.of(context).colorScheme.onSurface,
-                )),
-            Text(subtitle,
-                style: GoogleFonts.outfit(
+                  color: selected
+                      ? primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: GoogleFonts.bricolageGrotesque(
                   fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                )),
-          ]),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -709,58 +1015,81 @@ class _CvvRevealSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Center(
-          child: Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        Icon(Icons.shield_rounded,
-            size: 48, color: DayFiColors.green),
-        const SizedBox(height: 12),
-        Text('Your CVV',
-            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        Text('Save this now — it will never be shown again',
+          const SizedBox(height: 24),
+          Icon(Icons.shield_rounded, size: 48, color: DayFiColors.green),
+          const SizedBox(height: 12),
+          Text(
+            'Your CVV',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Save this now — it will never be shown again',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            )),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-          decoration: BoxDecoration(
-            color: DayFiColors.green.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: DayFiColors.green.withOpacity(0.3)),
-          ),
-          child: Text(cvv,
-              style: GoogleFonts.spaceMono(
-                fontSize: 36, fontWeight: FontWeight.w700,
-                color: DayFiColors.green, letterSpacing: 8,
-              )),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            child: Text('I\'ve saved it',
-                style: GoogleFonts.outfit(
-                  fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
           ),
-        ),
-      ]),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+            decoration: BoxDecoration(
+              color: DayFiColors.green.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: DayFiColors.green.withOpacity(0.3)),
+            ),
+            child: Text(
+              cvv,
+              style: GoogleFonts.spaceMono(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                color: DayFiColors.green,
+                letterSpacing: 8,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: Text(
+                'I\'ve saved it',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -777,10 +1106,24 @@ class _CardDetailSheet extends StatefulWidget {
 }
 
 class _CardDetailSheetState extends State<_CardDetailSheet> {
-  bool _toggling  = false;
+  bool _toggling = false;
   bool _cancelling = false;
 
   Future<void> _toggleFreeze() async {
+    final action = widget.card.isFrozen ? 'unfreeze' : 'freeze';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('${action[0].toUpperCase()}${action.substring(1)} card?'),
+        content: Text('This will ${action} this card for card payments.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(action[0].toUpperCase() + action.substring(1))),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
     setState(() => _toggling = true);
     try {
       if (widget.card.isFrozen) {
@@ -789,11 +1132,17 @@ class _CardDetailSheetState extends State<_CardDetailSheet> {
         await apiService.freezeCard(widget.card.id);
       }
       widget.onRefresh();
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(widget.card.isFrozen ? 'Card unfrozen.' : 'Card frozen.')),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _toggling = false);
@@ -805,12 +1154,20 @@ class _CardDetailSheetState extends State<_CardDetailSheet> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Cancel card?'),
-        content: const Text('This action cannot be undone. The card will be permanently cancelled.'),
+        content: const Text(
+          'This action cannot be undone. The card will be permanently cancelled.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Cancel Card', style: TextStyle(color: DayFiColors.red)),
+            child: Text(
+              'Cancel Card',
+              style: TextStyle(color: DayFiColors.red),
+            ),
           ),
         ],
       ),
@@ -824,8 +1181,9 @@ class _CardDetailSheetState extends State<_CardDetailSheet> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _cancelling = false);
@@ -838,99 +1196,144 @@ class _CardDetailSheetState extends State<_CardDetailSheet> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Center(
-          child: Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Card Details',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700)),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Icon(Icons.close,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Card Details',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(
+                  Icons.close,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            ],
           ),
-        ]),
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
 
-        // Mini card visual
-        _CardVisual(card: c, onTap: () {}),
-        const SizedBox(height: 20),
+          // Mini card visual
+          _CardVisual(card: c, onTap: () {}),
+          const SizedBox(height: 20),
 
-        _DetailRow(label: 'Card number', value: c.cardNumber),
-        _DetailRow(label: 'Currency',    value: c.currency),
-        _DetailRow(label: 'Type',        value: c.type),
-        _DetailRow(label: 'Status',      value: c.status),
-        if (c.spendingLimit != null)
+          _DetailRow(label: 'Card number', value: c.cardNumber),
+          _DetailRow(label: 'Currency', value: c.currency),
+          _DetailRow(label: 'Type', value: c.type),
+          _DetailRow(label: 'Status', value: c.status),
+          if (c.spendingLimit != null)
+            _DetailRow(
+              label: 'Spend limit',
+              value:
+                  '${c.currency == 'USDC' ? '\$' : '₦'}${NumberFormat('#,##0').format(c.spendingLimit)} / ${c.spendingLimitPeriod}',
+            ),
           _DetailRow(
-            label: 'Spend limit',
-            value: '${c.currency == 'USDC' ? '\$' : '₦'}${NumberFormat('#,##0').format(c.spendingLimit)} / ${c.spendingLimitPeriod}',
+            label: 'Created',
+            value: DateFormat('MMM d, yyyy').format(c.createdAt),
           ),
-        _DetailRow(label: 'Created',
-            value: DateFormat('MMM d, yyyy').format(c.createdAt)),
 
-        const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-        // Actions
-        Row(children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(
-                  color: c.isFrozen
-                      ? DayFiColors.green.withOpacity(0.5)
-                      : const Color(0xFF64B5F6).withOpacity(0.5),
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: _toggling ? null : _toggleFreeze,
-              icon: _toggling
-                  ? const SizedBox(height: 16, width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(
-                      c.isFrozen ? Icons.play_circle_outline_rounded : Icons.ac_unit_rounded,
-                      size: 18,
-                      color: c.isFrozen ? DayFiColors.green : const Color(0xFF64B5F6),
+          // Actions
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                      color: c.isFrozen
+                          ? DayFiColors.green.withOpacity(0.5)
+                          : const Color(0xFF64B5F6).withOpacity(0.5),
                     ),
-              label: Text(
-                c.isFrozen ? 'Unfreeze' : 'Freeze',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w600,
-                  color: c.isFrozen ? DayFiColors.green : const Color(0xFF64B5F6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: (_toggling || _cancelling) ? null : _toggleFreeze,
+                  icon: _toggling
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          c.isFrozen
+                              ? Icons.play_circle_outline_rounded
+                              : Icons.ac_unit_rounded,
+                          size: 18,
+                          color: c.isFrozen
+                              ? DayFiColors.green
+                              : const Color(0xFF64B5F6),
+                        ),
+                  label: Text(
+                    c.isFrozen ? 'Unfreeze' : 'Freeze',
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontWeight: FontWeight.w600,
+                      color: c.isFrozen
+                          ? DayFiColors.green
+                          : const Color(0xFF64B5F6),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: DayFiColors.red.withOpacity(0.5)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: DayFiColors.red.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: (_cancelling || _toggling) ? null : _cancel,
+                  icon: _cancelling
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.cancel_outlined,
+                          size: 18,
+                          color: DayFiColors.red,
+                        ),
+                  label: Text(
+                    'Cancel',
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontWeight: FontWeight.w600,
+                      color: DayFiColors.red,
+                    ),
+                  ),
+                ),
               ),
-              onPressed: _cancelling ? null : _cancel,
-              icon: _cancelling
-                  ? const SizedBox(height: 16, width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(Icons.cancel_outlined, size: 18, color: DayFiColors.red),
-              label: Text('Cancel',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w600, color: DayFiColors.red)),
-            ),
+            ],
           ),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -945,14 +1348,23 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-        Text(value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500)),
-      ]),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -961,27 +1373,30 @@ class _Label extends StatelessWidget {
   final String text;
   const _Label(this.text);
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: GoogleFonts.outfit(
-        fontWeight: FontWeight.w500, fontSize: 12,
-        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)));
+  Widget build(BuildContext context) => Text(
+    text,
+    style: GoogleFonts.bricolageGrotesque(
+      fontWeight: FontWeight.w500,
+      fontSize: 12,
+      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+    ),
+  );
 }
 
 class _Field extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
-  final int maxLines;
-  final TextInputType? keyboardType;
-  const _Field({required this.controller, required this.hint,
-      this.maxLines = 1, this.keyboardType});
+  const _Field({
+    required this.controller,
+    required this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      style: GoogleFonts.outfit(fontSize: 14),
+      maxLines: 1,
+      style: GoogleFonts.bricolageGrotesque(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
@@ -994,7 +1409,10 @@ class _Field extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
       ),
     );
   }
