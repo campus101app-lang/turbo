@@ -1,0 +1,14 @@
+[00:00:05.420] Server  LOG     ✓ Ready in 5.2s
+[00:00:13.520] Server  LOG     ○ Compiling / ...
+[00:00:18.970] Server  WARN    ⚠ Cross origin request detected from 172.20.10.7 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+[00:00:19.021] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:19.970] Browser WARN    Image with src "http://172.20.10.7:3000/assets/down.svg" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+[00:00:19.970] Browser WARN    Image with src "http://172.20.10.7:3000/assets/svg/partners/aws.svg" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+[00:00:19.970] Browser WARN    Image with src "/assets/svg/partners/stellar.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+[00:01:42.392] Server  LOG     ✓ Compiled in 218ms
+[00:03:21.538] Server  LOG     ✓ Compiled in 171ms
+[00:03:21.967] Browser ERROR   uncaughtError: ReferenceError: useState is not defined
+[00:03:50.477] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:03:50.490] Server  LOG     ✓ Compiled in 189ms
+[00:03:51.091] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

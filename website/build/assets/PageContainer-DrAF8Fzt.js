@@ -1,0 +1,2 @@
+import{j as t}from"./index-z0YDLvqI.js";const d=({children:o,maxWidth:a="lg",className:i="",tag:x="main"})=>{const l={narrow:"max-w-lg",sm:"max-w-2xl",md:"max-w-4xl",lg:"max-w-6xl",xl:"max-w-7xl",editorial:"w-full max-w-[var(--editorial-max)] px-4 md:px-6",full:"max-w-none w-full"},n=a==="editorial"?"":"px-4 md:px-6",m=x==="div"?"div":"main";return t.jsx(m,{id:x==="div"?void 0:"main-content",tabIndex:x==="div"?void 0:-1,className:`${l[a]} mx-auto ${n} py-8 ${i} focus:outline-none`,children:o})};export{d as P};
+//# sourceMappingURL=PageContainer-DrAF8Fzt.js.map

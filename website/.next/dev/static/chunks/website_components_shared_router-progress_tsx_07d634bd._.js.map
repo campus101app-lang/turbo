@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/mac/Desktop/dayfi.wallet/website/components/shared/router-progress.tsx"],"sourcesContent":["'use client';\nimport { AppProgressBar as ProgressBar } from 'next-nprogress-bar';\nimport { Suspense } from 'react';\n\nexport function RouteProgress() {\n  return (\n    <Suspense fallback={null}>\n      <ProgressBar\n        height='4px'\n        color='#FF8300'\n        options={{ showSpinner: false }}\n        shallowRouting\n      />\n    </Suspense>\n  );\n}\n"],"names":[],"mappings":";;;;;AACA;AACA;AAFA;;;;AAIO,SAAS;IACd,qBACE,wMAAC,oLAAQ;QAAC,UAAU;kBAClB,cAAA,wMAAC,yLAAW;YACV,QAAO;YACP,OAAM;YACN,SAAS;gBAAE,aAAa;YAAM;YAC9B,cAAc;;;;;;;;;;;AAItB;KAXgB"}}]
+}
