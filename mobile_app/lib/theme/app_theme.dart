@@ -286,3 +286,190 @@ class AppTheme {
     );
   }
 }
+
+/// App-specific semantic theme colors used across categories, recurring items,
+/// transactions, charts, tabs, etc.
+///
+/// This extension works together with the main AppTheme (DayFiColors).
+class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
+  const AppThemeExtension({
+    required this.surfaceBackground,
+    required this.cardSurface,
+    required this.sheetSurface,
+    required this.cardBorder,
+    required this.primaryText,
+    required this.secondaryText,
+    required this.sectionHeader,
+    required this.hintText,
+    required this.chartUnfilled,
+    required this.gradientOverlay,
+    required this.monthlyCardSurface,
+    required this.contentBackground,
+    required this.headerIconColor,
+    required this.tabIndicatorColor,
+    required this.tabSelectedColor,
+    required this.tabUnselectedColor,
+    required this.errorColor,
+  });
+
+  // Main background (scaffold, list views)
+  final Color surfaceBackground;
+
+  // Card/container background
+  final Color cardSurface;
+
+  // Bottom sheet / modal surface
+  final Color sheetSurface;
+
+  // Card borders
+  final Color cardBorder;
+
+  // Primary text (amounts, titles, important content)
+  final Color primaryText;
+
+  // Secondary text (labels, subtitles)
+  final Color secondaryText;
+
+  // Section headers
+  final Color sectionHeader;
+
+  // Hint / placeholder text
+  final Color hintText;
+
+  // Chart unfilled / background segments
+  final Color chartUnfilled;
+
+  // Gradient overlays (e.g. search bar fade)
+  final Color gradientOverlay;
+
+  // Monthly review / summary card
+  final Color monthlyCardSurface;
+
+  // Main content area background (inside tabs)
+  final Color contentBackground;
+
+  // Header icons (settings, refresh, etc.)
+  final Color headerIconColor;
+
+  // Tab bar indicator
+  final Color tabIndicatorColor;
+
+  // Selected tab label / active state
+  final Color tabSelectedColor;
+
+  // Unselected tab label
+  final Color tabUnselectedColor;
+
+  // Error / negative values (debt, negative balance)
+  final Color errorColor;
+
+  static AppThemeExtension get dark => AppThemeExtension(
+        surfaceBackground: DayFiColors.background,           // 0xFF000000
+        cardSurface: DayFiColors.card,                       // 0xFF111111
+        sheetSurface: DayFiColors.surface,                   // 0xFF0A0A0A
+        cardBorder: DayFiColors.border,                      // 0xFF1E1E1E
+        primaryText: DayFiColors.textPrimary,                // 0xFFFFFFFF
+        secondaryText: DayFiColors.textSecondary,            // 0xFF888888
+        sectionHeader: const Color(0xFFAAAAAA),              // slightly brighter for headers
+        hintText: DayFiColors.textMuted,                     // 0xFF444444
+        chartUnfilled: const Color(0xFF1E1E1E),              // subtle unfilled chart bg
+        gradientOverlay: DayFiColors.background,             // fade to black
+        monthlyCardSurface: DayFiColors.card,                // same as cards for consistency
+        contentBackground: DayFiColors.surface,              // 0xFF0A0A0A
+        headerIconColor: const Color(0xFFAAAAAA),
+        tabIndicatorColor: DayFiColors.green,                // accent green for active tab
+        tabSelectedColor: DayFiColors.textPrimary,
+        tabUnselectedColor: DayFiColors.textSecondary,
+        errorColor: DayFiColors.red,                         // 0xFFFF4444
+      );
+
+  static AppThemeExtension get light => AppThemeExtension(
+        surfaceBackground: DayFiColors.lightBackground,      // 0xFFF5F5F5
+        cardSurface: DayFiColors.lightCard,                  // 0xFFF0F0F0
+        sheetSurface: DayFiColors.lightSurface,              // 0xFFFFFFFF
+        cardBorder: DayFiColors.lightBorder,                 // 0xFFE0E0E0
+        primaryText: DayFiColors.lightTextPrimary,           // 0xFF000000
+        secondaryText: DayFiColors.lightTextSecondary,       // 0xFF666666
+        sectionHeader: const Color(0xFF2C2C2C),
+        hintText: const Color(0xFF999999),
+        chartUnfilled: const Color(0xFFEEEEEE),
+        gradientOverlay: const Color(0xFFF8F8F8),
+        monthlyCardSurface: DayFiColors.lightCard,
+        contentBackground: DayFiColors.lightBackground,
+        headerIconColor: const Color(0xFF555555),
+        tabIndicatorColor: const Color(0xFF00B459),          // matches light secondary
+        tabSelectedColor: DayFiColors.lightTextPrimary,
+        tabUnselectedColor: DayFiColors.lightTextSecondary,
+        errorColor: DayFiColors.red,
+      );
+
+  @override
+  AppThemeExtension copyWith({
+    Color? surfaceBackground,
+    Color? cardSurface,
+    Color? sheetSurface,
+    Color? cardBorder,
+    Color? primaryText,
+    Color? secondaryText,
+    Color? sectionHeader,
+    Color? hintText,
+    Color? chartUnfilled,
+    Color? gradientOverlay,
+    Color? monthlyCardSurface,
+    Color? contentBackground,
+    Color? headerIconColor,
+    Color? tabIndicatorColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? errorColor,
+  }) {
+    return AppThemeExtension(
+      surfaceBackground: surfaceBackground ?? this.surfaceBackground,
+      cardSurface: cardSurface ?? this.cardSurface,
+      sheetSurface: sheetSurface ?? this.sheetSurface,
+      cardBorder: cardBorder ?? this.cardBorder,
+      primaryText: primaryText ?? this.primaryText,
+      secondaryText: secondaryText ?? this.secondaryText,
+      sectionHeader: sectionHeader ?? this.sectionHeader,
+      hintText: hintText ?? this.hintText,
+      chartUnfilled: chartUnfilled ?? this.chartUnfilled,
+      gradientOverlay: gradientOverlay ?? this.gradientOverlay,
+      monthlyCardSurface: monthlyCardSurface ?? this.monthlyCardSurface,
+      contentBackground: contentBackground ?? this.contentBackground,
+      headerIconColor: headerIconColor ?? this.headerIconColor,
+      tabIndicatorColor: tabIndicatorColor ?? this.tabIndicatorColor,
+      tabSelectedColor: tabSelectedColor ?? this.tabSelectedColor,
+      tabUnselectedColor: tabUnselectedColor ?? this.tabUnselectedColor,
+      errorColor: errorColor ?? this.errorColor,
+    );
+  }
+
+  @override
+  AppThemeExtension lerp(ThemeExtension<AppThemeExtension>? other, double t) {
+    if (other is! AppThemeExtension) return this;
+    return AppThemeExtension(
+      surfaceBackground: Color.lerp(surfaceBackground, other.surfaceBackground, t)!,
+      cardSurface: Color.lerp(cardSurface, other.cardSurface, t)!,
+      sheetSurface: Color.lerp(sheetSurface, other.sheetSurface, t)!,
+      cardBorder: Color.lerp(cardBorder, other.cardBorder, t)!,
+      primaryText: Color.lerp(primaryText, other.primaryText, t)!,
+      secondaryText: Color.lerp(secondaryText, other.secondaryText, t)!,
+      sectionHeader: Color.lerp(sectionHeader, other.sectionHeader, t)!,
+      hintText: Color.lerp(hintText, other.hintText, t)!,
+      chartUnfilled: Color.lerp(chartUnfilled, other.chartUnfilled, t)!,
+      gradientOverlay: Color.lerp(gradientOverlay, other.gradientOverlay, t)!,
+      monthlyCardSurface: Color.lerp(monthlyCardSurface, other.monthlyCardSurface, t)!,
+      contentBackground: Color.lerp(contentBackground, other.contentBackground, t)!,
+      headerIconColor: Color.lerp(headerIconColor, other.headerIconColor, t)!,
+      tabIndicatorColor: Color.lerp(tabIndicatorColor, other.tabIndicatorColor, t)!,
+      tabSelectedColor: Color.lerp(tabSelectedColor, other.tabSelectedColor, t)!,
+      tabUnselectedColor: Color.lerp(tabUnselectedColor, other.tabUnselectedColor, t)!,
+      errorColor: Color.lerp(errorColor, other.errorColor, t)!,
+    );
+  }
+
+  /// Convenient getter
+  static AppThemeExtension of(BuildContext context) {
+    return Theme.of(context).extension<AppThemeExtension>() ?? dark;
+  }
+}

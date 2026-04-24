@@ -11,7 +11,7 @@ datasource db {
 model User {
   id          String  @id @default(cuid())
   email       String  @unique
-  username    String? @unique          // now optional — legacy users keep theirs
+  username    String? @unique
   isVerified  Boolean @default(false)
 
   // OTP
@@ -21,20 +21,25 @@ model User {
 
   // Stellar wallet
   stellarPublicKey  String? @unique
-  stellarSecretKey  String?           // AES-256-GCM encrypted
-  encryptedMnemonic String?           // BIP-39 mnemonic, AES-256-GCM encrypted
+  stellarSecretKey  String?
+  encryptedMnemonic String?
 
   // Security & backup
   faceIdEnabled Boolean @default(false)
   isBackedUp    Boolean @default(false)
 
-  // ── Business profile (new) ─────────────────────────────
+  // ── Business profile ───────────────────────────────────
   fullName          String?
   businessName      String?
   businessCategory  String?
-  businessEmail     String?           // separate from login email, optional
+  businessEmail     String?
 
-  // ── Merchant / inventory (existing) ────────────────────
+  // ── Virtual account (Flutterwave) ──────────────────────
+  virtualAccountNumber String?
+  virtualAccountBank   String?
+  virtualAccountName   String?
+
+  // ── Merchant / inventory ────────────────────────────────
   isMerchant        Boolean @default(false)
   inventory         InventoryItem[]
 
@@ -47,9 +52,12 @@ model User {
   transactions        Transaction[]
   deviceTokens        DeviceToken[]
   invoices            Invoice[]
-  expenseSubmissions  Expense[]         @relation("SubmittedBy")
-  expenseApprovals    Expense[]         @relation("ApprovedBy")
+  expenseSubmissions  Expense[]          @relation("SubmittedBy")
+  expenseApprovals    Expense[]          @relation("ApprovedBy")
   flutterwavePayments FlutterwavePayment[]
+  cards               Card[]
+  workflows           Workflow[]
+  paymentRequests     PaymentRequest[]
 
   @@index([email])
   @@index([username])
@@ -65,11 +73,9 @@ model Transaction {
   status TransactionStatus @default(pending)
 
   amount Float
-  // USDC | NGNT | XLM
-  asset  String
+  asset  String             // USDC | NGNT | XLM
 
-  // stellar | flutterwave
-  network String @default("stellar")
+  network String @default("stellar")  // stellar | flutterwave
 
   fromAddress String?
   toAddress   String?
@@ -80,7 +86,7 @@ model Transaction {
   memo String?
   fee  Float?
 
-  // Swap-specific fields
+  // Swap-specific
   isSwap        Boolean @default(false)
   swapId        String?
   swapFromAsset String?
@@ -88,18 +94,18 @@ model Transaction {
   receivedAmount Float?
 
   // Fiat-specific (Flutterwave)
-  flutterwaveRef    String?           // Flutterwave transaction reference
-  fiatAmount        Float?            // NGN amount paid by user
-  fiatCurrency      String?           // "NGN"
-  flutterwaveStatus String?           // "successful" | "failed" | "pending"
+  flutterwaveRef    String?
+  fiatAmount        Float?
+  fiatCurrency      String?
+  flutterwaveStatus String?
 
-  // Invoice linkage
-  invoiceId     String?
-  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
-
-  // Expense linkage
-  expenseId     String?
-  expense       Expense? @relation(fields: [expenseId], references: [id])
+  // Linkages
+  invoiceId       String?
+  invoice         Invoice?        @relation(fields: [invoiceId], references: [id])
+  expenseId       String?
+  expense         Expense?        @relation(fields: [expenseId], references: [id])
+  paymentRequestId String?
+  paymentRequest  PaymentRequest? @relation(fields: [paymentRequestId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,45 +123,38 @@ model Invoice {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  invoiceNumber String   @unique         // e.g. INV-2024-0001
+  invoiceNumber String   @unique
   title         String
   description   String?
 
-  // Client details
   clientName    String
   clientEmail   String?
   clientPhone   String?
   clientAddress String?
 
-  // Line items stored as JSON: [{ description, quantity, unitPrice, vatRate }]
   lineItems     Json
 
-  // Totals
   subtotal      Float
   vatAmount     Float   @default(0)
   totalAmount   Float
   currency      String  @default("NGNT")  // NGNT | USDC
 
-  // Payment settings
-  paymentType   InvoicePaymentType @default(crypto)
-  bankAccountDetails Json?           // for NGN bank-transfer invoices
-  paymentLink   String?              // generated shareable link
+  paymentType        InvoicePaymentType @default(crypto)
+  bankAccountDetails Json?
+  paymentLink        String?
 
-  // Status & dates
   status        InvoiceStatus @default(draft)
   dueDate       DateTime?
   sentAt        DateTime?
   viewedAt      DateTime?
   paidAt        DateTime?
 
-  // Recurring
-  isRecurring   Boolean @default(false)
-  recurringInterval RecurringInterval?
-  nextDueDate   DateTime?
+  isRecurring        Boolean @default(false)
+  recurringInterval  RecurringInterval?
+  nextDueDate        DateTime?
 
-  // VAT
   vatEnabled    Boolean @default(false)
-  vatRate       Float   @default(7.5)    // Nigeria standard VAT 7.5%
+  vatRate       Float   @default(7.5)
 
   transactions  Transaction[]
 
@@ -172,31 +171,27 @@ model Invoice {
 model Expense {
   id           String @id @default(cuid())
 
-  // Submitted by employee
   submittedById String
   submittedBy   User  @relation("SubmittedBy", fields: [submittedById], references: [id])
 
-  // Approved/rejected by manager
   approvedById  String?
   approvedBy    User?  @relation("ApprovedBy", fields: [approvedById], references: [id])
 
   title         String
   description   String?
   amount        Float
-  currency      String  @default("NGN")   // NGN | USDC
-  onChainAsset  String? @default("NGNT")  // the Stellar asset used for reimbursement
+  currency      String  @default("NGN")
+  onChainAsset  String? @default("NGNT")
 
   category      ExpenseCategory
-  receiptUrl    String?                   // uploaded receipt image URL
+  receiptUrl    String?
 
   status        ExpenseStatus @default(pending)
   rejectionNote String?
 
-  // Reimbursement
   reimbursedAt  DateTime?
   transactions  Transaction[]
 
-  // Notes / audit
   notes         String?
   approvedAt    DateTime?
 
@@ -207,30 +202,145 @@ model Expense {
   @@index([status])
 }
 
+// ── Card ──────────────────────────────────────────────────────────────────────
+// Virtual (and future physical) debit cards linked to user balances.
+
+model Card {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Card identity
+  cardNumber     String  @unique           // masked: last 4 digits stored, full number never stored
+  last4          String                    // e.g. "4242"
+  cardholderName String
+  expiryMonth    Int                       // 1–12
+  expiryYear     Int                       // e.g. 2028
+  cvvHash        String?                   // hashed CVV, never plain text
+
+  // Card type & currency
+  type           CardType  @default(virtual)
+  currency       CardCurrency @default(USDC) // USDC | NGN
+
+  // Status
+  status         CardStatus @default(active)
+  frozenAt       DateTime?
+  cancelledAt    DateTime?
+
+  // Limits
+  spendingLimit       Float?               // daily spend limit (optional)
+  spendingLimitPeriod String? @default("daily") // daily | monthly
+
+  // Provider (for future integrations e.g. Stripe Issuing, Union54)
+  provider       String? @default("internal")
+  providerCardId String?                   // external card ID from provider
+
+  // Metadata
+  label          String?                   // user-defined nickname e.g. "Marketing Card"
+  color          String? @default("#6C47FF") // hex color for card UI
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ── Workflow ──────────────────────────────────────────────────────────────────
+// Automation rules: trigger → action.
+
+model Workflow {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  // Trigger: what event starts this workflow
+  triggerType  WorkflowTrigger
+  triggerConfig Json            // e.g. { "day": 1, "month": "*" } for monthly payroll
+
+  // Action: what happens when triggered
+  actionType   WorkflowAction
+  actionConfig Json            // e.g. { "to": "user@dayfi.me", "amount": 500, "asset": "USDC" }
+
+  // Status
+  status       WorkflowStatus @default(active)
+  pausedAt     DateTime?
+
+  // Execution tracking
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  runCount     Int @default(0)
+  failCount    Int @default(0)
+  lastError    String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([nextRunAt])
+}
+
+// ── PaymentRequest ────────────────────────────────────────────────────────────
+// Lightweight "pay me" requests — simpler than invoices.
+
+model PaymentRequest {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Request details
+  requestNumber String  @unique            // e.g. REQ-2025-0001
+  amount        Float
+  asset         String  @default("USDC")  // USDC | NGNT | XLM
+
+  note          String?                   // optional message to payer
+  payerName     String?                   // who you're requesting from
+  payerEmail    String?
+
+  // Payment link
+  paymentLink   String?
+
+  // Status
+  status        RequestStatus @default(pending)
+  paidAt        DateTime?
+  expiresAt     DateTime?                 // optional expiry
+
+  // Paid transaction linkage
+  transactions  Transaction[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestNumber])
+}
+
 // ── FlutterwavePayment ────────────────────────────────────────────────────────
-// Tracks each Flutterwave payment session (both deposits and withdrawals)
 
 model FlutterwavePayment {
   id            String @id @default(cuid())
   userId        String
   user          User   @relation(fields: [userId], references: [id])
 
-  txRef         String @unique             // our generated reference
-  flwRef        String?                    // Flutterwave's reference (set after payment)
+  txRef         String @unique
+  flwRef        String?
 
-  type          FwPaymentType             // deposit | withdrawal
-  fiatAmount    Float                     // NGN amount
-  onChainAmount Float?                    // NGNT credited/debited on Stellar
+  type          FwPaymentType
+  fiatAmount    Float
+  onChainAmount Float?
   currency      String @default("NGN")
 
   status        FwPaymentStatus @default(initiated)
 
-  // For withdrawals
   bankCode      String?
   accountNumber String?
   accountName   String?
 
-  // Metadata
   customerEmail String?
   customerName  String?
   redirectUrl   String?
@@ -250,7 +360,7 @@ model DeviceToken {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
-  platform  String                       // ios | android
+  platform  String
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -285,10 +395,11 @@ enum TransactionType {
   send
   receive
   swap
-  fiatDeposit    // Flutterwave NGN → NGNT credit
-  fiatWithdrawal // NGNT burn → Flutterwave NGN payout
+  fiatDeposit
+  fiatWithdrawal
   invoicePayment
   expenseReimbursement
+  requestPayment
 }
 
 enum TransactionStatus {
@@ -307,9 +418,9 @@ enum InvoiceStatus {
 }
 
 enum InvoicePaymentType {
-  crypto      // NGNT or USDC on-chain
-  bankTransfer // NGN via Flutterwave payment link
-  both        // user can choose at payment time
+  crypto
+  bankTransfer
+  both
 }
 
 enum RecurringInterval {
@@ -348,4 +459,49 @@ enum FwPaymentStatus {
   pending
   successful
   failed
+}
+
+enum CardType {
+  virtual
+  physical
+}
+
+enum CardCurrency {
+  USDC
+  NGN
+}
+
+enum CardStatus {
+  active
+  frozen
+  cancelled
+}
+
+enum WorkflowTrigger {
+  scheduled          // runs on a cron-like schedule
+  balanceThreshold   // triggers when balance drops below X
+  invoicePaid        // triggers when an invoice is marked paid
+  expenseApproved    // triggers when an expense is approved
+  manualRun          // user triggers it manually
+}
+
+enum WorkflowAction {
+  sendPayment        // auto-send funds to a recipient
+  createInvoice      // auto-generate a recurring invoice
+  sendReminder       // send payment reminder notification
+  notifyUser         // push notification to user
+  flagExpense        // flag expense for review
+}
+
+enum WorkflowStatus {
+  active
+  paused
+  archived
+}
+
+enum RequestStatus {
+  pending
+  paid
+  expired
+  cancelled
 }

@@ -38,7 +38,7 @@ class _BiometricScreenState extends State<BiometricScreen> {
     setState(() => _loading = true);
     try {
       final ok = await _auth.authenticate(
-        localizedReason: 'Enable Face ID to secure your wallet',
+        localizedReason: 'Enable Face ID to secure your account',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -74,7 +74,7 @@ class _BiometricScreenState extends State<BiometricScreen> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -117,13 +117,13 @@ class _BiometricScreenState extends State<BiometricScreen> {
                 ),
                 // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
 
                 // Subtitle
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child:        Text(
-                  'Use Face ID every time you open the app to keep your wallet secure.',
+                  'Use Face ID every time you open the app to keep your account secure.',
                   style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: 16,
                     letterSpacing: -0.3,

@@ -323,7 +323,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           // Search bar overlay
           SizedBox(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 64, 16, 18),
+              padding: const EdgeInsets.fromLTRB(16, 124, 16, 100),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -528,7 +528,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             size: 48,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.050),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           Text(
             'No transactions yet',
             style: Theme.of(context).textTheme.bodyMedium,
@@ -572,7 +572,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         return false;
       },
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 140, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 124 + 76, 16, 100),
         itemCount: items.length + (_hasMore ? 1 : 0),
         itemBuilder: (ctx, i) {
           if (i == items.length) {
@@ -586,7 +586,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
           if (item['type'] == 'header') {
             return Padding(
-              padding: const EdgeInsets.only(top: 20, bottom: 8),
+              padding: const EdgeInsets.only(top: 20, bottom: 4),
               child: Text(
                 item['label'] as String,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -594,7 +594,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     context,
                   ).colorScheme.onSurface.withOpacity(0.5),
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
             );
@@ -838,7 +838,7 @@ class _RemovableChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(right: 6),
+      margin: const EdgeInsets.only(right: 16),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       // decoration: BoxDecoration(
       //   // color: Theme.of(context).colorScheme.primary.withOpacity(.15),
@@ -952,7 +952,7 @@ void _showTxDetails(BuildContext context, Map<String, dynamic> tx) {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
           // Transaction type and asset name
           Text(
@@ -1193,8 +1193,8 @@ class _TxTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       child: Image.asset(
                         _getCurrencyLogoAsset(asset),
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                       ),
                     ),
                   ),
@@ -1220,7 +1220,7 @@ class _TxTile extends StatelessWidget {
                       color: Theme.of(
                         context,
                       ).colorScheme.onSurface.withOpacity(.95),
-                      letterSpacing: -.1,
+                      letterSpacing: .4,
                     ),
                   ),
 
@@ -1245,9 +1245,10 @@ class _TxTile extends StatelessWidget {
                 Text(
                   _getUsdAmount(amount, asset),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(1),
-                    fontWeight: FontWeight.w600,
                     fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 // Coin Amount

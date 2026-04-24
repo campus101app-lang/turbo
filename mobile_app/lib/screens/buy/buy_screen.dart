@@ -176,7 +176,7 @@ class _BuyScreenState extends State<BuyScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -322,7 +322,7 @@ class _BuyScreenState extends State<BuyScreen> {
               ),),
                 // .animate().fadeIn(delay: 100.ms),),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Quote card ──────────────────────────────
               if (_loadingQuote)
@@ -477,7 +477,7 @@ class _SellScreenState extends State<SellScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

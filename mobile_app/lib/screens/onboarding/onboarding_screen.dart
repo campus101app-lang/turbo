@@ -95,7 +95,7 @@ class OnboardingScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                                'For fast moving businesses',
+                                'Your Business in Naira & Dollars',
                                 style: GoogleFonts.bricolageGrotesque(
                                   fontSize: 36,
                                   fontWeight: FontWeight.w700,
@@ -111,14 +111,14 @@ class OnboardingScreen extends StatelessWidget {
 
                           const SizedBox(height: 24),
                           Text(
-                            'Unstoppable Freedom for Your Business.',
+                            'The wallet designed for your business.',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(height: 1.2, color: Colors.white),
                             textAlign: TextAlign.center,
                           ),
                           // .animate().fadeIn(delay: 200.ms, duration: 600.ms),
                           Text(
-                            'A wallet built for real business: your wealth, remittances, and everyday transfers. Simple, powerful, yours.',
+                            'Get your virtual account instantly and start getting paid today.',
                             style: Theme.of(
                               context,
                             ).textTheme.bodyMedium?.copyWith(height: 1.2),
@@ -133,7 +133,7 @@ class OnboardingScreen extends StatelessWidget {
 
                     // Buttons
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
                           // Create wallet
@@ -167,7 +167,7 @@ class OnboardingScreen extends StatelessWidget {
                                 ).colorScheme.onSurface.withOpacity(.90),
                               ),
                               label: Text(
-                                'Create a New Wallet',
+                                'Create a New Account',
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: Theme.of(
@@ -211,11 +211,12 @@ class OnboardingScreen extends StatelessWidget {
                                   height: 20,
                                   color: Theme.of(
                                     context,
+                                    
                                   ).colorScheme.onSurface.withOpacity(.90),
                                 ),
                               ),
                               label: Text(
-                                'Log in to existing wallet',
+                                'Log in to existing account',
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: Theme.of(

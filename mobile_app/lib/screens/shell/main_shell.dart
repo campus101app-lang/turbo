@@ -4,15 +4,19 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:mobile_app/providers/wallet_provider.dart';
 import 'package:mobile_app/screens/accounts/accounts_screen.dart';
+import 'package:mobile_app/screens/cards/cards_screen.dart';
 import 'package:mobile_app/screens/home/home_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
 import 'package:mobile_app/screens/expenses/expenses_screen.dart';
+import 'package:mobile_app/screens/requests/requests_screen.dart';
 // import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/settings/settings_screen.dart';
 import 'package:mobile_app/screens/transactions/transactions_screen.dart';
+import 'package:mobile_app/screens/workflows/workflows_screen.dart';
 import 'package:mobile_app/services/api_service.dart';
 import 'package:mobile_app/widgets/app_background.dart';
 // import 'package:mobile_app/widgets/adaptive_bottom_navigation_bar.dart';
@@ -20,15 +24,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _tabsText = [
-  // _TabData(icon: 'assets/icons/svgs/my_shop.svg', label: 'Get started'),
-  // _TabData(icon: 'assets/icons/svgs/wallet.svg', label: 'Cards'),
-  'Accounts',
-  // 'Investments',
-  'Transactions',
-  'Dashboard',
-  // 'Requests',
   'Invoicing',
   'Expenses',
+  'Transactions',
+  'Dashboard',
+  'Requests',
+  'Accounts',
+  'Cards',
+  'Workflows',
 ];
 
 class MainShell extends ConsumerStatefulWidget {
@@ -45,7 +48,7 @@ class _MainShellState extends ConsumerState<MainShell>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this, initialIndex: 2);
+    _tabController = TabController(length: 8, vsync: this, initialIndex: 3);
   }
 
   @override
@@ -110,97 +113,76 @@ class _MainShellState extends ConsumerState<MainShell>
         AppBackground(
           child: Scaffold(
             backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              centerTitle: true,
-              automaticallyImplyLeading: false,
-              title: _buildTopBar(context),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    onTap: _openMenu,
-                    child: SvgPicture.asset(
-                      "assets/icons/svgs/menu.svg",
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.55),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            body: SizedBox.expand(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(32),
-                      ),
-                      child: Container(
-                        // padding: const EdgeInsets.only(bottom: 32),
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
+            body: SafeArea(
+              bottom: false,
+              child: SizedBox.expand(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
                         ),
-                        child: Stack(
-                          children: [
-                            // ── Tab content ──────────────────────────
-                            Positioned.fill(
-                              child: TabBarView(
-                                controller: _tabController,
-                                children: [
-                                  // Tab 0: Accounts
-                                  const AccountsScreen(),
-                                  // Tab 1: Transactions
-                                  TransactionsScreen(
-                                    tabController: _tabController,
-                                  ),
-                                  // Tab 2: Dashboard
-                                  const HomeScreen(),
-                                  // Tab 3: Invoicing
-                                  const InvoicesScreen(),
-                                  // Tab 4: Expenses
-                                  const ExpensesScreen(),
-                                ],
-                              ),
+                        child: Container(
+                          // padding: const EdgeInsets.only(bottom: 32),
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(32),
                             ),
-                            // ── Header overlay ───────────────────────
-                            _HeaderOverlay(
-                              ref: ref,
-                              tabController: _tabController,
-                              labels: _tabsText,
-                              isRefreshing: false,
-                              isOnline: true,
-                              onRefresh: () {},
-                              onTap: _openMenu,
-                              onSettings: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const SettingsScreen(),
+                          ),
+                          child: Stack(
+                            children: [
+                              // ── Tab content ──────────────────────────
+                              Positioned.fill(
+                                child: TabBarView(
+                                  controller: _tabController,
+                                  children: [
+                                    const InvoicesScreen(),
+                                    const ExpensesScreen(),
+                                    TransactionsScreen(
+                                      tabController: _tabController,
+                                    ),
+                                    const HomeScreen(),
+                                    const RequestsScreen(),
+                                    const AccountsScreen(),
+                                    const CardsScreen(),
+                                    const WorkflowsScreen(),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                              // ── Header overlay ───────────────────────
+                              _HeaderOverlay(
+                                ref: ref,
+                                tabController: _tabController,
+                                labels: _tabsText,
+                                isRefreshing: false,
+                                isOnline: true,
+                                onRefresh: () {},
+                                onTap: _openMenu,
+                                onSettings: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const SettingsScreen(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            bottomNavigationBar: 
+            // bottomNavigationBar:
             // _tabController.index == 0
             //     ?
-                 _buildActionRow()
-                // : null,
+
+            // : null,
           ),
         ),
+
+        _buildActionRow(),
       ],
     );
   }
@@ -208,38 +190,48 @@ class _MainShellState extends ConsumerState<MainShell>
   Widget _buildActionRow() {
     final walletState = ref.watch(walletProvider);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 112, vertical: 24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 112, vertical: 24),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.04),
+              ),
+            ),
+            child: Row(
+              children: [
+                _ActionButton(
+                  icon: "assets/icons/svgs/receive.svg",
+                  label: 'Receive',
+                  onTap: () => context.push('/receive'),
+                ),
+                // _ActionButton(
+                //   icon: "assets/icons/svgs/swap.svg",
+                //   label: 'Swap',
+                //   onTap: () => _handleSwapTap(walletState),
+                // ),
+                _ActionButton(
+                  icon: "assets/icons/svgs/send.svg",
+                  label: 'Send',
+                  onTap: () => _handleSendTap(walletState),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            _ActionButton(
-              icon: "assets/icons/svgs/receive.svg",
-              label: 'Receive',
-              onTap: () => context.push('/receive'),
-            ),
-            // _ActionButton(
-            //   icon: "assets/icons/svgs/swap.svg",
-            //   label: 'Swap',
-            //   onTap: () => _handleSwapTap(walletState),
-            // ),
-            _ActionButton(
-              icon: "assets/icons/svgs/send.svg",
-              label: 'Send',
-              onTap: () => _handleSendTap(walletState),
-            ),
-          ],
-        ),
+        ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.4, end: 0),
       ),
-    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.4, end: 0);
+    );
   }
 
   void _handleSendTap(WalletState walletState) {
@@ -523,29 +515,103 @@ class _HeaderOverlay extends StatelessWidget {
     // final ext = AppThemeExtension.of(context);
 
     return Container(
-      decoration: const BoxDecoration(
-        // gradient: LinearGradient(
-        //   begin: Alignment.topCenter,
-        //   end: Alignment.bottomCenter,
-        //   colors: [
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: .95),
-        //     const Color(0xff010E1F).withValues(alpha: 0),
-        //   ],
-        // ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: .95),
+            const Color(0xff010E1F).withValues(alpha: 0),
+          ],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(0)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, right: 8),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 46,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onSettings,
+                    onLongPress: () async {
+                      // await AppPreferences.setDemoMode(false);
+                      // if (context.mounted) {
+                      //   ref.invalidate(isDemoModeProvider);
+                      //   ref.invalidate(shouldShowHomeProvider);
+                      // }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: SvgPicture.asset(
+                        'assets/icons/svgs/home_settings.svg',
+                        height: 30,
+                        colorFilter: ColorFilter.mode(
+                          Theme.of(context).colorScheme.onSurface,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'dayfy',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 46,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onTap,
+                    onLongPress: () async {
+                      // await AppPreferences.setDemoMode(false);
+                      // if (context.mounted) {
+                      //   // ref.invalidate(isDemoModeProvider);
+                      //   // ref.invalidate(shouldShowHomeProvider);
+                      // }
+                    },
+
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+
+                      child: SvgPicture.asset(
+                        "assets/icons/svgs/menu.svg",
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.55),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 3),
+
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -560,35 +626,27 @@ class _HeaderOverlay extends StatelessWidget {
                 indicator: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).textTheme.bodySmall?.color?.withOpacity(0.1),
+                  ).colorScheme.primary.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.color!.withOpacity(.85),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                  letterSpacing: -.1,
+                labelStyle: GoogleFonts.bricolageGrotesque(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .2,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                labelColor: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.color!.withOpacity(.85),
-                unselectedLabelStyle: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).textTheme.bodyLarge?.color!.withOpacity(.5),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                      letterSpacing: -.1,
-                    ),
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelStyle: GoogleFonts.bricolageGrotesque(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .2,
+                ),
                 unselectedLabelColor: Theme.of(
                   context,
-                ).textTheme.bodyLarge?.color!.withOpacity(.5),
+                ).colorScheme.onSurface.withOpacity(0.55),
                 padding: const EdgeInsets.symmetric(
                   vertical: 6,
                   horizontal: 200,

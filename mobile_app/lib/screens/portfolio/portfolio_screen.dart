@@ -366,7 +366,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
     final walletState = ref.watch(walletProvider);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -767,7 +767,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Row(
           children: [
             SizedBox(
@@ -866,7 +866,7 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
             letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         ...assets.asMap().entries.map((e) {
           final a = e.value;
           final alloc = total > 0 ? a.usdValue / total : 0.0;
@@ -1073,7 +1073,7 @@ class _AssetDetailSheetState extends State<_AssetDetailSheet> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(48),
-                child: Image.asset(d.imagePath, width: 18, height: 18),
+                child: Image.asset(d.imagePath, width: 18, height: 16),
               ),
               const SizedBox(width: 8),
               Text(
@@ -1097,11 +1097,11 @@ class _AssetDetailSheetState extends State<_AssetDetailSheet> {
           //     height: 1,
           //   ),
           // ),
-          // const SizedBox(height: 16),
+          // const SizedBox(height: 6),
 
           // _ChangeBadge(changePercent: d.changePercent),
 
-          // const SizedBox(height: 16),
+          // const SizedBox(height: 6),
 
           // ─ Period selector
           // Row(

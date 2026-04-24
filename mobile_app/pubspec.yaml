@@ -80,6 +80,8 @@ dependencies:
   nfc_manager_ndef: ^1.1.0
   liquid_glass_widgets: ^0.5.0
   adaptive_platform_ui: ^0.1.105
+  fl_chart: ^1.2.0
+  font_awesome_flutter: ^11.0.0
 
 dev_dependencies:
   flutter_test:

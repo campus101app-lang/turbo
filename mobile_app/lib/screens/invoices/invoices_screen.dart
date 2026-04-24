@@ -101,7 +101,7 @@ class InvoicesScreen extends ConsumerWidget {
                     invoice: inv,
                     onTap: () => _showInvoiceDetail(context, ref, inv),
                   )),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
             ],
           ],
         ],
@@ -492,7 +492,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                 decoration: _dec('e.g. Web Design Services'),
                 validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Client ─────────────────────────────────────────────────
               _Label('Client name'),
@@ -508,7 +508,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                 decoration: _dec('Client email (optional)'),
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Currency & payment type ────────────────────────────────
               _Label('Currency & Payment type'),
@@ -542,7 +542,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                   onTap: () => setState(() => _paymentType = 'both'),
                 ),
               ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Line items ─────────────────────────────────────────────
               _Label('Line items'),
@@ -560,7 +560,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Add line item'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── VAT ────────────────────────────────────────────────────
               Row(children: [
@@ -580,7 +580,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                 total: _total,
                 currency: _currency,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Due date ───────────────────────────────────────────────
               _Label('Due date (optional)'),
@@ -623,7 +623,7 @@ class _CreateInvoiceSheetState extends State<_CreateInvoiceSheet> {
                   ]),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
 
               // ── Recurring ──────────────────────────────────────────────
               Row(children: [
@@ -981,7 +981,7 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
               ),
             ]),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
         ],
 
         // Actions
@@ -1102,7 +1102,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.receipt_long_rounded, size: 56,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Text('No invoices yet',
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 8),

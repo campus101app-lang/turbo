@@ -17,6 +17,9 @@ import inventoryRoutes   from './routes/inventory.js';
 import paymentsRoutes    from './routes/payments.js';
 import invoicesRoutes    from './routes/invoices.js';
 import expensesRoutes    from './routes/expenses.js';
+import cardsRoutes       from './routes/cards.js';
+import workflowsRoutes   from './routes/workflows.js';
+import requestsRoutes    from './routes/requests.js';
 import { errorHandler }  from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -75,6 +78,9 @@ app.use('/api/inventory',    inventoryRoutes);
 app.use('/api/payments',     paymentsRoutes);
 app.use('/api/invoices',     invoicesRoutes);
 app.use('/api/expenses',     expensesRoutes);
+app.use('/api/cards',        cardsRoutes);
+app.use('/api/workflows',    workflowsRoutes);
+app.use('/api/requests',     requestsRoutes);
 
 // ─── SEP Routes ───────────────────────────────────────────────────────────────
 

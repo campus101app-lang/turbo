@@ -648,7 +648,7 @@ class _StockFlowChart extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           // Chart
           SizedBox(
             height: 120,
@@ -1210,7 +1210,7 @@ class _ProductDetailSheet extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
           // Back button + title
           Padding(
@@ -1319,7 +1319,7 @@ class _ProductDetailSheet extends StatelessWidget {
               ),
             ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
           // Details table
           Padding(

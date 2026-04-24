@@ -264,7 +264,7 @@ class _RecoveryPhraseScreenState extends State<RecoveryPhraseScreen>
 
                           // Buttons
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
                               children: [
                                 // Create wallet
@@ -384,7 +384,7 @@ class _RecoveryPhraseScreenState extends State<RecoveryPhraseScreen>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.lock_outline, size: 48),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 6),
                                 SizedBox(
                                   width: 250,
                                   child: Text(

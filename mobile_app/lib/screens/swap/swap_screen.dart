@@ -613,7 +613,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -654,7 +654,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Your wallet has no funds to swap.',
+                            'your account has no funds to swap.',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: const Color.fromARGB(255, 232, 172, 9),

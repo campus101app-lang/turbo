@@ -23,7 +23,7 @@ class _BackupScreenState extends State<BackupScreen> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -66,13 +66,13 @@ class _BackupScreenState extends State<BackupScreen> {
                 ),
                 // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
 
                 // Subtitle
          ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child:      Text(
-                  'This is your seed phrase. Manually save these 12 words somewhere safe. Without them, you cannot recover your wallet.',
+                  'This is your seed phrase. Manually save these 12 words somewhere safe. Without them, you cannot recover your account.',
                   style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: 16,
                     letterSpacing: -0.3,

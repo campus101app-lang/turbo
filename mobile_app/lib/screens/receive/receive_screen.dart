@@ -319,7 +319,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   width: MediaQuery.of(context).size.width,
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -359,7 +359,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 6),
 
                         if (_selectedTab == 0) _buildBlockchainTab(),
                         // if (_selectedTab == 1) _buildUsernameTab(),
@@ -415,7 +415,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 6),
         if (!ready) ...[
           const SizedBox(height: 24),
           SvgPicture.asset(
@@ -423,7 +423,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             height: 80,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           Text(
             'Waiting for selection...',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -553,7 +553,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Text(
           'Fund with Bank Transfer',
           style: Theme.of(context).textTheme.headlineMedium,
@@ -593,7 +593,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   value: va.bankName,
                   icon: Icons.account_balance_rounded,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 _VaDetailRow(
                   label: 'Account Number',
                   value: va.accountNumber,
@@ -601,7 +601,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   onCopy: () =>
                       _copy(va.accountNumber, 'Account number copied'),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 _VaDetailRow(
                   label: 'Account Name',
                   value: va.accountName,
@@ -760,7 +760,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
         Text(
           'Fund your NGN Balance',
           style: Theme.of(context).textTheme.headlineMedium,

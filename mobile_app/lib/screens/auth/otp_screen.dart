@@ -155,7 +155,7 @@ class _OtpScreenState extends State<OtpScreen> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -185,7 +185,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
 
         ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),

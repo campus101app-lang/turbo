@@ -50,7 +50,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   final List<String> _steps = [
     'Saving profile...',
-    'Creating Stellar wallet...',
+    'Creating wallet...',
     'Funding account...',
     'Adding USDC trustline...',
     'Adding NGNT trustline...',
@@ -90,7 +90,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
               const SizedBox(height: 20),
               Text('Business Category',
                   style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
               Flexible(
                 child: ListView.separated(
                   shrinkWrap: true,
@@ -243,7 +243,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Form(
               key: _formKey,
               child: Column(
@@ -402,14 +402,14 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   const Spacer(),
 
                   AuthButton(
-                    label: 'Create My Wallet',
+                    label: 'Create my account',
                     onPressed: canSubmit && !_loading ? _continue : null,
                     isLoading: _loading,
                     loadingText: _steps[_currentStep],
                     isValid: canSubmit,
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Text.rich(

@@ -264,7 +264,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
 
             if (_moversExpanded) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
               _buildMoversRow(
                 xlmBalance: xlmDisplayBalance,
                 xlmUSD: xlmUSD,

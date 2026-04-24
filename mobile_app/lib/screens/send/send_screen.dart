@@ -590,7 +590,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

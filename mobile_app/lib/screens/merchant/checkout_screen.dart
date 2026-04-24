@@ -314,7 +314,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [

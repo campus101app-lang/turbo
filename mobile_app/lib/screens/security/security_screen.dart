@@ -83,7 +83,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             //   ),
                 // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
             // ),
-            // const SizedBox(height: 18),
+            // const SizedBox(height: 6),
 
             // ── Body ───────────────────────────────────────
             Center(

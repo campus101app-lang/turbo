@@ -1,157 +1,434 @@
 // lib/screens/accounts/accounts_screen.dart
-//
-// Shows three balance cards: NGN (NGNT), USD (USDC), XLM
-// Each card has send/receive shortcuts.
-// The NGN card has a "Fund" button that opens the Flutterwave deposit flow.
 
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:flutter_svg/flutter_svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:mobile_app/theme/app_theme.dart';
 import '../../providers/wallet_provider.dart';
-// import '../../theme/app_theme.dart';
-// import '../../widgets/app_background.dart';
+import '../../services/api_service.dart';
 
-class AccountsScreen extends ConsumerWidget {
+// ─── Providers ────────────────────────────────────────────────────────────────
+
+final _ngnRateProvider = FutureProvider<double>((ref) async {
+  try {
+    final res = await http
+        .get(Uri.parse('https://api.frankfurter.app/latest?from=USD&to=NGN'))
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return (data['rates']['NGN'] as num).toDouble();
+    }
+  } catch (_) {}
+  return 1700.0;
+});
+
+final _txAccountsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  final result = await apiService.getTransactions(page: 1, limit: 100);
+  return List<Map<String, dynamic>>.from(result['transactions'] ?? []);
+});
+
+final _xlmPriceHistoryAccountsProvider = FutureProvider<Map<String, double>>((
+  ref,
+) async {
+  try {
+    final res = await http
+        .get(
+          Uri.parse(
+            'https://api.coingecko.com/api/v3/coins/stellar/market_chart?vs_currency=usd&days=30&interval=daily',
+          ),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      final prices = data['prices'] as List;
+      final result = <String, double>{};
+      for (final p in prices) {
+        final dt = DateTime.fromMillisecondsSinceEpoch((p[0] as num).toInt());
+        final key =
+            '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        result[key] = (p[1] as num).toDouble();
+      }
+      return result;
+    }
+  } catch (_) {}
+  return {};
+});
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+class AccountsScreen extends ConsumerStatefulWidget {
   const AccountsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountsScreen> createState() => _AccountsScreenState();
+}
+
+class _AccountsScreenState extends ConsumerState<AccountsScreen> {
+  bool _moversExpanded = true;
+  bool _accountsExpanded = true;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      ref.read(walletProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  List<FlSpot> _toSpots(List<double> points) {
+    if (points.isEmpty) {
+      return [const FlSpot(0, 0.5), const FlSpot(1, 0.5)];
+    }
+
+    final min = points.reduce((a, b) => a < b ? a : b);
+    final max = points.reduce((a, b) => a > b ? a : b);
+    final range = max - min;
+
+    // Flat line — all values equal (e.g. USDC, NGN)
+    if (range == 0) {
+      return List.generate(points.length, (i) => FlSpot(i.toDouble(), 0.5));
+    }
+
+    return List.generate(points.length, (i) {
+      final x = i.toDouble();
+      final y = (points[i] - min) / range; // normalized 0.0 → 1.0
+      return FlSpot(x, y);
+    });
+  }
+
+  // ── Same chart helpers as HomeScreen ──────────────────────────────────────
+
+  List<double> _buildPoints(
+    List<Map<String, dynamic>> txs,
+    String asset,
+    double currentBalance,
+    double xlmPrice,
+    Map<String, double> priceHistory,
+  ) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final filtered =
+        txs
+            .where((t) {
+              final txAsset = t['asset'] as String? ?? '';
+              final type = t['type'] as String? ?? '';
+              if (txAsset == asset) return true;
+              if (type == 'swap') {
+                final swapToAsset = t['swapToAsset'] as String? ?? '';
+                if (txAsset == asset || swapToAsset == asset) return true;
+              }
+              return false;
+            })
+            .where((t) {
+              final dt = DateTime.tryParse(t['createdAt'] ?? '');
+              return dt != null && dt.isAfter(cutoff);
+            })
+            .toList()
+          ..sort(
+            (a, b) => DateTime.parse(
+              b['createdAt'],
+            ).compareTo(DateTime.parse(a['createdAt'])),
+          );
+
+    if (filtered.isEmpty) {
+      if (asset == 'XLM' && priceHistory.isNotEmpty) {
+        return _buildPriceOnlyPoints(currentBalance, xlmPrice, priceHistory);
+      }
+      final usd = asset == 'XLM' ? currentBalance * xlmPrice : currentBalance;
+      return [usd, usd];
+    }
+
+    double running = currentBalance;
+    final snapshots = <MapEntry<DateTime, double>>[];
+    snapshots.add(MapEntry(DateTime.now(), running));
+
+    for (final tx in filtered) {
+      final dt = DateTime.parse(tx['createdAt']);
+      final amt = (tx['amount'] as num).toDouble().abs();
+      final type = tx['type'] as String? ?? '';
+      final swapToAsset = tx['swapToAsset'] as String? ?? '';
+
+      if (type == 'receive') {
+        running -= amt;
+      } else if (type == 'send') {
+        running += amt;
+      } else if (type == 'swap') {
+        if (swapToAsset == asset) {
+          running -= amt;
+        } else if (tx['asset'] == asset) {
+          running += amt;
+        }
+      }
+      running = running.clamp(0, double.infinity);
+      snapshots.add(MapEntry(dt, running));
+    }
+
+    final chronological = snapshots.reversed.toList();
+    return chronological.map((e) {
+      final bal = e.value;
+      if (asset == 'XLM') {
+        final key =
+            '${e.key.year}-${e.key.month.toString().padLeft(2, '0')}-${e.key.day.toString().padLeft(2, '0')}';
+        final historicalPrice = priceHistory[key] ?? xlmPrice;
+        return bal * historicalPrice;
+      }
+      return bal;
+    }).toList();
+  }
+
+  List<double> _buildPriceOnlyPoints(
+    double balance,
+    double currentPrice,
+    Map<String, double> priceHistory,
+  ) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final relevant = priceHistory.entries.where((e) {
+      final dt = DateTime.tryParse(e.key);
+      return dt != null && dt.isAfter(cutoff);
+    }).toList()..sort((a, b) => a.key.compareTo(b.key));
+
+    if (relevant.isEmpty)
+      return [balance * currentPrice, balance * currentPrice];
+    return relevant.map((e) => balance * e.value).toList()
+      ..add(balance * currentPrice);
+  }
+
+  double _computeChange(List<double> points) {
+    if (points.length < 2) return 0.0;
+    final first = points.first;
+    if (first <= 0) return 0.0;
+    return ((points.last - first) / first) * 100;
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
     final w = ref.watch(walletProvider);
+    final ngnRateAsync = ref.watch(_ngnRateProvider);
+    final txAsync = ref.watch(_txAccountsProvider);
+    final priceHistoryAsync = ref.watch(_xlmPriceHistoryAccountsProvider);
+    final ext = AppThemeExtension.of(context);
+
     const xlmReserve = 2.0;
+    final xlmPrice = w.xlmPriceUSD ?? 0.0;
     final xlmDisplay = (w.xlmBalance - xlmReserve).clamp(0.0, double.infinity);
 
-    // Rates
-    final xlmPrice = w.xlmPriceUSD ?? 0.0;
-    // ngnRate here = USD per 1 NGN (e.g. 0.00059).  Invert for NGN per USD.
-    final usdToNgn = (w.ngnRate != null && w.ngnRate! > 0)
-        ? (1 / w.ngnRate!)
-        : 1700.0; // fallback
+    final usdToNgn = ngnRateAsync.when(
+      data: (rate) => rate,
+      loading: () => (w.ngnRate != null && w.ngnRate! > 0)
+          ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
+          : 1700.0,
+      error: (_, __) => (w.ngnRate != null && w.ngnRate! > 0)
+          ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
+          : 1700.0,
+    );
 
-    final ngntUSD  = w.ngntBalance * (w.ngnRate ?? 0);
-    final xlmUSD   = xlmDisplay * xlmPrice;
-    final xlmNGN   = xlmUSD * usdToNgn;
-    final usdcNGN  = w.usdcBalance * usdToNgn;
+    final priceHistory = priceHistoryAsync.value ?? {};
+    final txs = txAsync.value ?? [];
+
+    final xlmUSD = xlmDisplay * xlmPrice;
+    final ngntUSD = w.ngntBalance * (w.ngnRate ?? 0);
+    final assetsInUSD = ngntUSD + w.usdcBalance + xlmUSD;
+    final assetsInNGN = assetsInUSD * usdToNgn;
+
+    // Build sparkline points per asset
+    final xlmPoints = _buildPoints(
+      txs,
+      'XLM',
+      xlmDisplay,
+      xlmPrice,
+      priceHistory,
+    );
+    final usdcPoints = _buildPoints(
+      txs,
+      'USDC',
+      w.usdcBalance,
+      1.0,
+      priceHistory,
+    );
+    final ngntPoints = List<double>.filled(
+      2,
+      w.ngntBalance.toDouble(),
+    ); // flat, stable
+
+    final xlmChange = _computeChange(xlmPoints);
+    final usdcChange = _computeChange(usdcPoints);
+    const ngntChange = 0.0;
+
+    // For portfolio-level change use lastKnownTotal
+    final last = w.lastKnownTotal;
+    final totalChangePct = (last != null && last > 0)
+        ? ((assetsInUSD - last) / last) * 100
+        : 0.0;
+    final totalUp = totalChangePct >= 0;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: RefreshIndicator(
-        onRefresh: () => ref.read(walletProvider.notifier).refresh(),
+        onRefresh: () async {
+          ref.invalidate(_ngnRateProvider);
+          ref.invalidate(_txAccountsProvider);
+          ref.invalidate(_xlmPriceHistoryAccountsProvider);
+          await ref.read(walletProvider.notifier).refresh();
+        },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 140, 16, 100),
+          padding: const EdgeInsets.fromLTRB(0, 124, 0, 100),
           children: [
-            // ── NGN card ─────────────────────────────────────────────────
-            _BalanceCard(
-              label: 'Nigerian Naira',
-              ticker: 'NGN',
-              imagePath: 'assets/images/ngnt.png', // add this asset
-              balance: w.ngntBalance,
-              decimals: 2,
-              subLabel:
-                  '≈ \$${ngntUSD.toStringAsFixed(2)} USD',
-              accentColor: const Color(0xFF008751), // Nigeria green
-              isLoading: w.isLoading,
-              actions: [
-                _CardAction(
-                  icon: Icons.add_rounded,
-                  label: 'Fund',
-                  onTap: () => context.push('/fund'),
-                ),
-                _CardAction(
-                  icon: Icons.send_rounded,
-                  label: 'Send',
-                  onTap: () => context.push('/send', extra: {'asset': 'NGNT'}),
-                ),
-                _CardAction(
-                  icon: Icons.qr_code_rounded,
-                  label: 'Receive',
-                  onTap: () => context.push('/receive', extra: {'asset': 'NGNT'}),
-                ),
-              ],
-            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Container(
+                      height: 54,
+                      width: MediaQuery.of(context).size.width * .85,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
 
-            const SizedBox(height: 14),
-
-            // ── USDC card ─────────────────────────────────────────────────
-            _BalanceCard(
-              label: 'Digital Dollar',
-              ticker: 'USDC',
-              imagePath: 'assets/images/usdc.png',
-              balance: w.usdcBalance,
-              decimals: 2,
-              subLabel:
-                  '≈ ₦${(w.usdcBalance * usdToNgn).toStringAsFixed(0)} NGN',
-              accentColor: const Color(0xFF2775CA),
-              isLoading: w.isLoading,
-              actions: [
-                _CardAction(
-                  icon: Icons.swap_horiz_rounded,
-                  label: 'Swap',
-                  onTap: () => context.push('/swap'),
-                ),
-                _CardAction(
-                  icon: Icons.send_rounded,
-                  label: 'Send',
-                  onTap: () => context.push('/send', extra: {'asset': 'USDC'}),
-                ),
-                _CardAction(
-                  icon: Icons.qr_code_rounded,
-                  label: 'Receive',
-                  onTap: () => context.push('/receive', extra: {'asset': 'USDC'}),
-                ),
-              ],
-            ),
-
-            // const SizedBox(height: 14),
-
-            // // ── XLM card ──────────────────────────────────────────────────
-            // _BalanceCard(
-            //   label: 'Stellar Lumen',
-            //   ticker: 'XLM',
-            //   imagePath: 'assets/images/stellar.png',
-            //   balance: xlmDisplay,
-            //   decimals: 4,
-            //   subLabel: '≈ \$${xlmUSD.toStringAsFixed(2)} USD',
-            //   accentColor: const Color(0xFF7B5EA7),
-            //   isLoading: w.isLoading,
-            //   footnote: '2.0 XLM reserved by Stellar protocol',
-            //   actions: [
-            //     _CardAction(
-            //       icon: Icons.swap_horiz_rounded,
-            //       label: 'Swap',
-            //       onTap: () => context.push('/swap'),
-            //     ),
-            //     _CardAction(
-            //       icon: Icons.send_rounded,
-            //       label: 'Send',
-            //       onTap: () => context.push('/send', extra: {'asset': 'XLM'}),
-            //     ),
-            //     _CardAction(
-            //       icon: Icons.qr_code_rounded,
-            //       label: 'Receive',
-            //       onTap: () => context.push('/receive', extra: {'asset': 'XLM'}),
-            //     ),
-            //   ],
-            // ),
-
-            const SizedBox(height: 32),
-
-            // ── Exchange rate footer ───────────────────────────────────────
-            if (w.ngnRate != null)
-              Center(
-                child: Text(
-                  '1 USD ≈ ₦${usdToNgn.toStringAsFixed(0)} · '
-                  '1 XLM ≈ \$${(w.xlmPriceUSD ?? 0).toStringAsFixed(4)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.35),
-                    fontSize: 11,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: ext.cardBorder.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                        color: ext.monthlyCardSurface,
+                      ),
+                    ),
                   ),
+
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: ext.cardBorder, width: .5),
+                      color: ext.cardSurface,
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                '\$',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  letterSpacing: 2,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              // assetsInNGN.toStringAsFixed(0),
+                              assetsInUSD.toStringAsFixed(2),
+                              style: GoogleFonts.bricolageGrotesque(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                                letterSpacing: 1.4,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        Text(
+                          'total balance',
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color.fromARGB(255, 91, 157, 233),
+                            height: 1,
+                            letterSpacing: 0.65,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 34),
+
+            // ── Top movers ────────────────────────────────────────────
+            _FoldableSectionHeader(
+              title: 'ALL ASSETS',
+              rightLabel: 'ALL ASSETS',
+              expanded: _moversExpanded,
+              onTap: () => setState(() => _moversExpanded = !_moversExpanded),
+            ),
+
+            if (_moversExpanded) ...[
+              const SizedBox(height: 6),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                height: 100,
+                child: Row(
+                  children: [
+                    // const SizedBox(width: 8),
+                    Expanded(
+                      child: _AccountMoverCard(
+                        ticker: 'NGN',
+                        name: 'NG Naira',
+                        gainUp: true,
+                        gainAmountAbsNgn: 0,
+                        accent: const Color(0xFF008751),
+                        line: _toSpots(ngntPoints),
+                        imagePath: 'assets/images/ng.png',
+                        valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
+                        balanceLabel:
+                            '${w.ngntBalance.toStringAsFixed(2)} NGNT',
+                      ),
+                    ),
+                    Expanded(
+                      child: _AccountMoverCard(
+                        ticker: 'USD',
+                        name: 'US Dollar',
+                        gainUp: usdcChange >= 0,
+                        gainAmountAbsNgn:
+                            (w.usdcBalance * usdToNgn * usdcChange.abs() / 100),
+                        accent: usdcChange >= 0
+                            ? DayFiColors.green
+                            : ext.errorColor,
+                        line: _toSpots(usdcPoints),
+                        imagePath: 'assets/images/us.png',
+                        valueUSD: w.usdcBalance, // ← ADD
+                        balanceLabel:
+                            '${w.usdcBalance.toStringAsFixed(2)} USDC',
+                      ),
+                    ),
+                    // ],
+                  ],
                 ),
               ),
+            ],
+
+            const SizedBox(height: 28),
           ],
         ),
       ),
@@ -159,255 +436,214 @@ class AccountsScreen extends ConsumerWidget {
   }
 }
 
-// ─── Balance card ─────────────────────────────────────────────────────────────
+// ─── Foldable section header (exact copy from doc 7) ─────────────────────────
 
-class _BalanceCard extends StatelessWidget {
-  final String label;
-  final String ticker;
-  final String imagePath;
-  final double balance;
-  final int decimals;
-  final String subLabel;
-  final Color accentColor;
-  final bool isLoading;
-  final String? footnote;
-  final List<_CardAction> actions;
-
-  const _BalanceCard({
-    required this.label,
-    required this.ticker,
-    required this.imagePath,
-    required this.balance,
-    required this.decimals,
-    required this.subLabel,
-    required this.accentColor,
-    required this.isLoading,
-    required this.actions,
-    this.footnote,
+class _FoldableSectionHeader extends StatelessWidget {
+  const _FoldableSectionHeader({
+    required this.title,
+    required this.rightLabel,
+    required this.expanded,
+    required this.onTap,
   });
+
+  final String title;
+  final String rightLabel;
+  final bool expanded;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final symbol = ticker == 'USDC'
-        ? '\$'
-        : ticker == 'NGN' || ticker == 'NGNT'
-            ? '₦'
-            : '';
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.color
-            ?.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: accentColor.withOpacity(0.15),
-          width: 1,
+    final ext = AppThemeExtension.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4, left: 16, right: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // FaIcon(
+            //   expanded
+            //       ? FontAwesomeIcons.chevronDown
+            //       : FontAwesomeIcons.chevronRight,
+            //   size: 12,
+            //   color: ext.sectionHeader,
+            // ),
+            // const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: .3,
+                  color: ext.primaryText,
+                ),
+              ),
+            ),
+            // if (rightLabel.trim().isNotEmpty)
+            //   Text(
+            //     rightLabel,
+            //     style: GoogleFonts.bricolageGrotesque(
+            //       fontSize: 12,
+            //       fontWeight: FontWeight.w700,
+            //       color: ext.sectionHeader,
+            //       letterSpacing: .300,
+            //     ),
+            //   ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Mover card (exact styling from doc 7, adapted for accounts) ─────────────
+
+class _AccountMoverCard extends StatelessWidget {
+  const _AccountMoverCard({
+    required this.ticker,
+    required this.name,
+    required this.gainUp,
+    required this.gainAmountAbsNgn,
+    required this.accent,
+    required this.line,
+    required this.imagePath,
+    required this.valueUSD,
+    required this.balanceLabel,
+  });
+
+  final String ticker;
+  final String name;
+  final bool gainUp;
+  final double gainAmountAbsNgn;
+  final Color accent;
+  final List<FlSpot> line;
+  final String imagePath;
+  final double valueUSD;
+  final String balanceLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = AppThemeExtension.of(context);
+    final maxX = line.isEmpty ? 4.0 : line.last.x;
+
+    return Container(
+      // width: (MediaQuery.of(context).size.width * 0.44),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.cardBorder, width: .5),
+        color: ext.cardSurface,
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Header row
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image.asset(imagePath,
-                    width: 36,
-                    height: 36,
-                    errorBuilder: (_, __, ___) => Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              ticker[0],
-                              style: TextStyle(
-                                color: accentColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        )),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                  ),
-                  Text(
-                    ticker == 'NGNT' ? 'NGN' : ticker,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: accentColor,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Balance
-          if (isLoading)
-            Container(
-              height: 44,
-              width: 160,
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            )
-          else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  symbol,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w400,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.5),
-                        fontSize: 22,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ticker,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .4,
+                          color: ext.primaryText,
+                        ),
                       ),
+                      // const SizedBox(height: 2),
+                      // Text(
+                      //   name,
+                      //   maxLines: 1,
+                      //   overflow: TextOverflow.ellipsis,
+                      //   style: GoogleFonts.bricolageGrotesque(
+                      //     fontSize: 14,
+                      //     fontWeight: FontWeight.w400,
+                      //     letterSpacing: .3,
+                      //     color: ext.primaryText,
+                      //   ),
+                      // ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 2),
+                const SizedBox(width: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    imagePath,
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (_, __, ___) =>
+                        Icon(Icons.currency_exchange, size: 24, color: accent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          Expanded(
+            flex: 4,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text.rich(
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: balanceLabel.toString().split(" ").last == "USDC"
+                            ? '\$'
+                            : balanceLabel.toString().split(" ").last == "NGNT"
+                            ? '₦'
+                            : '',
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: ext.primaryText.withValues(alpha: 0.82),
+                          letterSpacing: 1,
+                          height: 1,
+                        ),
+                      ),
+                      TextSpan(
+                        text: balanceLabel.toString().split(" ").first,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 Text(
-                  balance.toStringAsFixed(decimals),
-                  style: GoogleFonts.bricolageGrotesque(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w300,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.88),
+                  balanceLabel.toString().split(" ").last,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(.65),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
                     height: 1,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              subLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.40),
-                    fontSize: 12,
-                  ),
-            ),
-          ],
-
-          const SizedBox(height: 20),
-
-          // Action buttons row
-          Row(
-            children: actions.map((a) {
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: a != actions.last ? 8 : 0,
-                  ),
-                  child: _ActionButton(action: a, accentColor: accentColor),
-                ),
-              );
-            }).toList(),
           ),
-
-          // Footnote (e.g. XLM reserve notice)
-          if (footnote != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 12,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.3),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  footnote!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.3),
-                      ),
-                ),
-              ],
-            ),
-          ],
         ],
-      ),
-    );
-  }
-}
-
-class _CardAction {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _CardAction({required this.icon, required this.label, required this.onTap});
-}
-
-class _ActionButton extends StatelessWidget {
-  final _CardAction action;
-  final Color accentColor;
-  const _ActionButton({required this.action, required this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      onTap: action.onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: accentColor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(action.icon, size: 18, color: accentColor),
-            const SizedBox(height: 4),
-            Text(
-              action.label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: accentColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-            ),
-          ],
-        ),
       ),
     );
   }

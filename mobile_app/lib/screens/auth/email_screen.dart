@@ -60,7 +60,7 @@ class _EmailScreenState extends State<EmailScreen> {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Form(
               key: _formKey,
               child: Column(
@@ -99,14 +99,14 @@ class _EmailScreenState extends State<EmailScreen> {
                       .animate()
                       .fadeIn(duration: 600.ms)
                       .slideY(begin: 0.2, end: 0),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 6),
 
              ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child:         Text(
                     widget.isNewUser
-                        ? 'If this email is new, we\'ll continue creating your wallet. If it already has a wallet, we\'ll help you sign in.'
-                        : 'If this email already has an account, we\'ll proceed with login. If it\'s new, we\'ll start creating your wallet.',
+                        ? 'If this email is new, we\'ll continue creating your account. If it already has an account, we\'ll help you sign in.'
+                        : 'If this email already has an account, we\'ll proceed with login. If it\'s new, we\'ll start creating your account.',
                     style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                       fontSize: 17,
                       letterSpacing: -.5,
@@ -199,7 +199,7 @@ class _EmailScreenState extends State<EmailScreen> {
                     isValid: _emailController.text.isNotEmpty,
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
                   // Terms agreement text
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
