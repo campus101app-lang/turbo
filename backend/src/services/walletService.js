@@ -29,6 +29,11 @@ export const ISSUERS = {
     (isTestnet
       ? "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
       : "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"),
+  NGNT:
+    process.env.NGNT_ISSUER ||
+    (isTestnet
+      ? "GAWODAROMJ33V5YDFY3NPYTHVYQG7MJXVJ2ND3AOGIHYRWINES6ACCPD"
+      : "GAWODAROMJ33V5YDFY3NPYTHVYQG7MJXVJ2ND3AOGIHYRWINES6ACCPD"),
   // TODO: Fix GOLD issuer - currently invalid
   // GOLD:
   //   process.env.GOLD_ISSUER ||
@@ -39,11 +44,12 @@ export const ISSUERS = {
 
 export const ASSETS = {
   USDC: new StellarSdk.Asset("USDC", ISSUERS.USDC),
+  NGNT: new StellarSdk.Asset("NGNT", ISSUERS.NGNT),
   // GOLD: new StellarSdk.Asset("GOLD", ISSUERS.GOLD),
   XLM: StellarSdk.Asset.native(),
 };
 
-export const SUPPORTED_ASSETS = ["USDC", "XLM"]; // Temporarily removed GOLD
+export const SUPPORTED_ASSETS = ["USDC", "NGNT", "XLM"]; // Temporarily removed GOLD
 
 // ─── Encryption ───────────────────────────────────────────────────────────────
 
@@ -147,6 +153,12 @@ export async function addAllTrustlines(keypair) {
           limit: "1000000",
         }),
       )
+      .addOperation(
+        StellarSdk.Operation.changeTrust({
+          asset: ASSETS.NGNT,
+          limit: "1000000",
+        }),
+      )
       // TODO: Add GOLD trustline back once issuer is fixed
       // .addOperation(
       //   StellarSdk.Operation.changeTrust({
@@ -180,15 +192,17 @@ export async function getWalletBalances(publicKey) {
       headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
     });
 
-    if (res.status === 404) return { USDC: 0, XLM: 0 };
+    if (res.status === 404) return { USDC: 0, NGNT: 0, XLM: 0 };
     const account = await res.json();
-    const balances = { USDC: 0, XLM: 0 };
+    const balances = { USDC: 0, NGNT: 0, XLM: 0 };
 
     for (const b of account.balances) {
       if (b.asset_type === "native") {
         balances.XLM = parseFloat(b.balance);
       } else if (b.asset_code === "USDC" && b.asset_issuer === ISSUERS.USDC) {
         balances.USDC = parseFloat(b.balance);
+      } else if (b.asset_code === "NGNT" && b.asset_issuer === ISSUERS.NGNT) {
+        balances.NGNT = parseFloat(b.balance);
       }
       // TODO: Add GOLD balance tracking back once issuer is fixed
       // else if (b.asset_code === "GOLD" && b.asset_issuer === ISSUERS.GOLD) {
@@ -197,7 +211,7 @@ export async function getWalletBalances(publicKey) {
     }
     return balances;
   } catch (err) {
-    return { USDC: 0, XLM: 0 };
+    return { USDC: 0, NGNT: 0, XLM: 0 };
   }
 }
 

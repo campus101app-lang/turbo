@@ -14,7 +14,7 @@ import '../../theme/app_theme.dart';
 
 final Map<String, String> _assetEmojis = {
   'USDC': 'assets/images/usdc.png',
-  'XLM':  'assets/images/stellar.png',
+  'XLM': 'assets/images/stellar.png',
   'NGNT': 'assets/images/ngnt.png',
 };
 
@@ -32,10 +32,10 @@ class _VirtualAccount {
   });
 
   factory _VirtualAccount.fromMap(Map<String, dynamic> m) => _VirtualAccount(
-        accountNumber: m['accountNumber'] as String,
-        bankName:      m['bankName']      as String,
-        accountName:   m['accountName']   as String,
-      );
+    accountNumber: m['accountNumber'] as String,
+    bankName: m['bankName'] as String,
+    accountName: m['accountName'] as String,
+  );
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -61,8 +61,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
   // ── Virtual account data
   _VirtualAccount? _virtualAccount;
-  bool _vaLoading = false;   // spinner while fetching/creating
-  bool _vaChecked = false;   // true once we've attempted GET at least once
+  bool _vaLoading = false; // spinner while fetching/creating
+  bool _vaChecked = false; // true once we've attempted GET at least once
 
   // ── BVN form state
   final _bvnController = TextEditingController();
@@ -99,13 +99,17 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         apiService.getNetworkConfig(),
       ]);
       final addressData = results[0];
-      final configData  = results[1];
+      final configData = results[1];
 
       if (mounted) {
         setState(() {
           _addressData = addressData;
-          _rawAssets = configData['assets'] as Map<String, dynamic>? ??
-              {'USDC': ['stellar'], 'XLM': ['stellar']};
+          _rawAssets =
+              configData['assets'] as Map<String, dynamic>? ??
+              {
+                'USDC': ['stellar'],
+                'XLM': ['stellar'],
+              };
           _loading = false;
         });
       }
@@ -113,7 +117,10 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _rawAssets = {'USDC': ['stellar'], 'XLM': ['stellar']};
+          _rawAssets = {
+            'USDC': ['stellar'],
+            'XLM': ['stellar'],
+          };
         });
       }
     }
@@ -136,7 +143,11 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() { _vaLoading = false; _vaChecked = true; });
+      if (mounted)
+        setState(() {
+          _vaLoading = false;
+          _vaChecked = true;
+        });
     }
   }
 
@@ -148,7 +159,10 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       setState(() => _bvnError = 'Enter a valid 11-digit BVN');
       return;
     }
-    setState(() { _submittingBvn = true; _bvnError = null; });
+    setState(() {
+      _submittingBvn = true;
+      _bvnError = null;
+    });
     try {
       final data = await apiService.createVirtualAccount(bvn: bvn);
       if (mounted) {
@@ -171,8 +185,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
   void _copy(String text, [String label = 'Copied to clipboard']) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(label)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
   }
 
   void _share(String text) => Share.share(text);
@@ -180,8 +193,10 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   String _getAddressForNetwork() {
     if (_selectedNetworkKey == null) return '';
     switch (_selectedNetworkKey) {
-      case 'stellar': return _addressData?['stellarAddress'] ?? '';
-      default:        return _addressData?['evmAddress'] ?? '';
+      case 'stellar':
+        return _addressData?['stellarAddress'] ?? '';
+      default:
+        return _addressData?['evmAddress'] ?? '';
     }
   }
 
@@ -201,9 +216,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Opacity(opacity: 0, child: Icon(Icons.close)),
-                Text('Choose Currency to Receive',
-                    style: Theme.of(context).textTheme.titleLarge!
-                        .copyWith(fontSize: 16, letterSpacing: -.1)),
+                Text(
+                  'Choose Currency to Receive',
+                  style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                    fontSize: 16,
+                    letterSpacing: -.1,
+                  ),
+                ),
                 InkWell(
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
@@ -229,19 +248,30 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 },
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(54),
-                        child: Image.asset(emoji, height: _getEmojiHeight(emoji)),
+                        child: Image.asset(
+                          emoji,
+                          height: _getEmojiHeight(emoji),
+                        ),
                       ),
                       const SizedBox(width: 14),
-                      Text(code, style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        code,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ],
                   ),
                 ),
@@ -266,7 +296,9 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
           title: Text(
             'Receive Funds',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(.95),
+              color: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.color?.withOpacity(.95),
               fontWeight: FontWeight.w500,
               fontSize: 16,
               letterSpacing: -0.1,
@@ -297,8 +329,9 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                         Container(
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .textTheme.bodySmall?.color?.withOpacity(0.1),
+                            color: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.color?.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -309,16 +342,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                                 selected: _selectedTab == 0,
                                 onTap: () => setState(() => _selectedTab = 0),
                               ),
-                              _Tab(
-                                label: 'dayfi.me',
-                                selected: _selectedTab == 1,
-                                onTap: () => setState(() => _selectedTab = 1),
-                              ),
+                              // _Tab(
+                              //   label: 'dayfi.me',
+                              //   selected: _selectedTab == 1,
+                              //   onTap: () => setState(() => _selectedTab = 1),
+                              // ),
                               _Tab(
                                 label: 'Fund NGN',
-                                selected: _selectedTab == 2,
+                                selected: _selectedTab == 1,
                                 onTap: () {
-                                  setState(() => _selectedTab = 2);
+                                  setState(() => _selectedTab = 1);
                                   _loadVirtualAccount();
                                 },
                               ),
@@ -329,8 +362,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                         const SizedBox(height: 18),
 
                         if (_selectedTab == 0) _buildBlockchainTab(),
-                        if (_selectedTab == 1) _buildUsernameTab(),
-                        if (_selectedTab == 2) _buildNgnTab(),
+                        // if (_selectedTab == 1) _buildUsernameTab(),
+                        if (_selectedTab == 1) _buildNgnTab(),
                       ],
                     ),
                   ),
@@ -349,14 +382,19 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('Receive on Stellar',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center),
+        Text(
+          'Receive on Stellar',
+          style: Theme.of(context).textTheme.headlineMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
           'Choose the currency below to get\nyour unique receiving address and QR code.',
-          style: Theme.of(context).textTheme.bodySmall!
-              .copyWith(fontSize: 14, letterSpacing: -.1, height: 1.2),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            fontSize: 14,
+            letterSpacing: -.1,
+            height: 1.2,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -386,10 +424,12 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
           ),
           const SizedBox(height: 16),
-          Text('Waiting for selection...',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
-              )),
+          Text(
+            'Waiting for selection...',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             'Once you select a currency,\nyour QR code will appear here.',
@@ -399,9 +439,14 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         ] else ...[
           Center(child: _QRCard(data: address)),
           const SizedBox(height: 20),
-          Text('Stellar network',
-              style: Theme.of(context).textTheme.bodySmall!
-                  .copyWith(fontSize: 13.5, letterSpacing: -.1, height: 1.2)),
+          Text(
+            'Stellar network',
+            style: Theme.of(context).textTheme.bodySmall!.copyWith(
+              fontSize: 13.5,
+              letterSpacing: -.1,
+              height: 1.2,
+            ),
+          ),
           const SizedBox(height: 8),
           _AddressBox(
             text: address.length > 16
@@ -412,7 +457,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
           const SizedBox(height: 32),
           _ActionButtons(
             onShare: () => _share(address),
-            onCopy:  () => _copy(address),
+            onCopy: () => _copy(address),
           ),
         ],
         const SizedBox(height: 32),
@@ -429,28 +474,38 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text('Receive via dayfi.me',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center),
+        Text(
+          'Receive via dayfi.me',
+          style: Theme.of(context).textTheme.headlineMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
           'Share this QR or your dayfi.me username.\nAnyone can send you USDC instantly.',
-          style: Theme.of(context).textTheme.bodySmall!
-              .copyWith(fontSize: 14, letterSpacing: -.1, height: 1.2),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            fontSize: 14,
+            letterSpacing: -.1,
+            height: 1.2,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 40),
         _QRCard(data: qrData),
         const SizedBox(height: 20),
-        Text('Stellar Network',
-            style: Theme.of(context).textTheme.bodySmall!
-                .copyWith(fontSize: 13.5, letterSpacing: -.1, height: 1.2)),
+        Text(
+          'Stellar Network',
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            fontSize: 13.5,
+            letterSpacing: -.1,
+            height: 1.2,
+          ),
+        ),
         const SizedBox(height: 8),
         _AddressBox(text: username, onCopy: () => _copy(username)),
         const SizedBox(height: 32),
         _ActionButtons(
           onShare: () => _share('Send me USDC at $username'),
-          onCopy:  () => _copy(username),
+          onCopy: () => _copy(username),
         ),
         const SizedBox(height: 32),
       ],
@@ -492,18 +547,26 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: Text('₦', style: TextStyle(fontSize: 24, color: Color(0xFF008751))),
+            child: Text(
+              '₦',
+              style: TextStyle(fontSize: 24, color: Color(0xFF008751)),
+            ),
           ),
         ),
         const SizedBox(height: 16),
-        Text('Fund with Bank Transfer',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center),
+        Text(
+          'Fund with Bank Transfer',
+          style: Theme.of(context).textTheme.headlineMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
           'Transfer NGN to this account. Your NGNT\nbalance will update automatically.',
-          style: Theme.of(context).textTheme.bodySmall!
-              .copyWith(fontSize: 14, letterSpacing: -.1, height: 1.35),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            fontSize: 14,
+            letterSpacing: -.1,
+            height: 1.35,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
@@ -515,8 +578,9 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .textTheme.bodySmall?.color?.withOpacity(0.07),
+              color: Theme.of(
+                context,
+              ).textTheme.bodySmall?.color?.withOpacity(0.07),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: const Color(0xFF008751).withOpacity(0.15),
@@ -534,7 +598,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   label: 'Account Number',
                   value: va.accountNumber,
                   icon: Icons.tag_rounded,
-                  onCopy: () => _copy(va.accountNumber, 'Account number copied'),
+                  onCopy: () =>
+                      _copy(va.accountNumber, 'Account number copied'),
                 ),
                 const SizedBox(height: 16),
                 _VaDetailRow(
@@ -561,9 +626,11 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline_rounded,
-                    size: 16,
-                    color: const Color(0xFF008751).withOpacity(0.8)),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: const Color(0xFF008751).withOpacity(0.8),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -572,8 +639,9 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontSize: 12.5,
                       height: 1.4,
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(0.65),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.65),
                     ),
                   ),
                 ),
@@ -594,27 +662,36 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 48),
                     side: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(.90),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(.90),
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => _share(
                     'Bank: ${va.bankName}\n'
                     'Account Number: ${va.accountNumber}\n'
                     'Account Name: ${va.accountName}',
                   ),
-                  icon: Icon(Icons.ios_share, size: 18,
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(.90)),
-                  label: Text('Share',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme.onSurface.withOpacity(.90),
-                        fontSize: 15,
-                      )),
+                  icon: Icon(
+                    Icons.ios_share,
+                    size: 18,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(.90),
+                  ),
+                  label: Text(
+                    'Share',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(.90),
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -623,26 +700,35 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 48),
                     side: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(.90),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(.90),
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onPressed: () => _copy(
                     '${va.bankName}\n${va.accountNumber}\n${va.accountName}',
                     'Account details copied',
                   ),
-                  icon: Icon(Icons.copy, size: 18,
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(.90)),
-                  label: Text('Copy',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme.onSurface.withOpacity(.90),
-                        fontSize: 15,
-                      )),
+                  icon: Icon(
+                    Icons.copy,
+                    size: 18,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(.90),
+                  ),
+                  label: Text(
+                    'Copy',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(.90),
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -668,18 +754,26 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: Text('₦', style: TextStyle(fontSize: 24, color: Color(0xFF008751))),
+            child: Text(
+              '₦',
+              style: TextStyle(fontSize: 24, color: Color(0xFF008751)),
+            ),
           ),
         ),
         const SizedBox(height: 16),
-        Text('Fund your NGN Balance',
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center),
+        Text(
+          'Fund your NGN Balance',
+          style: Theme.of(context).textTheme.headlineMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
           'We\'ll create a dedicated bank account for you.\nTransfers credit your NGNT wallet automatically.',
-          style: Theme.of(context).textTheme.bodySmall!
-              .copyWith(fontSize: 14, letterSpacing: -.1, height: 1.35),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+            fontSize: 14,
+            letterSpacing: -.1,
+            height: 1.35,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
@@ -690,13 +784,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bank Verification Number (BVN)',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context)
-                        .colorScheme.onSurface.withOpacity(0.6),
-                    fontSize: 12,
-                  )),
+              Text(
+                'Bank Verification Number (BVN)',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 12,
+                ),
+              ),
               const SizedBox(height: 8),
               TextField(
                 controller: _bvnController,
@@ -712,14 +809,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 decoration: InputDecoration(
                   hintText: '• • • • • • • • • • •',
                   hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme.onSurface.withOpacity(.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(.3),
                     fontSize: 15,
                   ),
                   counterText: '',
                   filled: true,
-                  fillColor: Theme.of(context)
-                      .textTheme.bodySmall?.color?.withOpacity(0.1),
+                  fillColor: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.color?.withOpacity(0.1),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -733,25 +832,31 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16, horizontal: 16),
+                    vertical: 16,
+                    horizontal: 16,
+                  ),
                   errorText: _bvnError,
                 ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.lock_outline_rounded,
-                      size: 12,
-                      color: Theme.of(context)
-                          .colorScheme.onSurface.withOpacity(0.35)),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 12,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.35),
+                  ),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       'Your BVN is used only for account creation and is never stored.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 11.5,
-                        color: Theme.of(context)
-                            .colorScheme.onSurface.withOpacity(0.4),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.4),
                       ),
                     ),
                   ),
@@ -771,12 +876,14 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
-                  color: Theme.of(context)
-                      .colorScheme.onSurface.withOpacity(.90),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.90),
                   width: 1.5,
                 ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _submittingBvn ? null : _submitBvn,
               child: _submittingBvn
@@ -785,13 +892,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
-                  : Text('Create My Virtual Account',
+                  : Text(
+                      'Create My Virtual Account',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Theme.of(context)
-                            .colorScheme.onSurface.withOpacity(.90),
-                      )),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(.90),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -835,19 +945,24 @@ class _VaDetailRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color: Theme.of(context)
-                        .colorScheme.onSurface.withOpacity(0.45),
-                  )),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.45),
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    letterSpacing: onCopy != null ? 1.5 : 0,
-                  )),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  letterSpacing: onCopy != null ? 1.5 : 0,
+                ),
+              ),
             ],
           ),
         ),
@@ -859,10 +974,13 @@ class _VaDetailRow extends StatelessWidget {
             onTap: onCopy,
             child: Padding(
               padding: const EdgeInsets.all(6),
-              child: Icon(Icons.copy_rounded,
-                  size: 16,
-                  color: Theme.of(context)
-                      .colorScheme.onSurface.withOpacity(0.45)),
+              child: Icon(
+                Icons.copy_rounded,
+                size: 16,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.45),
+              ),
             ),
           ),
       ],
@@ -876,7 +994,11 @@ class _Tab extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _Tab({required this.label, required this.selected, required this.onTap});
+  const _Tab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -949,9 +1071,11 @@ class _DropdownBox extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Icon(Icons.keyboard_arrow_down,
-              size: 20,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4)),
+          Icon(
+            Icons.keyboard_arrow_down,
+            size: 20,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+          ),
         ],
       ),
     );
@@ -970,7 +1094,9 @@ class _QRCard extends StatelessWidget {
         data: data.isEmpty ? 'dayfi' : data,
         decoration: PrettyQrDecoration(
           shape: PrettyQrSmoothSymbol(
-            color: Theme.of(context).textTheme.bodyLarge!.color!.withOpacity(0.85),
+            color: Theme.of(
+              context,
+            ).textTheme.bodyLarge!.color!.withOpacity(0.85),
           ),
         ),
       ),
@@ -1028,21 +1154,30 @@ class _ActionButtons extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 minimumSize: Size(MediaQuery.of(context).size.width, 48),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.90),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.90),
                   width: 1.5,
                 ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: onShare,
-              icon: Icon(Icons.ios_share, size: 18,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.90)),
-              label: Text('Share',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme.onSurface.withOpacity(.90),
-                    fontSize: 15,
-                  )),
+              icon: Icon(
+                Icons.ios_share,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(.90),
+              ),
+              label: Text(
+                'Share',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.90),
+                  fontSize: 15,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1051,21 +1186,30 @@ class _ActionButtons extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 minimumSize: Size(MediaQuery.of(context).size.width, 48),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.90),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.90),
                   width: 1.5,
                 ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: onCopy,
-              icon: Icon(Icons.copy, size: 18,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(.90)),
-              label: Text('Copy',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme.onSurface.withOpacity(.90),
-                    fontSize: 15,
-                  )),
+              icon: Icon(
+                Icons.copy,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(.90),
+              ),
+              label: Text(
+                'Copy',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(.90),
+                  fontSize: 15,
+                ),
+              ),
             ),
           ),
         ],

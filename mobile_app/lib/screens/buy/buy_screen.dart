@@ -110,7 +110,7 @@ class _BuyScreenState extends State<BuyScreen> {
                       backgroundColor: DayFiColors.green,
                     ),
                   );
-                  context.go('/home');
+                  context.go('/mainshell');
                 }
               },
             ),
@@ -441,7 +441,7 @@ class _SellScreenState extends State<SellScreen> {
                       backgroundColor: DayFiColors.green,
                     ),
                   );
-                  context.go('/home');
+                  context.go('/mainshell');
                 }
               },
             ),

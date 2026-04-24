@@ -137,7 +137,7 @@ export async function sendWelcomeEmail(email, username) {
   const html = shell(content);
 
   const { error } = await resend.emails.send({ from: FROM, to: email,
-    subject: `welcome to DayFi, @${username}!`, html });
+    subject: `Welcome to DayFi, @${username}!`, html });
 
   if (error) throw new Error(error.message);
   console.log(`📧 Welcome email sent to ${email}`);

@@ -76,7 +76,7 @@ class _OtpScreenState extends State<OtpScreen> {
         );
       } else if (step == 'complete') {
         await apiService.saveToken(result['token']);
-        context.go('/home');
+        context.go('/mainshell');
       } else {
         context.push('/auth/biometric');
       }

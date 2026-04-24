@@ -550,7 +550,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
 
                   onPressed: () {
                     Navigator.pop(context);
-                    context.go('/home');
+                    context.go('/mainshell');
                   },
                   child: Text(
                     'Done',

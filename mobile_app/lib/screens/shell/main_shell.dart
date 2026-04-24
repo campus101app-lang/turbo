@@ -209,7 +209,7 @@ class _MainShellState extends ConsumerState<MainShell>
     final walletState = ref.watch(walletProvider);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 72, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 112, vertical: 24),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
@@ -226,11 +226,11 @@ class _MainShellState extends ConsumerState<MainShell>
               label: 'Receive',
               onTap: () => context.push('/receive'),
             ),
-            _ActionButton(
-              icon: "assets/icons/svgs/swap.svg",
-              label: 'Swap',
-              onTap: () => _handleSwapTap(walletState),
-            ),
+            // _ActionButton(
+            //   icon: "assets/icons/svgs/swap.svg",
+            //   label: 'Swap',
+            //   onTap: () => _handleSwapTap(walletState),
+            // ),
             _ActionButton(
               icon: "assets/icons/svgs/send.svg",
               label: 'Send',

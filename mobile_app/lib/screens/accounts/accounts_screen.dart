@@ -6,12 +6,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+// import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/wallet_provider.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/app_background.dart';
+// import '../../theme/app_theme.dart';
+// import '../../widgets/app_background.dart';
 
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
@@ -103,37 +103,37 @@ class AccountsScreen extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 14),
+            // const SizedBox(height: 14),
 
-            // ── XLM card ──────────────────────────────────────────────────
-            _BalanceCard(
-              label: 'Stellar Lumen',
-              ticker: 'XLM',
-              imagePath: 'assets/images/stellar.png',
-              balance: xlmDisplay,
-              decimals: 4,
-              subLabel: '≈ \$${xlmUSD.toStringAsFixed(2)} USD',
-              accentColor: const Color(0xFF7B5EA7),
-              isLoading: w.isLoading,
-              footnote: '2.0 XLM reserved by Stellar protocol',
-              actions: [
-                _CardAction(
-                  icon: Icons.swap_horiz_rounded,
-                  label: 'Swap',
-                  onTap: () => context.push('/swap'),
-                ),
-                _CardAction(
-                  icon: Icons.send_rounded,
-                  label: 'Send',
-                  onTap: () => context.push('/send', extra: {'asset': 'XLM'}),
-                ),
-                _CardAction(
-                  icon: Icons.qr_code_rounded,
-                  label: 'Receive',
-                  onTap: () => context.push('/receive', extra: {'asset': 'XLM'}),
-                ),
-              ],
-            ),
+            // // ── XLM card ──────────────────────────────────────────────────
+            // _BalanceCard(
+            //   label: 'Stellar Lumen',
+            //   ticker: 'XLM',
+            //   imagePath: 'assets/images/stellar.png',
+            //   balance: xlmDisplay,
+            //   decimals: 4,
+            //   subLabel: '≈ \$${xlmUSD.toStringAsFixed(2)} USD',
+            //   accentColor: const Color(0xFF7B5EA7),
+            //   isLoading: w.isLoading,
+            //   footnote: '2.0 XLM reserved by Stellar protocol',
+            //   actions: [
+            //     _CardAction(
+            //       icon: Icons.swap_horiz_rounded,
+            //       label: 'Swap',
+            //       onTap: () => context.push('/swap'),
+            //     ),
+            //     _CardAction(
+            //       icon: Icons.send_rounded,
+            //       label: 'Send',
+            //       onTap: () => context.push('/send', extra: {'asset': 'XLM'}),
+            //     ),
+            //     _CardAction(
+            //       icon: Icons.qr_code_rounded,
+            //       label: 'Receive',
+            //       onTap: () => context.push('/receive', extra: {'asset': 'XLM'}),
+            //     ),
+            //   ],
+            // ),
 
             const SizedBox(height: 32),
 

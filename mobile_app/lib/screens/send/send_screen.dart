@@ -394,7 +394,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
               ),
               onPressed: () {
                 Navigator.pop(context);
-                context.go('/home');
+                context.go('/mainshell');
               },
               child: Text(
                 'Done',

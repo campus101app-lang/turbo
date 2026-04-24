@@ -98,7 +98,7 @@ class _BackupScreenState extends State<BackupScreen> {
 
                 // Done button
                 TextButton(
-                  onPressed: () => context.go('/home'),
+                  onPressed: () => context.go('/mainshell'),
                   child: Text(
                     'Done',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
