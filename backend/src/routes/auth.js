@@ -226,6 +226,96 @@ router.post('/mark-backed-up', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/auth/setup-profile (NEW BUSINESS ONBOARDING)
+// Replaces the old /setup-username flow
+// Called from business_profile_screen.dart after OTP verification
+router.post('/setup-profile', [
+  body('setupToken').notEmpty(),
+  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name required'),
+  body('businessName').trim().isLength({ min: 2 }).withMessage('Business name required'),
+  body('businessCategory').notEmpty().withMessage('Category required'),
+  body('businessEmail').optional().isEmail(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { setupToken, fullName, businessName, businessCategory, businessEmail } = req.body;
+
+  try {
+    let decoded;
+    try { decoded = jwt.verify(setupToken, process.env.JWT_SECRET); }
+    catch { return res.status(401).json({ error: 'Invalid or expired setup token' }); }
+
+    if (!decoded.setupMode) return res.status(401).json({ error: 'Invalid token' });
+
+    // ─ Create Stellar wallet (if not already created) ────────────────────
+    let user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    
+    if (!user.stellarPublicKey) {
+      console.log(`\n⚙️  Creating Stellar wallet for ${fullName}...`);
+      const { publicKey, encryptedSecretKey, encryptedMnemonic } = await createStellarWallet();
+
+      await prisma.user.update({
+        where: { id: decoded.userId },
+        data: {
+          stellarPublicKey: publicKey,
+          stellarSecretKey: encryptedSecretKey,
+          encryptedMnemonic,
+        },
+      });
+
+      console.log(`✅ Wallet ready: ${publicKey}`);
+
+      // Fund new user wallet
+      await fundNewUserWallet(publicKey, decoded.userId);
+    }
+
+    // ─ Save business profile ────────────────────────────────────────────
+    user = await prisma.user.update({
+      where: { id: decoded.userId },
+      data: {
+        fullName,
+        businessName,
+        businessCategory,
+        businessEmail: businessEmail || null,
+        isMerchant: true,
+        isVerified: true,
+      },
+    });
+
+    // ─ Set up trustlines (USDC + NGNT) ──────────────────────────────────
+    await setupUserTrustlines(user);
+
+    // ─ Generate token ──────────────────────────────────────────────────
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+    );
+
+    try { await sendWelcomeEmail(user.email, user.businessName); }
+    catch (err) { console.warn('⚠️  Welcome email failed:', err.message); }
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        businessName: user.businessName,
+        businessCategory: user.businessCategory,
+        stellarPublicKey: user.stellarPublicKey,
+        isBackedUp: user.isBackedUp,
+        isMerchant: user.isMerchant,
+      },
+    });
+  } catch (err) {
+    console.error('Setup profile error:', err);
+    res.status(500).json({ error: err.message || 'Setup failed' });
+  }
+});
+
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
   const { token } = req.body;

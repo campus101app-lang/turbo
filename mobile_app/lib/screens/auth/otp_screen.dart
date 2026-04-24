@@ -71,7 +71,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
       if (step == 'setup_username') {
         context.push(
-          '/auth/username',
+          '/auth/business-profile',
           extra: {'setupToken': result['setupToken']},
         );
       } else if (step == 'complete') {
