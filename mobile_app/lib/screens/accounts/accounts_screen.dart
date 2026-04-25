@@ -289,309 +289,356 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      bottomNavigationBar: _buildActionRow(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(_ngnRateProvider);
-          ref.invalidate(_txAccountsProvider);
-          ref.invalidate(_xlmPriceHistoryAccountsProvider);
-          await ref.read(walletProvider.notifier).refresh();
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
-          children: [
-            //    // ── Top movers ────────────────────────────────────────────
-            // _FoldableSectionHeader(
-            //   title: 'ALL ASSETS',
-            //   rightLabel: 'ALL ASSETS',
-            //   expanded: _moversExpanded,
-            //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
-            // ),
-            if (_moversExpanded) ...[
-              const SizedBox(height: 6),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-                height: 100,
-                child: Row(
-                  children: [
-                    // const SizedBox(width: 8),
-                    Expanded(
-                      child: AccountMoverCard(
-                        ticker: 'NGN',
-                        name: 'NG Naira',
-                        gainUp: true,
-                        gainAmountAbsNgn: 0,
-                        accent: const Color(0xFF008751),
-                        line: _toSpots(ngntPoints),
-                        imagePath: 'assets/images/ng.png',
-                        valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
-                        balanceLabel:
-                            '${w.ngntBalance.toStringAsFixed(2)} NGNT',
-                      ),
-                    ),
-                    Expanded(
-                      child: AccountMoverCard(
-                        ticker: 'USD',
-                        name: 'US Dollar',
-                        gainUp: usdcChange >= 0,
-                        gainAmountAbsNgn:
-                            (w.usdcBalance * usdToNgn * usdcChange.abs() / 100),
-                        accent: usdcChange >= 0
-                            ? DayFiColors.green
-                            : ext.errorColor,
-                        line: _toSpots(usdcPoints),
-                        imagePath: 'assets/images/us.png',
-                        valueUSD: w.usdcBalance, // ← ADD
-                        balanceLabel:
-                            '${w.usdcBalance.toStringAsFixed(2)} USDC',
-                      ),
-                    ),
-                    // Expanded(
-                    //   child: _AccountMoverCard(
-                    //     ticker: 'XLM',
-                    //     name: 'Stellar Lumens',
-                    //     gainUp: xlmChange >= 0,
-                    //     gainAmountAbsNgn:
-                    //         (xlmDisplay *
-                    //         w.xlmPriceUSD *
-                    //         xlmChange.abs() /
-                    //         100),
-                    //     accent: xlmChange >= 0
-                    //         ? DayFiColors.green
-                    //         : ext.errorColor,
-                    //     line: _toSpots(xlmPoints),
-                    //     imagePath: 'assets/images/stellar.png',
-                    //     valueUSD: xlmDisplay,
-                    //     balanceLabel: '${xlmDisplay.toStringAsFixed(2)} XLM',
-                    //   ),
-                    // ),
-                    // ],
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Container(
-                      height: 54,
-                      width: MediaQuery.of(context).size.width * .85,
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      // bottomNavigationBar: _buildActionRow(),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480.00),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(_ngnRateProvider);
+              ref.invalidate(_txAccountsProvider);
+              ref.invalidate(_xlmPriceHistoryAccountsProvider);
+              await ref.read(walletProvider.notifier).refresh();
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
+              children: [
+                //    // ── Top movers ────────────────────────────────────────────
+                // _FoldableSectionHeader(
+                //   title: 'ALL ASSETS',
+                //   rightLabel: 'ALL ASSETS',
+                //   expanded: _moversExpanded,
+                //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
+                // ),
 
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: ext.cardBorder.withValues(alpha: 0.5),
-                          width: 1,
+            
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Container(
+                          height: 54,
+                          width: MediaQuery.of(context).size.width * .85,
+                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.04),
+                              width: 1,
+                            ),
+                            color: Theme.of(
+                              context,
+                            ).canvasColor.withOpacity(.75),
+                          ),
                         ),
-                        color: ext.monthlyCardSurface,
                       ),
+
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.04),
+                            width: .5,
+                          ),
+                          color: Theme.of(context).colorScheme.surface,
+                        ),
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.max,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    '\$',
+                                    style: GoogleFonts.bricolageGrotesque(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      letterSpacing: 2,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  // assetsInNGN.toStringAsFixed(0),
+                                  assetsInUSD.toStringAsFixed(2),
+                                  style: GoogleFonts.bricolageGrotesque(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    letterSpacing: .4,
+                                    height: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            Text(
+                              'total balance',
+                              style: GoogleFonts.bricolageGrotesque(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                // color: const Color.fromARGB(255, 91, 157, 233),
+                                height: 1,
+                                letterSpacing: 0.65,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+               
+            const SizedBox(height: 8),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    height: 100,
+                    child: Row(
+                      children: [
+                        // const SizedBox(width: 8),
+                        Expanded(
+                          child: AccountMoverCard(
+                            ticker: 'NGN',
+                            name: 'NG Naira',
+                            gainUp: true,
+                            gainAmountAbsNgn: 0,
+                            accent: const Color(0xFF008751),
+                            line: _toSpots(ngntPoints),
+                            imagePath: 'assets/images/ng.png',
+                            valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
+                            balanceLabel:
+                                '${w.ngntBalance.toStringAsFixed(2)} NGNT',
+                          ),
+                        ),
+                        Expanded(
+                          child: AccountMoverCard(
+                            ticker: 'USD',
+                            name: 'US Dollar',
+                            gainUp: usdcChange >= 0,
+                            gainAmountAbsNgn:
+                                (w.usdcBalance *
+                                usdToNgn *
+                                usdcChange.abs() /
+                                100),
+                            accent: usdcChange >= 0
+                                ? DayFiColors.green
+                                : ext.errorColor,
+                            line: _toSpots(usdcPoints),
+                            imagePath: 'assets/images/us.png',
+                            valueUSD: w.usdcBalance, // ← ADD
+                            balanceLabel:
+                                '${w.usdcBalance.toStringAsFixed(2)} USDC',
+                          ),
+                        ),
+                        // Expanded(
+                        //   child: _AccountMoverCard(
+                        //     ticker: 'XLM',
+                        //     name: 'Stellar Lumens',
+                        //     gainUp: xlmChange >= 0,
+                        //     gainAmountAbsNgn:
+                        //         (xlmDisplay *
+                        //         w.xlmPriceUSD *
+                        //         xlmChange.abs() /
+                        //         100),
+                        //     accent: xlmChange >= 0
+                        //         ? DayFiColors.green
+                        //         : ext.errorColor,
+                        //     line: _toSpots(xlmPoints),
+                        //     imagePath: 'assets/images/stellar.png',
+                        //     valueUSD: xlmDisplay,
+                        //     balanceLabel: '${xlmDisplay.toStringAsFixed(2)} XLM',
+                        //   ),
+                        // ),
+                        // ],
+                      ],
                     ),
                   ),
+        
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Container(
+                          height: 54,
+                          width: MediaQuery.of(context).size.width * .85,
+                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.04),
+                              width: 1,
+                            ),
+                            color: Theme.of(
+                              context,
+                            ).canvasColor.withOpacity(.75),
+                          ),
+                        ),
+                      ),
 
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: ext.cardBorder, width: .5),
-                      color: ext.cardSurface,
-                    ),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.04),
+                            width: .5,
+                          ),
+                          color: Theme.of(context).colorScheme.surface,
+                        ),
+                        padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                '\$',
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  letterSpacing: 2,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
                             Text(
-                              // assetsInNGN.toStringAsFixed(0),
-                              assetsInUSD.toStringAsFixed(2),
+                              'make it yours',
                               style: GoogleFonts.bricolageGrotesque(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
                                 letterSpacing: .4,
-                                height: 1,
+                                // color: ext.sectionHeader,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      backgroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withOpacity(.555)
+                                          .withOpacity(.06),
+                                      foregroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(.555),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Account customization is coming soon.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        0,
+                                        15,
+                                        0,
+                                        15,
+                                      ),
+                                      child: Text(
+                                        'TRY IT',
+                                        style: GoogleFonts.bricolageGrotesque(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: .2,
+                                          height: 1,
+                                          // color: ext.sectionHeader,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      backgroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withOpacity(.555)
+                                          .withOpacity(.06),
+                                      foregroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(.555),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'More account options are coming soon.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        0,
+                                        15,
+                                        0,
+                                        15,
+                                      ),
+                                      child: Text(
+                                        'OKAY',
+                                        style: GoogleFonts.bricolageGrotesque(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: .2,
+                                          height: 1,
+                                          // color: ext.sectionHeader,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-
-                        const SizedBox(height: 8),
-
-                        Text(
-                          'total balance',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color.fromARGB(255, 91, 157, 233),
-                            height: 1,
-                            letterSpacing: 0.65,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Container(
-                      height: 54,
-                      width: MediaQuery.of(context).size.width * .85,
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: ext.cardBorder.withValues(alpha: 0.5),
-                          width: 1,
-                        ),
-                        color: ext.monthlyCardSurface,
                       ),
-                    ),
+                    ],
                   ),
-
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: ext.cardBorder, width: .5),
-                      color: ext.cardSurface,
-                    ),
-                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'make it yours',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: .4,
-                            color: ext.sectionHeader,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  elevation: 0,
-                                  backgroundColor: ext.primaryText.withOpacity(
-                                    .06,
-                                  ),
-                                  foregroundColor: ext.primaryText,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Account customization is coming soon.'),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    0,
-                                    15,
-                                    0,
-                                    15,
-                                  ),
-                                  child: Text(
-                                    'TRY IT',
-                                    style: GoogleFonts.bricolageGrotesque(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: .2,
-                                      height: 1,
-                                      color: ext.sectionHeader,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  elevation: 0,
-                                  backgroundColor: ext.primaryText.withOpacity(
-                                    .06,
-                                  ),
-                                  foregroundColor: ext.primaryText,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('More account options are coming soon.'),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    0,
-                                    15,
-                                    0,
-                                    15,
-                                  ),
-                                  child: Text(
-                                    'OKAY',
-                                    style: GoogleFonts.bricolageGrotesque(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: .2,
-                                      height: 1,
-                                      color: ext.sectionHeader,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 28),
+              ],
             ),
-            const SizedBox(height: 28),
-          ],
+          ),
         ),
       ),
     );
@@ -777,6 +824,7 @@ class _FoldableSectionHeader extends StatelessWidget {
 
 class AccountMoverCard extends StatelessWidget {
   const AccountMoverCard({
+    super.key,
     required this.ticker,
     required this.name,
     required this.gainUp,
@@ -808,8 +856,11 @@ class AccountMoverCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ext.cardBorder, width: .5),
-        color: ext.cardSurface,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+          width: .5,
+        ),
+        color: Theme.of(context).colorScheme.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -832,7 +883,9 @@ class AccountMoverCard extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           letterSpacing: .4,
-                          color: ext.primaryText,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(.555),
                         ),
                       ),
                       // Text(
@@ -884,7 +937,9 @@ class AccountMoverCard extends StatelessWidget {
                         style: GoogleFonts.bricolageGrotesque(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: ext.primaryText.withValues(alpha: 0.82),
+                          color: Theme.of(context).colorScheme.onSurface
+                              .withOpacity(.555)
+                              .withValues(alpha: 0.82),
                           letterSpacing: 1,
                           height: 1,
                         ),

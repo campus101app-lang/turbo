@@ -10,6 +10,13 @@
     "start": "node src/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:critical": "vitest run tests/critical-path",
+    "test:security": "vitest run tests/security",
+    "test:integration": "vitest run tests/integration",
+    "test:performance": "vitest run tests/performance",
+    "test:e2e": "vitest run tests/e2e",
+    "test:all": "npm run test:critical && npm run test:security && npm run test:integration && npm run test:performance",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
     "db:studio": "npx prisma studio",
@@ -47,6 +54,9 @@
     "nodemon": "^3.1.14",
     "prisma": "^5.22.0",
     "supertest": "^7.1.1",
-    "vitest": "^2.1.5"
+    "vitest": "^2.1.5",
+    "@vitest/coverage-v8": "^2.1.5",
+    "@vitest/ui": "^2.1.5",
+    "k6": "^0.49.0"
   }
 }

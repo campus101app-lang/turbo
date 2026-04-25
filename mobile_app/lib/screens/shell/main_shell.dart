@@ -12,12 +12,14 @@ import 'package:mobile_app/screens/cards/cards_screen.dart';
 import 'package:mobile_app/screens/expenses/expenses_screen.dart';
 import 'package:mobile_app/screens/home/home_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
+import 'package:mobile_app/screens/merchant/merchant_dashboard.dart';
 // import 'package:mobile_app/screens/expenses/expenses_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
 // import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/settings/settings_screen.dart';
 import 'package:mobile_app/screens/transactions/transactions_screen.dart';
 import 'package:mobile_app/screens/workflows/workflows_screen.dart';
+import 'package:mobile_app/screens/organization/organization_screen.dart';
 import 'package:mobile_app/services/api_service.dart';
 import 'package:mobile_app/widgets/app_background.dart';
 // import 'package:mobile_app/widgets/adaptive_bottom_navigation_bar.dart';
@@ -25,11 +27,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _tabsText = [
-  'Invoicing',
+  'Billing',        // Merged Invoicing + Requests
   'Expenses',
+  'Shop',           // Merchant Store
+  'Organization',   // Team Management
   'Transactions',
-  'Dashboard',
-  'Requests',
+  'Home',
   'Accounts',
   'Cards',
   'Workflows',
@@ -49,7 +52,12 @@ class _MainShellState extends ConsumerState<MainShell>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this, initialIndex: 3);
+    _tabController = TabController(
+      length: 9,
+      vsync: this,
+      initialIndex: 5, // Home tab
+      animationDuration: Duration.zero,
+    );
   }
 
   @override
@@ -136,15 +144,17 @@ class _MainShellState extends ConsumerState<MainShell>
                               // ── Tab content ──────────────────────────
                               Positioned.fill(
                                 child: TabBarView(
+                                  physics: const NeverScrollableScrollPhysics(),
                                   controller: _tabController,
                                   children: [
-                                    const InvoicesScreen(),
+                                    const InvoicesScreen(), // Billing tab - will be updated
                                     const ExpensesScreen(),
+                                    const MerchantDashboard(), // Shop tab - Merchant Store
+                                    const OrganizationScreen(), // Organization tab - Team Management
                                     TransactionsScreen(
                                       tabController: _tabController,
                                     ),
                                     const HomeScreen(),
-                                    const RequestsScreen(),
                                     const AccountsScreen(),
                                     const CardsScreen(),
                                     const WorkflowsScreen(),
@@ -524,6 +534,8 @@ class _HeaderOverlay extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
@@ -601,16 +613,18 @@ class _HeaderOverlay extends StatelessWidget {
           const SizedBox(height: 3),
 
           SizedBox(
+            // color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
             width: double.infinity,
             height: 48,
             child: AdaptiveLiquidGlassLayer(
               settings: const LiquidGlassSettings(thickness: 0.8, blur: 8.0),
               child: TabBar(
+                physics: const NeverScrollableScrollPhysics(),
                 controller: tabController,
                 splashFactory: NoSplash.splashFactory,
                 overlayColor: WidgetStateProperty.all(Colors.transparent),
                 isScrollable: true,
-                tabAlignment: TabAlignment.start,
+                tabAlignment: TabAlignment.center,
                 indicator: BoxDecoration(
                   color: Theme.of(
                     context,

@@ -22,7 +22,9 @@ class _BackupScreenState extends State<BackupScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Padding(
+          child:  SizedBox(
+            width: MediaQuery.of(context).size.width,
+            child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -118,6 +120,6 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

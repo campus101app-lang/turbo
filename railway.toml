@@ -1,0 +1,21 @@
+# Railway Configuration for DayFi Web App
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "flutter build web --release && python -m http.server 8080 --directory build/web"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[[services]]
+name = "dayfi-web"
+source = "."
+[docker]
+dockerfile = "Dockerfile"
+
+[env]
+FLUTTER_ENV = "production"
+NODE_ENV = "production"

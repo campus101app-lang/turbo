@@ -1,11 +1,11 @@
 {
-    "name": "mobile_app",
-    "short_name": "mobile_app",
+    "name": "DayFi - Nigerian Business Financial Command Center",
+    "short_name": "DayFi",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FAFAFA",
+    "theme_color": "#D97706",
+    "description": "Nigerian Business Financial Command Center - Enterprise-grade financial management for Nigerian businesses.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

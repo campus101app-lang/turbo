@@ -12,8 +12,9 @@ import 'dart:async';
 class OtpScreen extends StatefulWidget {
   final String email;
   final bool isNewUser;
+  final String? destination;
 
-  const OtpScreen({super.key, required this.email, required this.isNewUser});
+  const OtpScreen({super.key, required this.email, required this.isNewUser, this.destination});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -70,9 +71,18 @@ class _OtpScreenState extends State<OtpScreen> {
       final step = result['step'];
 
       if (step == 'setup_username') {
+        if (widget.isNewUser) {
+          context.push(widget.destination ?? '/auth/business-onboarding');
+        } else {
+          context.push('/auth/business-profile', extra: {'setupToken': result['setupToken']});
+        }
+      } else if (step == 'setup_profile') {
         context.push(
           '/auth/business-profile',
-          extra: {'setupToken': result['setupToken']},
+          extra: {
+            'setupToken': result['setupToken'],
+            'existingProfile': result['existingProfile'],
+          },
         );
       } else if (step == 'complete') {
         await apiService.saveToken(result['token']);
@@ -204,7 +214,7 @@ class _OtpScreenState extends State<OtpScreen> {
                ),       const SizedBox(height: 32),
 
                 // ── Pinput replaces the manual Row of TextFormFields ──
-                Pinput(
+                Pinput( enableSuggestions: true,    
                   length: 6,
                   controller: _pinController,
                   focusNode: _pinFocusNode,

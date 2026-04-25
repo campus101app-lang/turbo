@@ -17,14 +17,14 @@ class AppBackground extends StatelessWidget {
           radius: 1.4,
           colors: isDark
               ? [
-                  const Color.fromARGB(255, 37, 37, 37), // deep blue-slate top-left
-                  const Color.fromARGB(255, 21, 21, 21), // near-black center
-                  const Color.fromARGB(255, 9, 9, 9), // pure dark bottom
+                  const Color(0xFF1E1812), // warm dark brown top-left
+                  const Color(0xFF141009), // warm near-black center
+                  const Color(0xFF0D0A06), // deepest warm dark bottom
                 ]
               : [
-                  const Color(0xFFF0F4FF),
-                  const Color(0xFFFAFAFF),
-                  const Color(0xFFFFFFFF),
+                  const Color(0xFFEDE5D8), // warm parchment top-left
+                  const Color(0xFFF3EDE4), // soft warm center
+                  const Color(0xFFFAF7F4), // lightest warm bottom
                 ],
           stops: const [0.0, 0.5, 1.0],
         ),

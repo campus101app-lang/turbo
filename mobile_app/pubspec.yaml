@@ -82,14 +82,21 @@ dependencies:
   adaptive_platform_ui: ^0.1.105
   fl_chart: ^1.2.0
   font_awesome_flutter: ^11.0.0
+  mockito: ^5.4.4
+  connectivity_plus: ^7.1.1
+  encrypt: ^5.0.3
+  permission_handler: ^12.0.1
+  flutter_local_notifications: ^20.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_lints: ^3.0.0
   build_runner: ^2.4.9
   riverpod_generator: ^2.4.0
-  retrofit_generator: ^8.1.0
+  retrofit_generator: ^7.0.8
   flutter_native_splash: ^2.3.0
   
 

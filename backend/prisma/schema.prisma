@@ -8,11 +8,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AccountType {
+  INDIVIDUAL
+  REGISTERED_BUSINESS
+  OTHER_ENTITY
+}
+
+enum BusinessType {
+  SOLE_PROPRIETORSHIP
+  LIMITED_LIABILITY
+  PUBLIC_LIMITED
+  PARTNERSHIP
+  NGO
+  RELIGIOUS_ORG
+  TRUST
+  OTHER
+}
+
 model User {
   id          String  @id @default(cuid())
   email       String  @unique
   username    String? @unique
   isVerified  Boolean @default(false)
+  
+  // Account Type for Nigerian Businesses
+  accountType AccountType @default(INDIVIDUAL)
 
   // OTP
   otpCode     String?
@@ -29,9 +49,25 @@ model User {
   faceIdEnabled Boolean @default(false)
   isBackedUp    Boolean @default(false)
 
-  // ── Business profile ───────────────────────────────────
+  // ── Nigeria Business Profile ───────────────────────────
   fullName          String?
+  phone             String?
+  homeAddress       String?
+  
+  // Business Information
   businessName      String?
+  businessAddress   String?
+  businessType      BusinessType?
+  cacRegistrationNumber String?
+  taxIdentificationNumber String?
+  
+  // KYC Documents
+  bvn               String?
+  nin               String?
+  idType            String? // NIN, DRIVERS_LICENSE, VOTER_CARD
+  idNumber          String?
+  
+  // Legacy fields (for compatibility)
   businessCategory  String?
   businessEmail     String?
 
@@ -43,6 +79,10 @@ model User {
   // ── Merchant / inventory ────────────────────────────────
   isMerchant        Boolean @default(false)
   inventory         InventoryItem[]
+
+  // ── Organization relationships ─────────────────────────────
+  ownedOrganizations Organization[] @relation("OrganizationOwner")
+  organizationMemberships OrganizationMember[]
 
   // Timestamps
   createdAt   DateTime  @default(now())
@@ -59,6 +99,7 @@ model User {
   cards               Card[]
   workflows           Workflow[]
   paymentRequests     PaymentRequest[]
+  auditLogs           AuditLog[]
 
   @@index([email])
   @@index([username])
@@ -120,9 +161,19 @@ model Transaction {
 // ── Invoice ───────────────────────────────────────────────────────────────────
 
 model Invoice {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  id             String @id @default(cuid())
+  userId         String
+  user           User   @relation(fields: [userId], references: [id])
+  
+  // Organization support
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Approval workflow
+  approvedById   String?
+  approvedBy     User?  @relation("InvoiceApprovedBy", fields: [approvedById], references: [id])
+  approvalLevel  Int?   // Current approval level (1, 2, 3...)
+  requiredApprovals Int @default(1) // Number of approvals needed
 
   invoiceNumber String   @unique
   title         String
@@ -396,8 +447,47 @@ model InventoryItem {
   @@index([sku])
 }
 
-// ── Enums ─────────────────────────────────────────────────────────────────────
+// ─── Organization ──────────────────────────────────────────────────────────────
 
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String?  @unique
+  plan        OrganizationPlan @default(free)
+  maxMembers  Int      @default(5)
+  
+  ownerUserId String
+  owner       User     @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
+  members     OrganizationMember[]
+  invoices    Invoice[]
+  expenses    Expense[]
+  workflows   Workflow[]
+  auditLogs   AuditLog[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+}
+
+// ── OrganizationMember ────────────────────────────────────────────────────────
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role           OrganizationRole @default(staff)
+  permissions    Json?    // Custom permissions per role
+  invitedBy      String?
+  joinedAt       DateTime @default(now())
+  
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+}
 enum TransactionType {
   send
   receive
@@ -409,20 +499,49 @@ enum TransactionType {
   requestPayment
 }
 
+enum InvoiceStatus { draft, sent, viewed, paid, overdue, cancelled }
+enum ExpenseStatus { pending, submitted, approved, rejected, reimbursed }
+enum ExpenseCategory { software, hardware, marketing, travel, office, utilities, other }
+enum CardType { virtual, physical }
+enum CardCurrency { USDC, NGN }
+enum CardStatus { active, frozen, cancelled, expired }
+enum InvoicePaymentType { crypto, bank }
+enum WorkflowStatus { active, paused, disabled }
+enum WorkflowTriggerType { scheduled, balanceThreshold, invoicePaid, expenseApproved, manualRun }
+enum WorkflowActionType { sendPayment, createInvoice, sendReminder, notifyUser, flagExpense }
+
 enum TransactionStatus {
   pending
   confirmed
   failed
 }
 
-enum InvoiceStatus {
-  draft
-  sent
-  viewed
-  paid
-  overdue
-  cancelled
+// ── Audit Log ────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  action        String   // e.g., "transaction_send", "invoice_created", "permission_role_changed"
+  resourceType  String   // e.g., "transaction", "invoice", "organization_member"
+  resourceId    String?  // ID of the affected resource
+  details       Json?    // Additional context data
+  
+  ipAddress     String?
+  userAgent     String?
+  timestamp     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([organizationId])
+  @@index([action])
+  @@index([resourceType])
+  @@index([timestamp])
+  @@index([organizationId, timestamp])
 }
+
 
 enum InvoicePaymentType {
   crypto

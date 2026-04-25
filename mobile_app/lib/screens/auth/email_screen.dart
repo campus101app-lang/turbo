@@ -32,15 +32,31 @@ class _EmailScreenState extends State<EmailScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final result = await apiService.sendOtp(_emailController.text.trim());
+      final email = _emailController.text.trim();
+      final result = await apiService.sendOtp(email);
+      
       if (mounted) {
-        context.push(
-          '/auth/otp',
-          extra: {
-            'email': _emailController.text.trim(),
-            'isNewUser': result['isNewUser'] ?? false,
-          },
-        );
+        if (result['isNewUser'] == false) {
+          // Existing user - go to OTP then dashboard
+          context.push(
+            '/auth/otp',
+            extra: {
+              'email': email,
+              'isNewUser': false,
+              'destination': '/dashboard',
+            },
+          );
+        } else {
+          // New user - go to OTP then business onboarding
+          context.push(
+            '/auth/otp',
+            extra: {
+              'email': email,
+              'isNewUser': true,
+              'destination': '/auth/business-onboarding',
+            },
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -300,6 +300,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Frequently asked questions',
                 onTap: () => context.push('/security'),
               ),
+
+              const SizedBox(height: 10),
+
+              _SettingsTile(
+                icon: "assets/icons/svgs/app.svg", // TODO: Add organization icon
+                label: 'Organization',
+                subtitle: 'Manage team and settings',
+                onTap: () => context.push('/organization'),
+              ),
                 // .animate().fadeIn(delay: 200.ms),
 
               const SizedBox(height: 10),

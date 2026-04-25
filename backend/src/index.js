@@ -20,9 +20,16 @@ import expensesRoutes    from './routes/expenses.js';
 import cardsRoutes       from './routes/cards.js';
 import workflowsRoutes   from './routes/workflows.js';
 import requestsRoutes    from './routes/requests.js';
+import businessAuthRoutes from './routes/businessAuth.js';
+import organizationRoutes from './routes/organization.js';
 import { errorHandler }  from './middleware/errorHandler.js';
 import { attachRequestContext } from './middleware/requestContext.js';
+import { auditLogger, addRequestStartTime } from './middleware/auditLogger.js';
+import organizationRateLimit from './middleware/organizationRateLimit.js';
+import MonitoringService from './services/monitoring.js';
+import FraudDetection from './services/fraudDetection.js';
 import { sendError }     from './utils/http.js';
+import { authenticate, requirePermission } from './middleware/auth.js';
 
 dotenv.config();
 
@@ -31,10 +38,18 @@ app.set('trust proxy', 1);
 const PORT    = process.env.PORT || 3001;
 const NETWORK = process.env.STELLAR_NETWORK || 'mainnet';
 
-// ─── Security ────────────────────────────────────────────────────────────────
+// ─── Initialize Services ───────────────────────────────────────────────────────
 
-app.use(helmet());
-app.use(cors({
+const monitoringService = new MonitoringService();
+const fraudDetection = new FraudDetection();
+
+// Make services available globally
+global.monitoringService = monitoringService;
+global.fraudDetection = fraudDetection;
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
+const corsOptions = {
   origin: [
     process.env.FRONTEND_URL || 'https://dayfi.me',
     'http://localhost:3000',
@@ -43,7 +58,20 @@ app.use(cors({
     /\.dayfi\.me$/,
   ],
   credentials: true,
+};
+
+app.use(helmet());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(attachRequestContext);
+app.use(addRequestStartTime);
+app.use(auditLogger({ 
+  enabled: true,
+  skipActions: ['health_check', 'get_health'],
+  logUnauthenticated: false 
 }));
+app.use(organizationRateLimit());
 
 const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 const authLimiter   = rateLimit({
@@ -76,10 +104,11 @@ app.get('/health', (_, res) => res.json({
   timestamp: new Date().toISOString(),
 }));
 
-// ─── App API ─────────────────────────────────────────────────────────────────
+// ─── API Routes ───────────────────────────────────────────────────────────
 
-app.use('/api/auth',         authLimiter, authRoutes);
-app.use('/api/wallet',       walletRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/auth', businessAuthRoutes);
+app.use('/api/organization', organizationRoutes);
 app.use('/api/user',         userRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/inventory',    inventoryRoutes);
@@ -89,12 +118,73 @@ app.use('/api/expenses',     expensesRoutes);
 app.use('/api/cards',        cardsRoutes);
 app.use('/api/workflows',    workflowsRoutes);
 app.use('/api/requests',     requestsRoutes);
+app.use('/api/organization', organizationRoutes);
 
 // ─── SEP Routes ───────────────────────────────────────────────────────────────
 
 app.use('/sep10', sep10Limiter, sep10Routes);
 app.use('/sep24', sep24Routes);
 app.use('/sep38', sep38Routes);
+
+// ─── Monitoring Endpoints ─────────────────────────────────────────────────────
+
+app.get('/health', async (req, res) => {
+  try {
+    const health = await monitoringService.getHealthStatus();
+    res.json(health);
+  } catch (err) {
+    res.status(500).json({ status: 'unhealthy', error: err.message });
+  }
+});
+
+app.get('/monitoring/metrics', authenticate, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const timeWindow = parseInt(req.query.window) || 60 * 60 * 1000; // Default 1 hour
+    const metrics = monitoringService.getMetrics(timeWindow);
+    res.json({ metrics });
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
+
+app.get('/monitoring/alerts', authenticate, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const severity = req.query.severity;
+    const acknowledged = req.query.acknowledged === 'true' ? true : req.query.acknowledged === 'false' ? false : null;
+    const alerts = monitoringService.getAlerts(severity, acknowledged);
+    res.json({ alerts });
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
+
+app.post('/monitoring/alerts/:alertId/acknowledge', authenticate, requirePermission('manage_settings'), async (req, res) => {
+  try {
+    monitoringService.acknowledgeAlert(req.params.alertId);
+    res.json({ success: true });
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
+
+app.get('/monitoring/overview', authenticate, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const overview = await monitoringService.getSystemOverview();
+    res.json(overview);
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
+
+app.get('/fraud/stats', authenticate, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const timeWindow = parseInt(req.query.window) || 24 * 60 * 60 * 1000; // Default 24 hours
+    const stats = await fraudDetection.getFraudStats(timeWindow);
+    res.json({ stats });
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
 
 // ─── Public Username Resolution ───────────────────────────────────────────────
 

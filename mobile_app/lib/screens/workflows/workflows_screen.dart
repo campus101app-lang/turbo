@@ -396,9 +396,13 @@ class _WorkflowTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
         decoration: BoxDecoration(
-          color: ext.cardSurface,
+                color: Theme.of(context).colorScheme.surface,
+                          
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ext.cardBorder, width: .5),
+          border: Border.all(color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          , width: .5),
         ),
         child: Row(
           children: [
@@ -430,7 +434,10 @@ class _WorkflowTile extends StatelessWidget {
                     style: GoogleFonts.bricolageGrotesque(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
-                      color: ext.primaryText,
+                      color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -533,8 +540,8 @@ class _WorkflowTile extends StatelessWidget {
     switch (a) {
       case 'sendPayment':
         return 'Send payment';
-      case 'createInvoice':
-        return 'Create invoice';
+      // case 'createInvoice':
+        //   return 'Create invoice'; // Blocked by backend
       case 'sendReminder':
         return 'Send reminder';
       case 'notifyUser':
@@ -573,7 +580,10 @@ class _EmptyState extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: ext.cardBorder.withValues(alpha: 0.5),
+                      color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          .withValues(alpha: 0.5),
                       width: 1,
                     ),
                     color: ext.monthlyCardSurface,
@@ -585,8 +595,12 @@ class _EmptyState extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: ext.cardBorder, width: .5),
-                  color: ext.cardSurface,
+                  border: Border.all(color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          , width: .5),
+                        color: Theme.of(context).colorScheme.surface,
+                          
                 ),
                 padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
                 child: Column(
@@ -615,7 +629,10 @@ class _EmptyState extends StatelessWidget {
                               backgroundColor: Theme.of(
                                 context,
                               ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                              foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -645,7 +662,10 @@ class _EmptyState extends StatelessWidget {
                               backgroundColor: Theme.of(
                                 context,
                               ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                              foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -727,7 +747,7 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
     ('sendPayment', 'Send Payment', Icons.send_rounded),
     ('sendReminder', 'Send Reminder', Icons.notifications_rounded),
     ('notifyUser', 'Push Notify', Icons.notification_important_rounded),
-    ('createInvoice', 'Create Invoice', Icons.note_add_rounded),
+    // ('createInvoice', 'Create Invoice', Icons.note_add_rounded), // Blocked by backend
     ('flagExpense', 'Flag Expense', Icons.flag_rounded),
   ];
 
@@ -777,8 +797,14 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
       return;
     }
     setState(() => _loading = true);
+    
+    // Debug: Show API URL
+    print('Creating workflow with API: ${ApiService.getBaseUrl}');
+    print('Workflow data: name=${_nameCtrl.text.trim()}, trigger=$_triggerType, action=$_actionType');
+    
     try {
-      await apiService.createWorkflow({
+      print('Making API call to createWorkflow...');
+      final result = await apiService.createWorkflow({
         'name': _nameCtrl.text.trim(),
         'description': _descCtrl.text.trim().isEmpty
             ? null
@@ -788,11 +814,29 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
         'actionType': _actionType,
         'actionConfig': _buildActionConfig(),
       });
+      
+      print('Workflow created successfully: $result');
+      
       widget.onCreated();
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        print('Closing modal and showing success message...');
+        Navigator.pop(context);
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Workflow created successfully!'),
+            backgroundColor: DayFiColors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
-      _snack(apiService.parseError(e));
+      print('Error creating workflow: $e');
+      final errorMsg = apiService.parseError(e);
+      print('Parsed error: $errorMsg');
+      _snack('Failed to create workflow: $errorMsg');
     } finally {
+      print('Setting loading to false...');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -834,7 +878,10 @@ class _CreateWorkflowSheetState extends ConsumerState<_CreateWorkflowSheet> {
               style: GoogleFonts.bricolageGrotesque(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: ext.primaryText,
+                color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
               ),
             ),
             const SizedBox(height: 20),
@@ -1493,7 +1540,7 @@ class _WorkflowDetailSheetState extends State<_WorkflowDetailSheet> {
   String _actionLabel(String a) {
     const m = {
       'sendPayment': 'Send Payment',
-      'createInvoice': 'Create Invoice',
+      // 'createInvoice': 'Create Invoice', // Blocked by backend
       'sendReminder': 'Send Reminder',
       'notifyUser': 'Push Notify',
       'flagExpense': 'Flag Expense',
@@ -1720,7 +1767,7 @@ class _EditWorkflowSheetState extends State<_EditWorkflowSheet> {
     ('sendPayment', 'Send Payment', Icons.send_rounded),
     ('sendReminder', 'Send Reminder', Icons.notifications_rounded),
     ('notifyUser', 'Push Notify', Icons.notification_important_rounded),
-    ('createInvoice', 'Create Invoice', Icons.note_add_rounded),
+    // ('createInvoice', 'Create Invoice', Icons.note_add_rounded), // Blocked by backend
     ('flagExpense', 'Flag Expense', Icons.flag_rounded),
   ];
 

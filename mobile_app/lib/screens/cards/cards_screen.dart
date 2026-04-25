@@ -503,9 +503,13 @@ class _CardTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: ext.cardSurface,
+                color: Theme.of(context).colorScheme.surface,
+                          
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ext.cardBorder, width: .5),
+          border: Border.all(color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          , width: .5),
         ),
         child: Row(
           children: [
@@ -535,7 +539,10 @@ class _CardTile extends StatelessWidget {
                     style: GoogleFonts.bricolageGrotesque(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
-                      color: ext.primaryText,
+                      color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                     ),
                   ),
                   Text(
@@ -629,7 +636,10 @@ class _EmptyState extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: ext.cardBorder.withValues(alpha: 0.5),
+                      color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          .withValues(alpha: 0.5),
                       width: 1,
                     ),
                     color: ext.monthlyCardSurface,
@@ -641,8 +651,12 @@ class _EmptyState extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: ext.cardBorder, width: .5),
-                  color: ext.cardSurface,
+                  border: Border.all(color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.04)
+                          , width: .5),
+                        color: Theme.of(context).colorScheme.surface,
+                          
                 ),
                 padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
                 child: Column(
@@ -671,7 +685,10 @@ class _EmptyState extends StatelessWidget {
                               backgroundColor: Theme.of(
                 context,
               ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                              foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -701,7 +718,10 @@ class _EmptyState extends StatelessWidget {
                               backgroundColor: Theme.of(
                 context,
               ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                              foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -841,7 +861,10 @@ class _CreateCardSheetState extends ConsumerState<_CreateCardSheet> {
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: ext.primaryText,
+              color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
             ),
           ),
           const SizedBox(height: 20),

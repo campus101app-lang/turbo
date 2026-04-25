@@ -83,13 +83,17 @@ router.post('/verify-otp', [
       return res.status(400).json({ error: 'Invalid code.', attemptsLeft: 5 - (user.otpAttempts + 1) });
     }
 
+    // Check if user needs business profile setup
+    const needsProfileSetup = !user.fullName || !user.businessName || !user.businessCategory;
     const needsUsername = !user.username || user.username.startsWith('user_');
+    
     await prisma.user.update({
       where: { email },
       data: { otpCode: null, otpExpiry: null, otpAttempts: 0, isVerified: true },
     });
 
-    if (!needsUsername && user.stellarPublicKey) {
+    // If user has complete profile and wallet, return token
+    if (!needsProfileSetup && !needsUsername && user.stellarPublicKey) {
       const token = jwt.sign(
         { userId: user.id, email: user.email },
         process.env.JWT_SECRET,
@@ -101,12 +105,40 @@ router.post('/verify-otp', [
           id: user.id, email: user.email,
           username: user.username,
           dayfiUsername: `${user.username}@dayfi.me`,
+          fullName: user.fullName,
+          businessName: user.businessName,
+          businessCategory: user.businessCategory,
+          businessEmail: user.businessEmail,
           stellarPublicKey: user.stellarPublicKey,
           isBackedUp: user.isBackedUp,
+          isMerchant: user.isMerchant,
         },
       });
     }
 
+    // If user needs business profile setup, send to profile screen
+    if (needsProfileSetup) {
+      const setupToken = jwt.sign(
+        { userId: user.id, email: user.email, setupMode: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '30m' }
+      );
+      return res.json({ 
+        success: true, 
+        step: 'setup_profile', 
+        setupToken, 
+        userId: user.id,
+        // Pre-fill existing data if partial profile exists
+        existingProfile: {
+          fullName: user.fullName,
+          businessName: user.businessName,
+          businessCategory: user.businessCategory,
+          businessEmail: user.businessEmail,
+        }
+      });
+    }
+
+    // If user only needs username setup (legacy flow)
     const setupToken = jwt.sign(
       { userId: user.id, email: user.email, setupMode: true },
       process.env.JWT_SECRET,
@@ -230,16 +262,17 @@ router.post('/mark-backed-up', authenticate, async (req, res) => {
 // Replaces the old /setup-username flow
 // Called from business_profile_screen.dart after OTP verification
 router.post('/setup-profile', [
-  body('setupToken').notEmpty(),
-  body('fullName').trim().isLength({ min: 2 }).withMessage('Full name required'),
-  body('businessName').trim().isLength({ min: 2 }).withMessage('Business name required'),
-  body('businessCategory').notEmpty().withMessage('Category required'),
-  body('businessEmail').optional().isEmail(),
+  body('setupToken').isJWT().withMessage('Invalid setup token'),
+  body('fullName').notEmpty().withMessage('Full name is required'),
+  body('businessName').notEmpty().withMessage('Business name is required'),
+  body('businessCategory').isIn(['software', 'retail', 'consulting', 'manufacturing', 'other']).withMessage('Invalid category'),
+  body('businessEmail').optional().isEmail().withMessage('Invalid email'),
+  body('organizationName').optional().isString().withMessage('Organization name must be a string'),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { setupToken, fullName, businessName, businessCategory, businessEmail } = req.body;
+  const { setupToken, fullName, businessName, businessCategory, businessEmail, organizationName } = req.body;
 
   try {
     let decoded;
@@ -268,6 +301,39 @@ router.post('/setup-profile', [
 
       // Fund new user wallet
       await fundNewUserWallet(publicKey, decoded.userId);
+    }
+
+    // ─ Create organization ─────────────────────────────────────────────
+    let organization;
+    const orgName = organizationName || businessName;
+    
+    // Check if user already has an organization
+    const existingOrg = await prisma.organization.findFirst({
+      where: { ownerUserId: decoded.userId }
+    });
+    
+    if (!existingOrg) {
+      organization = await prisma.organization.create({
+        data: {
+          name: orgName,
+          ownerUserId: decoded.userId,
+          plan: 'free',
+          maxMembers: 5,
+        },
+      });
+      
+      // Add user as organization owner
+      await prisma.organizationMember.create({
+        data: {
+          organizationId: organization.id,
+          userId: decoded.userId,
+          role: 'owner',
+        },
+      });
+      
+      console.log(`✅ Organization created: ${organization.name}`);
+    } else {
+      organization = existingOrg;
     }
 
     // ─ Save business profile ────────────────────────────────────────────
@@ -308,6 +374,13 @@ router.post('/setup-profile', [
         stellarPublicKey: user.stellarPublicKey,
         isBackedUp: user.isBackedUp,
         isMerchant: user.isMerchant,
+        organization: organization ? {
+          id: organization.id,
+          name: organization.name,
+          plan: organization.plan,
+          maxMembers: organization.maxMembers,
+          role: 'owner'
+        } : null,
       },
     });
   } catch (err) {

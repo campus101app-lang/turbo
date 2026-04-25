@@ -31,8 +31,9 @@ const _categories = [
 
 class BusinessProfileScreen extends StatefulWidget {
   final String setupToken;
+  final Map<String, dynamic>? existingProfile; // Add this parameter
 
-  const BusinessProfileScreen({super.key, required this.setupToken});
+  const BusinessProfileScreen({super.key, required this.setupToken, this.existingProfile});
 
   @override
   State<BusinessProfileScreen> createState() => _BusinessProfileScreenState();
@@ -58,14 +59,25 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-fill form with existing profile data if available
+    if (widget.existingProfile != null) {
+      final profile = widget.existingProfile!;
+      _fullNameController.text = profile['fullName'] ?? '';
+      _businessNameController.text = profile['businessName'] ?? '';
+      _businessEmailController.text = profile['businessEmail'] ?? '';
+      _selectedCategory = profile['businessCategory'];
+    }
+  }
+
+  @override
   void dispose() {
     _fullNameController.dispose();
     _businessNameController.dispose();
     _businessEmailController.dispose();
     super.dispose();
   }
-
-  // ── Category picker ────────────────────────────────────────────────────────
 
   void _showCategoryPicker() {
     showModalBottomSheet<void>(

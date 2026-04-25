@@ -1,4 +1,6 @@
 // lib/screens/requests/requests_screen.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -102,31 +104,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
         error: (e, _) => _buildError(context, e.toString()),
         data: (requests) => _buildBody(context, requests),
       ),
-        floatingActionButton: Container(
-        height: 60,
-        width: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-          ),
-        ),
-        child: InkWell(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          onTap: () => _showCreateSheet(context),
-          child: Center(
-            child: FaIcon(
-              FontAwesomeIcons.add,
-              size: 22,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-            ),
-          ),
-        ),
-      ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0),
+      floatingActionButton: _buildFab(context, ref),
     );
   }
 
@@ -149,6 +127,34 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
     );
   }
 
+  Widget _buildFab(BuildContext context, WidgetRef ref) {
+    return Container(
+      height: 60,
+      width: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+        ),
+      ),
+      child: InkWell(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        onTap: () => _showCreateModal(context, ref),
+        child: Center(
+          child: FaIcon(
+            FontAwesomeIcons.add,
+            size: 22,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
+  }
+
   Widget _buildBody(BuildContext context, List<PaymentRequest> all) {
     final filtered = _filter == 'all'
         ? all
@@ -161,7 +167,8 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
         .where((r) => r.isPaid)
         .fold<double>(0, (s, r) => s + r.amount);
 
-    if (all.isEmpty) return _EmptyState(onTap: () => _showCreateSheet(context));
+    if (all.isEmpty)
+      return _EmptyState(onTap: () => _showCreateModal(context, ref));
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(_requestsProvider),
@@ -220,12 +227,18 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
     );
   }
 
-  void _showCreateSheet(BuildContext context) {
-    showDayFiBottomSheet(
+  void _showCreateModal(BuildContext context, WidgetRef ref) {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      child: _CreateRequestSheet(
-        onCreated: () => ref.invalidate(_requestsProvider),
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (_) => _GlassModal(
+        child: _CreateRequestSheet(
+          onCreated: () {
+            ref.invalidate(_requestsProvider);
+            Navigator.of(context).pop();
+          },
+        ),
       ),
     );
   }
@@ -415,9 +428,13 @@ class _RequestTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         decoration: BoxDecoration(
-          color: ext.cardSurface,
+          color: Theme.of(context).colorScheme.surface,
+
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ext.cardBorder, width: .5),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+            width: .5,
+          ),
         ),
         child: Row(
           children: [
@@ -451,7 +468,9 @@ class _RequestTile extends StatelessWidget {
                     style: GoogleFonts.bricolageGrotesque(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
-                      color: ext.primaryText,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(.555),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -479,7 +498,11 @@ class _RequestTile extends StatelessWidget {
                   style: GoogleFonts.bricolageGrotesque(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: r.isPaid ? DayFiColors.green : ext.primaryText,
+                    color: r.isPaid
+                        ? DayFiColors.green
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(.555),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -574,7 +597,9 @@ class _EmptyState extends StatelessWidget {
 
   void _showComingSoon(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('More request help content is coming soon.')),
+      const SnackBar(
+        content: Text('More request help content is coming soon.'),
+      ),
     );
   }
 
@@ -598,7 +623,9 @@ class _EmptyState extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: ext.cardBorder.withValues(alpha: 0.5),
+                      color: Theme.of(context).colorScheme.onSurface
+                          .withOpacity(0.04)
+                          .withValues(alpha: 0.5),
                       width: 1,
                     ),
                     color: ext.monthlyCardSurface,
@@ -610,8 +637,13 @@ class _EmptyState extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: ext.cardBorder, width: .5),
-                  color: ext.cardSurface,
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.04),
+                    width: .5,
+                  ),
+                  color: Theme.of(context).colorScheme.surface,
                 ),
                 padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
                 child: Column(
@@ -638,9 +670,11 @@ class _EmptyState extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
                               backgroundColor: Theme.of(
-                context,
-              ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                                context,
+                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(.555),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -668,9 +702,11 @@ class _EmptyState extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               elevation: 0,
                               backgroundColor: Theme.of(
-                context,
-              ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
+                                context,
+                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(.555),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -740,9 +776,17 @@ class _CreateRequestSheetState extends ConsumerState<_CreateRequestSheet> {
       return;
     }
     setState(() => _loading = true);
+
+    // Debug: Show API URL
+    print('Creating request with API: ${ApiService.getBaseUrl}');
+    print('Request data: amount=$amt, asset=$_asset');
+
     try {
-      final result = await apiService.createRequest({
-        'amount': amt,
+      print('Making API call to createRequest...');
+
+      // Ensure proper data format - backend expects float for amount
+      final requestData = {
+        'amount': amt.toDouble(), // Ensure it's a float
         'asset': _asset,
         'note': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
         'payerName': _payerCtrl.text.trim().isEmpty
@@ -751,14 +795,31 @@ class _CreateRequestSheetState extends ConsumerState<_CreateRequestSheet> {
         'payerEmail': _payerEmail.text.trim().isEmpty
             ? null
             : _payerEmail.text.trim(),
-      });
+      };
+
+      print('Request payload: $requestData');
+
+      final result = await apiService.createRequest(requestData);
+
+      print('Request created successfully: $result');
 
       widget.onCreated();
       if (mounted) {
+        print('Closing modal and showing success message...');
         Navigator.pop(context);
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment request created successfully!'),
+            backgroundColor: DayFiColors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
         // Show the link right away
         final link = result['request']?['paymentLink'] as String?;
         if (link != null) {
+          print('Showing payment link sheet...');
           showDayFiBottomSheet(
             context: context,
             child: _LinkRevealSheet(link: link, amount: amt, asset: _asset),
@@ -766,8 +827,12 @@ class _CreateRequestSheetState extends ConsumerState<_CreateRequestSheet> {
         }
       }
     } catch (e) {
-      _snack(apiService.parseError(e));
+      print('Error creating request: $e');
+      final errorMsg = apiService.parseError(e);
+      print('Parsed error: $errorMsg');
+      _snack('Failed to create request: $errorMsg');
     } finally {
+      print('Setting loading to false...');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -808,7 +873,7 @@ class _CreateRequestSheetState extends ConsumerState<_CreateRequestSheet> {
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: ext.primaryText,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(.555),
             ),
           ),
           const SizedBox(height: 6),
@@ -919,7 +984,10 @@ class _LinkRevealSheet extends StatelessWidget {
 
   Future<void> _shareText(BuildContext context, String text) async {
     final box = context.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+    if (box != null &&
+        box.hasSize &&
+        box.size.width > 0 &&
+        box.size.height > 0) {
       await Share.share(
         text,
         sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
@@ -1039,7 +1107,9 @@ class _LinkRevealSheet extends StatelessWidget {
                   icon: const Icon(Icons.copy_rounded, size: 18),
                   label: Text(
                     'Copy',
-                    style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w600),
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -1097,7 +1167,10 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
 
   Future<void> _shareText(String text) async {
     final box = context.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize && box.size.width > 0 && box.size.height > 0) {
+    if (box != null &&
+        box.hasSize &&
+        box.size.width > 0 &&
+        box.size.height > 0) {
       await Share.share(
         text,
         sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
@@ -1114,8 +1187,14 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes'),
+          ),
         ],
       ),
     );
@@ -1123,7 +1202,8 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
   }
 
   Future<void> _markPaid() async {
-    if (!await _confirm('Mark as paid?', 'Confirm this request is now paid.')) return;
+    if (!await _confirm('Mark as paid?', 'Confirm this request is now paid.'))
+      return;
     setState(() => _marking = true);
     try {
       await apiService.markRequestPaid(widget.request.id);
@@ -1141,7 +1221,8 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
   }
 
   Future<void> _cancel() async {
-    if (!await _confirm('Cancel request?', 'This action cannot be undone.')) return;
+    if (!await _confirm('Cancel request?', 'This action cannot be undone.'))
+      return;
     setState(() => _cancelling = true);
     try {
       await apiService.cancelRequest(widget.request.id);
@@ -1580,10 +1661,14 @@ class _EditRequestSheetState extends State<_EditRequestSheet> {
   @override
   void initState() {
     super.initState();
-    _amountCtrl = TextEditingController(text: widget.request.amount.toStringAsFixed(2));
+    _amountCtrl = TextEditingController(
+      text: widget.request.amount.toStringAsFixed(2),
+    );
     _noteCtrl = TextEditingController(text: widget.request.note ?? '');
     _payerCtrl = TextEditingController(text: widget.request.payerName ?? '');
-    _payerEmailCtrl = TextEditingController(text: widget.request.payerEmail ?? '');
+    _payerEmailCtrl = TextEditingController(
+      text: widget.request.payerEmail ?? '',
+    );
     _asset = widget.request.asset;
   }
 
@@ -1599,7 +1684,9 @@ class _EditRequestSheetState extends State<_EditRequestSheet> {
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
       return;
     }
     setState(() => _saving = true);
@@ -1608,13 +1695,20 @@ class _EditRequestSheetState extends State<_EditRequestSheet> {
         'amount': amount,
         'asset': _asset,
         'note': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-        'payerName': _payerCtrl.text.trim().isEmpty ? null : _payerCtrl.text.trim(),
-        'payerEmail': _payerEmailCtrl.text.trim().isEmpty ? null : _payerEmailCtrl.text.trim(),
+        'payerName': _payerCtrl.text.trim().isEmpty
+            ? null
+            : _payerCtrl.text.trim(),
+        'payerEmail': _payerEmailCtrl.text.trim().isEmpty
+            ? null
+            : _payerEmailCtrl.text.trim(),
       });
-      if (mounted) Navigator.pop(context, res['request'] as Map<String, dynamic>? ?? {});
+      if (mounted)
+        Navigator.pop(context, res['request'] as Map<String, dynamic>? ?? {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1648,20 +1742,13 @@ class _EditRequestSheetState extends State<_EditRequestSheet> {
                 ),
               ),
               const SizedBox(width: 12),
-              _SegmentPicker(
-                options: const ['USDC', 'NGNT'],
-                selected: _asset,
-                onChanged: (v) => setState(() => _asset = v),
-              ),
             ],
           ),
-          const SizedBox(height: 12),
-          _Label('Payer name'),
-          const SizedBox(height: 6),
-          _Field(controller: _payerCtrl, hint: 'Client name'),
-          const SizedBox(height: 12),
-          _Label('Payer email'),
-          const SizedBox(height: 6),
+          _SegmentPicker(
+            options: const ['USDC', 'NGNT'],
+            selected: '',
+            onChanged: (String value) {},
+          ),
           _Field(controller: _payerEmailCtrl, hint: 'client@company.com'),
           const SizedBox(height: 12),
           _Label('Note'),
@@ -1682,6 +1769,44 @@ class _EditRequestSheetState extends State<_EditRequestSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GlassModal extends StatelessWidget {
+  final Widget child;
+  const _GlassModal({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: 520,
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
       ),
     );
   }

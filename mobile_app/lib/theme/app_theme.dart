@@ -4,32 +4,62 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DayFiColors {
-  // Dark theme (default)
-  static const background = Color(0xFF000000);
-  static const surface = Color(0xFF0A0A0A);
-  static const card = Color(0xFF111111);
-  static const border = Color(0xFF1E1E1E);
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF888888);
-  static const textMuted = Color(0xFF444444);
+  // ── Light theme (default) ── Claude AI Web Theme Inspired ──────────────
+  static const lightBackground    = Color(0xFFFAFAFA); // clean white background
+  static const lightSurface       = Color(0xFFFFFFFF); // pure white surface
+  static const lightCard          = Color(0xFFFFFFFF); // pure white cards
+  static const lightBorder        = Color(0xFFE5E7EB); // subtle gray border
+  static const lightTextPrimary   = Color(0xFF111827); // dark gray text
+  static const lightTextSecondary = Color(0xFF6B7280); // medium gray text
+  static const lightTextMuted     = Color(0xFF9CA3AF); // muted gray text
 
-  // Accent
-  static const green = Color(0xFF00E676);
-  static const greenDim = Color(0xFF1A3326);
-  static const red = Color(0xFFFF4444);
-  static const redDim = Color(0xFF3D1515);
+  // ── Dark theme ── Claude AI Dark Mode ─────────────────────────────────────
+  static const background    = Color(0xFF0F0F0F); // deep black
+  static const surface       = Color(0xFF1A1A1A); // dark surface
+  static const card          = Color(0xFF262626); // dark card
+  static const border        = Color(0xFF404040); // dark border
+  static const textPrimary   = Color(0xFFFAFAFA); // light primary text
+  static const textSecondary = Color(0xFFA1A1AA); // light secondary text
+  static const textMuted     = Color(0xFF71717A); // light muted text
 
-  // Light theme
-  static const lightBackground = Color(0xFFF5F5F5);
-  static const lightSurface = Color(0xFFFFFFFF);
-  static const lightCard = Color(0xFFF0F0F0);
-  static const lightBorder = Color(0xFFE0E0E0);
-  static const lightTextPrimary = Color(0xFF000000);
-  static const lightTextSecondary = Color(0xFF666666);
+  // ── Claude AI Brand Colors ───────────────────────────────────────────────────
+  static const primary        = Color(0xFFD97706); // warm amber (Claude orange)
+  static const primaryDim     = Color(0xFF92400E); // dark: dim primary bg
+  static const primaryDimLight = Color(0xFFFEF3C7); // light: dim primary bg
+
+  static const secondary      = Color(0xFF0EA5E9); // bright blue (Claude blue)
+  static const secondaryDim   = Color(0xFF075985); // dark: dim secondary bg
+  static const secondaryDimLight = Color(0xFFE0F2FE); // light: dim secondary bg
+
+  static const accent         = Color(0xFF10B981); // emerald green
+  static const accentDim      = Color(0xFF047857); // dark: dim accent bg
+  static const accentDimLight = Color(0xFFD1FAE5); // light: dim accent bg
+
+  static const error          = Color(0xFFEF4444); // red
+  static const errorDim       = Color(0xFF991B1B); // dark: dim error bg
+  static const errorDimLight  = Color(0xFFFEE2E2); // light: dim error bg
+
+  static const warning        = Color(0xFFF59E0B); // amber
+  static const warningDim     = Color(0xFF92400E); // dark: dim warning bg
+  static const warningDimLight = Color(0xFFFEF3C7); // light: dim warning bg
+
+  static const success        = Color(0xFF10B981); // emerald
+  static const successDim     = Color(0xFF047857); // dark: dim success bg
+  static const successDimLight = Color(0xFFD1FAE5); // light: dim success bg
+
+  // Legacy color names for compatibility
+  static const green         = success;
+  static const greenDim      = successDim;
+  static const greenDimLight = successDimLight;
+
+  static const blue          = secondary;
+  static const blueDim       = secondaryDim;
+  static const blueDimLight  = secondaryDimLight;
+
+  static const red           = error;
+  static const redDim        = errorDim;
+  static const redDimLight   = errorDimLight;
 }
-
-// schibstedGrotesk
-// medievalSharp
 
 class AppTheme {
   static TextTheme _buildTextTheme(Color primary, Color secondary) {
@@ -92,6 +122,125 @@ class AppTheme {
     );
   }
 
+  // ── LIGHT (default) ──────────────────────────────────────────────────────
+  static ThemeData light() {
+    return ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: DayFiColors.lightBackground,
+      colorScheme: const ColorScheme.light(
+        background: DayFiColors.lightBackground,
+        surface: DayFiColors.lightSurface,
+        primary: DayFiColors.primary,
+        secondary: DayFiColors.secondary,
+        error: DayFiColors.error,
+        onBackground: DayFiColors.lightTextPrimary,
+        onSurface: DayFiColors.lightTextPrimary,
+        onError: DayFiColors.lightTextPrimary,
+      ),
+      textTheme: _buildTextTheme(
+        DayFiColors.lightTextPrimary,
+        DayFiColors.lightTextSecondary,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: DayFiColors.lightBackground,
+        elevation: 0,
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        titleTextStyle: GoogleFonts.bricolageGrotesque(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: DayFiColors.lightTextPrimary,
+        ),
+        iconTheme: const IconThemeData(color: DayFiColors.lightTextPrimary),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: DayFiColors.lightCard,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: DayFiColors.lightBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: DayFiColors.lightBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: DayFiColors.lightTextPrimary,
+            width: 1.5,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: DayFiColors.red),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
+        hintStyle: GoogleFonts.bricolageGrotesque(
+          color: DayFiColors.lightTextMuted,
+          fontSize: 16,
+        ),
+        labelStyle: GoogleFonts.bricolageGrotesque(
+          color: DayFiColors.lightTextSecondary,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: DayFiColors.lightTextPrimary,
+          foregroundColor: DayFiColors.lightBackground,
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100), // Ko-fi pill buttons
+          ),
+          textStyle: GoogleFonts.bricolageGrotesque(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          elevation: 0,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: DayFiColors.lightTextPrimary,
+          minimumSize: const Size(double.infinity, 56),
+          side: const BorderSide(color: DayFiColors.lightBorder, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+          ),
+          textStyle: GoogleFonts.bricolageGrotesque(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: DayFiColors.lightTextSecondary,
+          textStyle: GoogleFonts.bricolageGrotesque(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: DayFiColors.lightBorder,
+        thickness: 1,
+      ),
+      cardTheme: CardThemeData(
+        color: DayFiColors.lightCard,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: DayFiColors.lightBorder),
+        ),
+      ),
+    );
+  }
+
+  // ── DARK ─────────────────────────────────────────────────────────────────
   static ThemeData dark() {
     return ThemeData(
       brightness: Brightness.dark,
@@ -99,11 +248,12 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         background: DayFiColors.background,
         surface: DayFiColors.surface,
-        primary: DayFiColors.textPrimary,
-        secondary: DayFiColors.green,
-        error: DayFiColors.red,
+        primary: DayFiColors.primary,
+        secondary: DayFiColors.secondary,
+        error: DayFiColors.error,
         onBackground: DayFiColors.textPrimary,
         onSurface: DayFiColors.textPrimary,
+        onError: DayFiColors.textPrimary,
       ),
       textTheme: _buildTextTheme(
         DayFiColors.textPrimary,
@@ -116,7 +266,7 @@ class AppTheme {
         systemOverlayStyle: SystemUiOverlayStyle.light,
         titleTextStyle: GoogleFonts.bricolageGrotesque(
           fontSize: 16,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: DayFiColors.textPrimary,
         ),
         iconTheme: const IconThemeData(color: DayFiColors.textPrimary),
@@ -151,7 +301,9 @@ class AppTheme {
           color: DayFiColors.textMuted,
           fontSize: 16,
         ),
-        labelStyle: GoogleFonts.bricolageGrotesque(color: DayFiColors.textSecondary),
+        labelStyle: GoogleFonts.bricolageGrotesque(
+          color: DayFiColors.textSecondary,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -159,11 +311,11 @@ class AppTheme {
           foregroundColor: DayFiColors.background,
           minimumSize: const Size(double.infinity, 56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(100),
           ),
           textStyle: GoogleFonts.bricolageGrotesque(
             fontSize: 16,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
           elevation: 0,
         ),
@@ -174,11 +326,11 @@ class AppTheme {
           minimumSize: const Size(double.infinity, 56),
           side: const BorderSide(color: DayFiColors.border, width: 1.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(100),
           ),
           textStyle: GoogleFonts.bricolageGrotesque(
             fontSize: 16,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -205,92 +357,10 @@ class AppTheme {
       ),
     );
   }
-
-  static ThemeData light() {
-    return ThemeData(
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: DayFiColors.lightBackground,
-      colorScheme: const ColorScheme.light(
-        background: DayFiColors.lightBackground,
-        surface: DayFiColors.lightSurface,
-        primary: DayFiColors.lightTextPrimary,
-        secondary: Color(0xFF00B459),
-        error: DayFiColors.red,
-      ),
-      textTheme: _buildTextTheme(
-        DayFiColors.lightTextPrimary,
-        DayFiColors.lightTextSecondary,
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: DayFiColors.lightBackground,
-        elevation: 0,
-        centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        titleTextStyle: GoogleFonts.bricolageGrotesque(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: DayFiColors.lightTextPrimary,
-        ),
-        iconTheme: const IconThemeData(color: DayFiColors.lightTextPrimary),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: DayFiColors.lightSurface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: DayFiColors.lightBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: DayFiColors.lightBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: DayFiColors.lightTextPrimary,
-            width: 1.5,
-          ),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 18,
-        ),
-        hintStyle: GoogleFonts.bricolageGrotesque(
-          color: DayFiColors.lightTextSecondary,
-          fontSize: 16,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: DayFiColors.lightTextPrimary,
-          foregroundColor: DayFiColors.lightBackground,
-          minimumSize: const Size(double.infinity, 56),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: GoogleFonts.bricolageGrotesque(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-          elevation: 0,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: DayFiColors.lightSurface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: DayFiColors.lightBorder),
-        ),
-      ),
-    );
-  }
 }
 
 /// App-specific semantic theme colors used across categories, recurring items,
 /// transactions, charts, tabs, etc.
-///
-/// This extension works together with the main AppTheme (DayFiColors).
 class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   const AppThemeExtension({
     required this.surfaceBackground,
@@ -310,97 +380,72 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     required this.tabSelectedColor,
     required this.tabUnselectedColor,
     required this.errorColor,
+    required this.accentBlue,
+    required this.accentBlueDim,
   });
 
-  // Main background (scaffold, list views)
   final Color surfaceBackground;
-
-  // Card/container background
   final Color cardSurface;
-
-  // Bottom sheet / modal surface
   final Color sheetSurface;
-
-  // Card borders
   final Color cardBorder;
-
-  // Primary text (amounts, titles, important content)
   final Color primaryText;
-
-  // Secondary text (labels, subtitles)
   final Color secondaryText;
-
-  // Section headers
   final Color sectionHeader;
-
-  // Hint / placeholder text
   final Color hintText;
-
-  // Chart unfilled / background segments
   final Color chartUnfilled;
-
-  // Gradient overlays (e.g. search bar fade)
   final Color gradientOverlay;
-
-  // Monthly review / summary card
   final Color monthlyCardSurface;
-
-  // Main content area background (inside tabs)
   final Color contentBackground;
-
-  // Header icons (settings, refresh, etc.)
   final Color headerIconColor;
-
-  // Tab bar indicator
   final Color tabIndicatorColor;
-
-  // Selected tab label / active state
   final Color tabSelectedColor;
-
-  // Unselected tab label
   final Color tabUnselectedColor;
-
-  // Error / negative values (debt, negative balance)
   final Color errorColor;
-
-  static AppThemeExtension get dark => AppThemeExtension(
-        surfaceBackground: DayFiColors.background,           // 0xFF000000
-        cardSurface: DayFiColors.card,                       // 0xFF111111
-        sheetSurface: DayFiColors.surface,                   // 0xFF0A0A0A
-        cardBorder: DayFiColors.border,                      // 0xFF1E1E1E
-        primaryText: DayFiColors.textPrimary,                // 0xFFFFFFFF
-        secondaryText: DayFiColors.textSecondary,            // 0xFF888888
-        sectionHeader: const Color(0xFFAAAAAA),              // slightly brighter for headers
-        hintText: DayFiColors.textMuted,                     // 0xFF444444
-        chartUnfilled: const Color(0xFF1E1E1E),              // subtle unfilled chart bg
-        gradientOverlay: DayFiColors.background,             // fade to black
-        monthlyCardSurface: DayFiColors.card,                // same as cards for consistency
-        contentBackground: DayFiColors.surface,              // 0xFF0A0A0A
-        headerIconColor: const Color(0xFFAAAAAA),
-        tabIndicatorColor: DayFiColors.green,                // accent green for active tab
-        tabSelectedColor: DayFiColors.textPrimary,
-        tabUnselectedColor: DayFiColors.textSecondary,
-        errorColor: DayFiColors.red,                         // 0xFFFF4444
-      );
+  final Color accentBlue;
+  final Color accentBlueDim;
 
   static AppThemeExtension get light => AppThemeExtension(
-        surfaceBackground: DayFiColors.lightBackground,      // 0xFFF5F5F5
-        cardSurface: DayFiColors.lightCard,                  // 0xFFF0F0F0
-        sheetSurface: DayFiColors.lightSurface,              // 0xFFFFFFFF
-        cardBorder: DayFiColors.lightBorder,                 // 0xFFE0E0E0
-        primaryText: DayFiColors.lightTextPrimary,           // 0xFF000000
-        secondaryText: DayFiColors.lightTextSecondary,       // 0xFF666666
-        sectionHeader: const Color(0xFF2C2C2C),
-        hintText: const Color(0xFF999999),
-        chartUnfilled: const Color(0xFFEEEEEE),
-        gradientOverlay: const Color(0xFFF8F8F8),
+        surfaceBackground:  DayFiColors.lightBackground,
+        cardSurface:        DayFiColors.lightCard,
+        sheetSurface:       DayFiColors.lightSurface,
+        cardBorder:         DayFiColors.lightBorder,
+        primaryText:        DayFiColors.lightTextPrimary,
+        secondaryText:      DayFiColors.lightTextSecondary,
+        sectionHeader:      const Color(0xFF3D3026),
+        hintText:           DayFiColors.lightTextMuted,
+        chartUnfilled:      const Color(0xFFE4DDD5),
+        gradientOverlay:    DayFiColors.lightBackground,
         monthlyCardSurface: DayFiColors.lightCard,
-        contentBackground: DayFiColors.lightBackground,
-        headerIconColor: const Color(0xFF555555),
-        tabIndicatorColor: const Color(0xFF00B459),          // matches light secondary
-        tabSelectedColor: DayFiColors.lightTextPrimary,
+        contentBackground:  DayFiColors.lightSurface,
+        headerIconColor:    DayFiColors.lightTextSecondary,
+        tabIndicatorColor:  DayFiColors.blue,
+        tabSelectedColor:   DayFiColors.lightTextPrimary,
         tabUnselectedColor: DayFiColors.lightTextSecondary,
-        errorColor: DayFiColors.red,
+        errorColor:         DayFiColors.error,
+        accentBlue:         DayFiColors.secondary,
+        accentBlueDim:      DayFiColors.secondaryDimLight,
+      );
+
+  static AppThemeExtension get dark => AppThemeExtension(
+        surfaceBackground:  DayFiColors.background,
+        cardSurface:        DayFiColors.card,
+        sheetSurface:       DayFiColors.surface,
+        cardBorder:         DayFiColors.border,
+        primaryText:        DayFiColors.textPrimary,
+        secondaryText:      DayFiColors.textSecondary,
+        sectionHeader:      const Color(0xFFB8AFA6),
+        hintText:           DayFiColors.textMuted,
+        chartUnfilled:      const Color(0xFF2A2218),
+        gradientOverlay:    DayFiColors.background,
+        monthlyCardSurface: DayFiColors.card,
+        contentBackground:  DayFiColors.surface,
+        headerIconColor:    DayFiColors.textSecondary,
+        tabIndicatorColor:  DayFiColors.blue,
+        tabSelectedColor:   DayFiColors.textPrimary,
+        tabUnselectedColor: DayFiColors.textSecondary,
+        errorColor:         DayFiColors.error,
+        accentBlue:         DayFiColors.secondary,
+        accentBlueDim:      DayFiColors.secondaryDim,
       );
 
   @override
@@ -422,25 +467,29 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     Color? tabSelectedColor,
     Color? tabUnselectedColor,
     Color? errorColor,
+    Color? accentBlue,
+    Color? accentBlueDim,
   }) {
     return AppThemeExtension(
-      surfaceBackground: surfaceBackground ?? this.surfaceBackground,
-      cardSurface: cardSurface ?? this.cardSurface,
-      sheetSurface: sheetSurface ?? this.sheetSurface,
-      cardBorder: cardBorder ?? this.cardBorder,
-      primaryText: primaryText ?? this.primaryText,
-      secondaryText: secondaryText ?? this.secondaryText,
-      sectionHeader: sectionHeader ?? this.sectionHeader,
-      hintText: hintText ?? this.hintText,
-      chartUnfilled: chartUnfilled ?? this.chartUnfilled,
-      gradientOverlay: gradientOverlay ?? this.gradientOverlay,
+      surfaceBackground:  surfaceBackground  ?? this.surfaceBackground,
+      cardSurface:        cardSurface        ?? this.cardSurface,
+      sheetSurface:       sheetSurface       ?? this.sheetSurface,
+      cardBorder:         cardBorder         ?? this.cardBorder,
+      primaryText:        primaryText        ?? this.primaryText,
+      secondaryText:      secondaryText      ?? this.secondaryText,
+      sectionHeader:      sectionHeader      ?? this.sectionHeader,
+      hintText:           hintText           ?? this.hintText,
+      chartUnfilled:      chartUnfilled      ?? this.chartUnfilled,
+      gradientOverlay:    gradientOverlay    ?? this.gradientOverlay,
       monthlyCardSurface: monthlyCardSurface ?? this.monthlyCardSurface,
-      contentBackground: contentBackground ?? this.contentBackground,
-      headerIconColor: headerIconColor ?? this.headerIconColor,
-      tabIndicatorColor: tabIndicatorColor ?? this.tabIndicatorColor,
-      tabSelectedColor: tabSelectedColor ?? this.tabSelectedColor,
+      contentBackground:  contentBackground  ?? this.contentBackground,
+      headerIconColor:    headerIconColor    ?? this.headerIconColor,
+      tabIndicatorColor:  tabIndicatorColor  ?? this.tabIndicatorColor,
+      tabSelectedColor:   tabSelectedColor   ?? this.tabSelectedColor,
       tabUnselectedColor: tabUnselectedColor ?? this.tabUnselectedColor,
-      errorColor: errorColor ?? this.errorColor,
+      errorColor:         errorColor         ?? this.errorColor,
+      accentBlue:         accentBlue         ?? this.accentBlue,
+      accentBlueDim:      accentBlueDim      ?? this.accentBlueDim,
     );
   }
 
@@ -448,28 +497,29 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   AppThemeExtension lerp(ThemeExtension<AppThemeExtension>? other, double t) {
     if (other is! AppThemeExtension) return this;
     return AppThemeExtension(
-      surfaceBackground: Color.lerp(surfaceBackground, other.surfaceBackground, t)!,
-      cardSurface: Color.lerp(cardSurface, other.cardSurface, t)!,
-      sheetSurface: Color.lerp(sheetSurface, other.sheetSurface, t)!,
-      cardBorder: Color.lerp(cardBorder, other.cardBorder, t)!,
-      primaryText: Color.lerp(primaryText, other.primaryText, t)!,
-      secondaryText: Color.lerp(secondaryText, other.secondaryText, t)!,
-      sectionHeader: Color.lerp(sectionHeader, other.sectionHeader, t)!,
-      hintText: Color.lerp(hintText, other.hintText, t)!,
-      chartUnfilled: Color.lerp(chartUnfilled, other.chartUnfilled, t)!,
-      gradientOverlay: Color.lerp(gradientOverlay, other.gradientOverlay, t)!,
+      surfaceBackground:  Color.lerp(surfaceBackground,  other.surfaceBackground,  t)!,
+      cardSurface:        Color.lerp(cardSurface,        other.cardSurface,        t)!,
+      sheetSurface:       Color.lerp(sheetSurface,       other.sheetSurface,       t)!,
+      cardBorder:         Color.lerp(cardBorder,         other.cardBorder,         t)!,
+      primaryText:        Color.lerp(primaryText,        other.primaryText,        t)!,
+      secondaryText:      Color.lerp(secondaryText,      other.secondaryText,      t)!,
+      sectionHeader:      Color.lerp(sectionHeader,      other.sectionHeader,      t)!,
+      hintText:           Color.lerp(hintText,           other.hintText,           t)!,
+      chartUnfilled:      Color.lerp(chartUnfilled,      other.chartUnfilled,      t)!,
+      gradientOverlay:    Color.lerp(gradientOverlay,    other.gradientOverlay,    t)!,
       monthlyCardSurface: Color.lerp(monthlyCardSurface, other.monthlyCardSurface, t)!,
-      contentBackground: Color.lerp(contentBackground, other.contentBackground, t)!,
-      headerIconColor: Color.lerp(headerIconColor, other.headerIconColor, t)!,
-      tabIndicatorColor: Color.lerp(tabIndicatorColor, other.tabIndicatorColor, t)!,
-      tabSelectedColor: Color.lerp(tabSelectedColor, other.tabSelectedColor, t)!,
+      contentBackground:  Color.lerp(contentBackground,  other.contentBackground,  t)!,
+      headerIconColor:    Color.lerp(headerIconColor,    other.headerIconColor,    t)!,
+      tabIndicatorColor:  Color.lerp(tabIndicatorColor,  other.tabIndicatorColor,  t)!,
+      tabSelectedColor:   Color.lerp(tabSelectedColor,   other.tabSelectedColor,   t)!,
       tabUnselectedColor: Color.lerp(tabUnselectedColor, other.tabUnselectedColor, t)!,
-      errorColor: Color.lerp(errorColor, other.errorColor, t)!,
+      errorColor:         Color.lerp(errorColor,         other.errorColor,         t)!,
+      accentBlue:         Color.lerp(accentBlue,         other.accentBlue,         t)!,
+      accentBlueDim:      Color.lerp(accentBlueDim,      other.accentBlueDim,      t)!,
     );
   }
 
-  /// Convenient getter
   static AppThemeExtension of(BuildContext context) {
-    return Theme.of(context).extension<AppThemeExtension>() ?? dark;
+    return Theme.of(context).extension<AppThemeExtension>() ?? light;
   }
 }

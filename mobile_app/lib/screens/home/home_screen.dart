@@ -11,10 +11,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart' show DateFormat;
-// import 'package:mobile_app/screens/accounts/accounts_screen.dart';
+import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import '../../providers/wallet_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
+
+// ── Providers ──────────────────────────────────────────────────────────────────
 
 final userProvider = FutureProvider<Map<String, dynamic>>(
   (ref) => apiService.getMe(),
@@ -58,6 +60,8 @@ final _xlmPriceHistoryHomeProvider = FutureProvider<Map<String, double>>((
   return {};
 });
 
+// ── HomeScreen ─────────────────────────────────────────────────────────────────
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -67,8 +71,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _balanceHidden = false;
-  bool _holdingsExpanded = true;
-  bool _moversExpanded = true;
   Timer? _refreshTimer;
 
   double _asDouble(dynamic value, [double fallback = 0.0]) {
@@ -192,6 +194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<double> _combinePoints(List<double> a, List<double> b) {
     final len = a.length > b.length ? a.length : b.length;
     if (len == 0) return [];
+
     List<double> interp(List<double> src) {
       if (src.length == len) return src;
       return List.generate(len, (i) {
@@ -240,11 +243,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     const xlmReserve = 1.5;
     final xlmPrice = walletState.xlmPriceUSD;
-    final xlmDisplayBalance = (walletState.xlmBalance - xlmReserve > 0)
-        ? (walletState.xlmBalance - xlmReserve)
+    final xlmDisplayBalance = walletState.xlmBalance - xlmReserve > 0
+        ? walletState.xlmBalance - xlmReserve
         : 0.0;
-    final xlmUSD = xlmDisplayBalance * xlmPrice;
-    final usdcUSD = walletState.usdcBalance;
 
     final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
 
@@ -276,436 +277,471 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final combinedPoints = _combinePoints(xlmPoints, usdcPoints);
 
-    final xlmChange = _computeChange(xlmPoints);
     final usdcChange = _computeChange(usdcPoints);
     final totalChange = _computeChange(combinedPoints);
 
-    // Reserve-adjusted total
-    const xlmReserveUSD = xlmReserve;
-    final reservedUSD = xlmReserveUSD * xlmPrice;
-    final adjustedTotalUSD = (walletState.totalUSD - reservedUSD).clamp(
-      0.0,
-      double.infinity,
-    );
     final ext = AppThemeExtension.of(context);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      bottomNavigationBar: _buildActionRow(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(walletProvider.notifier).refresh();
-          ref.invalidate(userProvider);
-          ref.invalidate(_txHomeProvider);
-          ref.invalidate(_xlmPriceHistoryHomeProvider);
-          ref.invalidate(ngnRateProvider);
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
-          children: [
-            // ── NGN / USD summary cards ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Container(
-                      height: 54,
-                      width: MediaQuery.of(context).size.width * .85,
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: ext.cardBorder.withValues(alpha: 0.5),
-                          width: 1,
-                        ),
-                        color: ext.monthlyCardSurface,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: ext.cardBorder, width: .5),
-                      color: ext.cardSurface,
-                    ),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                '\$',
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  letterSpacing: 2,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              adjustedTotalUSD.toStringAsFixed(2),
-                              style: GoogleFonts.bricolageGrotesque(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.primary,
-                                letterSpacing: .4,
-                                height: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'total balance',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color.fromARGB(255, 91, 157, 233),
-                            height: 1,
-                            letterSpacing: 0.65,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (recentTxs.isNotEmpty) ...[
-              const SizedBox(height: 32),
-              _SectionHeader(
-                label: 'Most recent',
-                trailing: '',
-                onTrailingTap: () => context.push('/transactions'),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: ext.cardBorder, width: 1),
-                  color: ext.cardSurface,
-                ),
-                padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-
-                child: Column(
-                  children: [
-                    Column(
-                      children: recentTxs.take(3).map((tx) {
-                        final isSend = tx['type'] == 'send';
-                        final isSwap = tx['type'] == 'swap';
-                        final amount = _asDouble(tx['amount']);
-                        final asset = tx['asset'] as String? ?? '';
-                        final swapToAsset = tx['swapToAsset'] as String? ?? '';
-                        final swapToAmount =
-                            (tx['receivedAmount'] ?? tx['swapToAmount']) != null
-                            ? _asDouble(
-                                (tx['receivedAmount'] ?? tx['swapToAmount']),
-                              )
-                            : null;
-                        final createdAt =
-                            DateTime.tryParse(tx['createdAt'] ?? '') ??
-                            DateTime.now();
-                        final status = tx['status'] as String?;
-                        final accent = isSend
-                            ? DayFiColors.red
-                            : isSwap
-                            ? Theme.of(context).colorScheme.primary
-                            : DayFiColors.green;
-
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              // Icon
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  SizedBox(
-                                    // width: 40,
-                                    height: 32,
-                                    // decoration: BoxDecoration(
-                                    //   color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-                                    //   borderRadius: BorderRadius.circular(12),
-                                    // ),
-                                    child: Align(
-                                      alignment: Alignment.topCenter,
-                                      child: SvgPicture.asset(
-                                        isSwap
-                                            ? 'assets/icons/svgs/swap.svg'
-                                            : (isSend
-                                                  ? 'assets/icons/svgs/send.svg'
-                                                  : 'assets/icons/svgs/receive.svg'),
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary.withOpacity(.75),
-                                        width: 22,
-                                        height: 22,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Center(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(24),
-                                        child: Image.asset(
-                                          asset.toUpperCase() == 'USDC'
-                                              ? 'assets/images/usdc.png'
-                                              : 'assets/images/stellar.png',
-
-                                          width: 14,
-                                          height: 14,
+      body: SizedBox(
+        width: double.infinity,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 960),
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await ref.read(walletProvider.notifier).refresh();
+                    ref.invalidate(userProvider);
+                    ref.invalidate(_txHomeProvider);
+                    ref.invalidate(_xlmPriceHistoryHomeProvider);
+                    ref.invalidate(ngnRateProvider);
+                  },
+                  child: ListView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(0, 118, 0, 0),
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Balance card ─────────────────────────────────
+                          Expanded(
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: 100,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: AccountMoverCard(
+                                          ticker: 'NGN',
+                                          name: 'NG Naira',
+                                          gainUp: true,
+                                          gainAmountAbsNgn: 0,
+                                          accent: const Color(0xFF008751),
+                                          line: _toSpots(
+                                            ngnRateAsync != null
+                                                ? List.filled(7, usdToNgn)
+                                                : [],
+                                          ),
+                                          imagePath: 'assets/images/ng.png',
+                                          valueUSD:
+                                              walletState.ngntBalance *
+                                              (walletState.ngnRate ?? 0),
+                                          balanceLabel:
+                                              '${walletState.ngntBalance.toStringAsFixed(2)} NGNT',
                                         ),
                                       ),
-                                    ),
+                                      Expanded(
+                                        child: AccountMoverCard(
+                                          ticker: 'USD',
+                                          name: 'US Dollar',
+                                          gainUp: usdcChange >= 0,
+                                          gainAmountAbsNgn:
+                                              walletState.usdcBalance *
+                                              usdToNgn *
+                                              usdcChange.abs() /
+                                              100,
+                                          accent: usdcChange >= 0
+                                              ? DayFiColors.green
+                                              : ext.errorColor,
+                                          line: _toSpots(usdcPoints),
+                                          imagePath: 'assets/images/us.png',
+                                          valueUSD: walletState.usdcBalance,
+                                          balanceLabel:
+                                              '${walletState.usdcBalance.toStringAsFixed(2)} USDC',
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-
-                              const SizedBox(width: 14),
-                              // Label + time
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isSwap
-                                          ? 'Swapped $asset → $swapToAsset'
-                                          : '${isSend ? 'Sent' : 'Received'} $asset',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                                .withOpacity(.95),
-                                          ),
-                                    ),
-                                    Text(
-                                      status?.toLowerCase() == 'confirmed'
-                                          ? DateFormat(
-                                              'h:mm a',
-                                            ).format(createdAt.toLocal())
-                                          : (status ?? ''),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                                .withOpacity(.65),
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 14,
-                                            letterSpacing: -.1,
-                                          ),
-                                    ),
-                                  ],
                                 ),
-                              ),
-                              // Amount
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    isSwap
-                                        ? '${amount.toStringAsFixed(2)} $asset'
-                                        : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1,
+                                const SizedBox(height: 12),
+                                Stack(
+                                  children: [
+                                    Center(
+                                      child: Container(
+                                        height: 54,
+                                        width:
+                                            MediaQuery.of(context).size.width *
+                                            .85,
+                                        margin: const EdgeInsets.fromLTRB(
+                                          16,
+                                          0,
+                                          16,
+                                          0,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            28,
+                                          ),
+                                          border: Border.all(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withOpacity(0.04),
+                                          ),
                                           color: Theme.of(
                                             context,
-                                          ).colorScheme.primary,
+                                          ).canvasColor.withOpacity(.75),
                                         ),
-                                  ),
-                                  Text(
-                                    isSwap
-                                        ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
-                                        : '${amount.toStringAsFixed(2)} $asset',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
+                                      ),
+                                    ),
+                                    Container(
+                                      margin: const EdgeInsets.fromLTRB(
+                                        0,
+                                        6,
+                                        0,
+                                        0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
                                           color: Theme.of(context)
                                               .colorScheme
                                               .onSurface
-                                              .withOpacity(.65),
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 14,
+                                              .withOpacity(0.04),
+                                          width: .5,
                                         ),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                      ),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        8,
+                                        18,
+                                        8,
+                                        4,
+                                      ),
+                                      child: _buildBalanceSection(
+                                        walletState,
+                                        totalChange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                // ── Recent transactions ────────────────────────────────
+                                if (recentTxs.isNotEmpty) ...[
+                                  _SectionHeader(
+                                    label: 'Most recent',
+                                    trailing: '',
+                                    onTrailingTap: () =>
+                                        context.push('/transactions'),
                                   ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    margin: const EdgeInsets.fromLTRB(
+                                      16,
+                                      6,
+                                      16,
+                                      0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withOpacity(0.04),
+                                      ),
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
+                                    ),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      6,
+                                      6,
+                                      6,
+                                      4,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        ...recentTxs.take(3).map((tx) {
+                                          final isSend = tx['type'] == 'send';
+                                          final isSwap = tx['type'] == 'swap';
+                                          final amount = _asDouble(
+                                            tx['amount'],
+                                          );
+                                          final asset =
+                                              tx['asset'] as String? ?? '';
+                                          final swapToAsset =
+                                              tx['swapToAsset'] as String? ??
+                                              '';
+                                          final rawSwapToAmount =
+                                              tx['receivedAmount'] ??
+                                              tx['swapToAmount'];
+                                          final swapToAmount =
+                                              rawSwapToAmount != null
+                                              ? _asDouble(rawSwapToAmount)
+                                              : null;
+                                          final createdAt =
+                                              DateTime.tryParse(
+                                                tx['createdAt'] ?? '',
+                                              ) ??
+                                              DateTime.now();
+                                          final status =
+                                              tx['status'] as String?;
+                                          final accent = isSend
+                                              ? DayFiColors.red
+                                              : isSwap
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : DayFiColors.green;
+
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                              horizontal: 12,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                // Icon + asset badge
+                                                Stack(
+                                                  alignment: Alignment.center,
+                                                  children: [
+                                                    SizedBox(
+                                                      height: 32,
+                                                      child: Align(
+                                                        alignment:
+                                                            Alignment.topCenter,
+                                                        child: SvgPicture.asset(
+                                                          isSwap
+                                                              ? 'assets/icons/svgs/swap.svg'
+                                                              : isSend
+                                                              ? 'assets/icons/svgs/send.svg'
+                                                              : 'assets/icons/svgs/receive.svg',
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary
+                                                                  .withOpacity(
+                                                                    .75,
+                                                                  ),
+                                                          width: 22,
+                                                          height: 22,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Positioned(
+                                                      bottom: 0,
+                                                      right: 0,
+                                                      child: ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              24,
+                                                            ),
+                                                        child: Image.asset(
+                                                          asset.toUpperCase() ==
+                                                                  'USDC'
+                                                              ? 'assets/images/usdc.png'
+                                                              : 'assets/images/stellar.png',
+                                                          width: 14,
+                                                          height: 14,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(width: 14),
+                                                // Label + time
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        isSwap
+                                                            ? 'Swapped $asset → $swapToAsset'
+                                                            : '${isSend ? 'Sent' : 'Received'} $asset',
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodyMedium
+                                                            ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontSize: 14,
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary
+                                                                      .withOpacity(
+                                                                        .95,
+                                                                      ),
+                                                            ),
+                                                      ),
+                                                      Text(
+                                                        status?.toLowerCase() ==
+                                                                'confirmed'
+                                                            ? DateFormat(
+                                                                'h:mm a',
+                                                              ).format(
+                                                                createdAt
+                                                                    .toLocal(),
+                                                              )
+                                                            : (status ?? ''),
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary
+                                                                      .withOpacity(
+                                                                        .65,
+                                                                      ),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                              fontSize: 14,
+                                                              letterSpacing:
+                                                                  -.1,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                // Amount
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      isSwap
+                                                          ? '${amount.toStringAsFixed(2)} $asset'
+                                                          : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            letterSpacing: 1,
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                    ),
+                                                    Text(
+                                                      isSwap
+                                                          ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
+                                                          : '${amount.toStringAsFixed(2)} $asset',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .onSurface
+                                                                    .withOpacity(
+                                                                      .65,
+                                                                    ),
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            fontSize: 14,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            elevation: 0,
+                                            backgroundColor: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall!
+                                                .color!
+                                                .withOpacity(0.1),
+                                            foregroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withOpacity(.555),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(24),
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Full activity view is coming soon.',
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              0,
+                                              15,
+                                              0,
+                                              15,
+                                            ),
+                                            child: Text(
+                                              'VIEW ALL',
+                                              style:
+                                                  GoogleFonts.bricolageGrotesque(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: .2,
+                                                    height: 1,
+                                                    color: ext.sectionHeader,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
                                 ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        );
-                      }).toList(),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                        foregroundColor: ext.primaryText,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
+                        ],
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Full activity view is coming soon.'),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-                        child: Text(
-                          'VIEW ALL ',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .2,
-                            height: 1,
-                            color: ext.sectionHeader,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ],
-            // ── Balance ──────────────────────────────────────────────
-            // _buildBalanceSection(walletState, totalChange),
-
-            // const SizedBox(height: 20),
-
-            // // ── Portfolio chip ───────────────────────────────────────
-            // _buildPortfolioChip(walletState),
-
-            // const SizedBox(height: 28),
-
-            // // ── Chart ────────────────────────────────────────────────
-            // if (combinedPoints.length >= 2)
-            //   _buildChart(combinedPoints, totalChange),
-
-            // const SizedBox(height: 32),
-
-            // ── Top Movers ───────────────────────────────────────────
-            // _buildSectionHeader(
-            //   title: 'Top movers today',
-            //   rightLabel: 'XLM · USDC',
-            //   expanded: _moversExpanded,
-            //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
-            // ),
-
-            // if (_moversExpanded) ...[
-            //   const SizedBox(height: 6),
-            //   _buildMoversRow(
-            //     xlmBalance: xlmDisplayBalance,
-            //     xlmUSD: xlmUSD,
-            //     xlmChange: xlmChange,
-            //     xlmPoints: xlmPoints,
-            //     usdcBalance: walletState.usdcBalance,
-            //     usdcUSD: usdcUSD,
-            //     usdcChange: usdcChange,
-            //     usdcPoints: usdcPoints,
-            //   ),
-            // ],
-
-            // const SizedBox(height: 32),
-
-            // // ── Holdings ─────────────────────────────────────────────
-            // _buildSectionHeader(
-            //   title: 'Holdings',
-            //   rightLabel: 'ALL',
-            //   expanded: _holdingsExpanded,
-            //   onTap: () =>
-            //       setState(() => _holdingsExpanded = !_holdingsExpanded),
-            // ),
-
-            // if (_holdingsExpanded) ...[
-            //   const SizedBox(height: 12),
-            //   _HoldingRow(
-            //     imagePath: 'assets/images/stellar.png',
-            //     code: 'XLM',
-            //     name: 'Stellar Lumen',
-            //     balance: xlmDisplayBalance,
-            //     usdValue: xlmUSD,
-            //     changePercent: xlmChange,
-            //     points: xlmPoints,
-            //   ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.04, end: 0),
-            //   const SizedBox(height: 8),
-            //   _HoldingRow(
-            //     imagePath: 'assets/images/usdc.png',
-            //     code: 'USDC',
-            //     name: 'Digital Dollar',
-            //     balance: walletState.usdcBalance,
-            //     usdValue: usdcUSD,
-            //     changePercent: usdcChange,
-            //     points: usdcPoints,
-            //   ).animate().fadeIn(delay: 180.ms).slideX(begin: 0.04, end: 0),
-            // ],
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionRow() {
-    final walletState = ref.watch(walletProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 120, vertical: 48),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-          ),
-        ),
-        child: Row(
-          children: [
-            _ActionButton(
-              icon: "assets/icons/svgs/receive.svg",
-              label: 'Receive',
-              onTap: () => context.push('/receive'),
-            ),
-            _ActionButton(
-              icon: "assets/icons/svgs/send.svg",
-              label: 'Send',
-              onTap: () => _handleSendTap(walletState),
-            ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
-  }
+  // ── Action handlers ────────────────────────────────────────────────────────
 
   void _handleSendTap(WalletState walletState) {
     if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
@@ -740,8 +776,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildBalanceSection(WalletState walletState, double changePct) {
     const xlmReserve = 1.5;
     final xlmPrice = walletState.xlmPriceUSD ?? 0.0;
-    final reservedUSD = xlmReserve * xlmPrice;
-    final rawTotal = walletState.totalUSD - reservedUSD;
+    final rawTotal = walletState.totalUSD - (xlmReserve * xlmPrice);
     final liveTotal = rawTotal < 0
         ? 0.0
         : double.parse(rawTotal.toStringAsFixed(2));
@@ -755,12 +790,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Column(
       children: [
-        // Change % badge
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
               decoration: BoxDecoration(
                 color: pos
                     ? DayFiColors.green.withOpacity(0.15)
@@ -770,7 +804,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Text(
                 '${pos ? '' : '−'}${changePct.abs().toStringAsFixed(2)}%',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: pos ? DayFiColors.green : DayFiColors.red,
                   letterSpacing: 0.5,
@@ -779,18 +813,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ).animate().fadeIn(duration: 400.ms),
-
         const SizedBox(height: 8),
-
-        // Balance label + eye toggle
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Total Wallet Balance',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-                letterSpacing: 0.4,
+              'total balance',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1,
+                letterSpacing: 0.65,
               ),
             ),
             const SizedBox(width: 6),
@@ -801,27 +834,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onTap: () => setState(() => _balanceHidden = !_balanceHidden),
               child: SvgPicture.asset(
                 _balanceHidden
-                    ? "assets/icons/svgs/eye_closed.svg"
-                    : "assets/icons/svgs/eye_open.svg",
+                    ? 'assets/icons/svgs/eye_closed.svg'
+                    : 'assets/icons/svgs/eye_open.svg',
                 height: 21,
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
               ),
             ),
           ],
         ).animate().fadeIn(duration: 500.ms),
-
-        const SizedBox(height: 8),
-
-        // Big balance
         if (walletState.isLoading && walletState.lastKnownTotal == null)
-          Text(
-            '\$—',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w400,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(.40),
-              fontSize: 28,
-            ),
-          )
+          _buildBalanceRow('—', '.—')
         else if (_balanceHidden)
           _buildBalanceRow('***', '.**', isHidden: true)
         else
@@ -829,7 +851,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             (displayTotal ?? 0.0).toInt().toString(),
             '.${(displayTotal ?? 0.0).toStringAsFixed(2).split('.')[1]}',
           ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildActionButton(
+              icon: 'assets/icons/svgs/send.svg',
+              label: 'SEND',
+              onPressed: () => _handleSendTap(walletState),
+            ),
+            const SizedBox(width: 6),
+            _buildActionButton(
+              icon: 'assets/icons/svgs/receive.svg',
+              label: 'RECEIVE',
+              onPressed: () => context.push('/receive'),
+            ),
+            const SizedBox(width: 6),
+            _buildActionButton(
+              icon: 'assets/icons/svgs/swap.svg',
+              label: 'CONVERT',
+              onPressed: () => _handleSwapTap(walletState),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required String icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Expanded(
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.onSurface.withOpacity(.555).withOpacity(.06),
+          foregroundColor: Theme.of(
+            context,
+          ).colorScheme.onSurface.withOpacity(.555),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(
+                icon,
+                height: 18,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(.555),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: .2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -838,31 +931,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     String decimal, {
     bool isHidden = false,
   }) {
-    final opacity = isHidden ? .40 : .85;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Text(
             '\$',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w400,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-              letterSpacing: 0.4,
-              fontSize: 28,
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+              height: 1,
             ),
           ),
         ),
         Text(
           whole,
           style: GoogleFonts.bricolageGrotesque(
-            fontSize: 64,
-            fontWeight: FontWeight.w300,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(opacity),
-            letterSpacing: 0.4,
-            height: .88,
+            fontSize: 40,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.primary,
+            height: 1,
           ),
         ),
         Padding(
@@ -870,227 +961,129 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Text(
             decimal,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w400,
-              fontSize: 30,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withOpacity(opacity),
-              letterSpacing: 0.4,
-              height: 1.1,
+              fontSize: 40,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.primary,
+              height: 1,
             ),
           ),
         ),
       ],
     ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.05, end: 0);
   }
+}
 
-  // ── Portfolio chip ─────────────────────────────────────────────────────────
+// ── Section header ─────────────────────────────────────────────────────────────
 
-  Widget _buildPortfolioChip(WalletState walletState) {
-    final assets = ['assets/images/stellar.png', 'assets/images/usdc.png'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        InkWell(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          onTap: () => context.push('/portfolio'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).textTheme.bodySmall!.color!.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withOpacity(0.04),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 16.0 + (assets.length * 16.0),
-                  height: 26,
-                  child: Stack(
-                    children: List.generate(assets.length, (i) {
-                      return Positioned(
-                        left: i * 16.0,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Image.asset(
-                                assets[i],
-                                fit: BoxFit.contain,
-                                height: assets[i] == "assets/images/stellar.png"
-                                    ? 20
-                                    : 24,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  'Portfolio',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w400,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(.60),
-                    letterSpacing: 0.4,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                RotatedBox(
-                  quarterTurns: -1,
-                  child: SvgPicture.asset(
-                    "assets/icons/svgs/dropdown.svg",
-                    height: 18,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                ),
-                const SizedBox(width: 2),
-              ],
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.label,
+    this.trailing,
+    this.onTrailingTap,
+  });
+
+  final String label;
+  final String? trailing;
+  final VoidCallback? onTrailingTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = AppThemeExtension.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.bricolageGrotesque(
+              fontWeight: FontWeight.w600,
+              color: ext.sectionHeader,
+              fontSize: 12,
             ),
           ),
-        ),
-      ],
-    ).animate().fadeIn(delay: 200.ms);
-  }
-
-  // ── Chart ──────────────────────────────────────────────────────────────────
-
-  Widget _buildChart(List<double> points, double changePct) {
-    final pos = changePct >= 0;
-    return Container(
-      height: 110,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: CustomPaint(
-        painter: _SparklinePainter(
-          points: points,
-          color: pos ? DayFiColors.green : DayFiColors.red,
-          fillColor: pos
-              ? DayFiColors.green.withOpacity(0.07)
-              : DayFiColors.red.withOpacity(0.07),
-        ),
-        child: const SizedBox.expand(),
-      ),
-    ).animate().fadeIn(delay: 200.ms);
-  }
-
-  // ── Section header ─────────────────────────────────────────────────────────
-
-  Widget _buildSectionHeader({
-    required String title,
-    required String rightLabel,
-    required bool expanded,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              expanded
-                  ? Icons.keyboard_arrow_down_rounded
-                  : Icons.keyboard_arrow_right_rounded,
-              size: 18,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
+          if (trailing != null)
+            GestureDetector(
+              onTap: onTrailingTap,
               child: Text(
-                title,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                trailing!.toUpperCase(),
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontSize: 14.5,
-                  letterSpacing: .3,
+                  color: ext.sectionHeader.withValues(alpha: 0.7),
                 ),
               ),
             ),
-            Text(
-              rightLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withOpacity(0.35),
-                letterSpacing: .3,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
+}
 
-  // ── Top movers row ─────────────────────────────────────────────────────────
+// ── Sparkline painter ──────────────────────────────────────────────────────────
 
-  Widget _buildMoversRow({
-    required double xlmBalance,
-    required double xlmUSD,
-    required double xlmChange,
-    required List<double> xlmPoints,
-    required double usdcBalance,
-    required double usdcUSD,
-    required double usdcChange,
-    required List<double> usdcPoints,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: _MoverCard(
-            imagePath: 'assets/images/stellar.png',
-            code: 'XLM',
-            name: 'Stellar Lumen',
-            usdValue: xlmUSD,
-            changePercent: xlmChange,
-            points: xlmPoints,
-          ).animate().fadeIn(delay: 100.ms),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MoverCard(
-            imagePath: 'assets/images/usdc.png',
-            code: 'USDC',
-            name: 'Digital Dollar',
-            usdValue: usdcUSD,
-            changePercent: usdcChange,
-            points: usdcPoints,
-          ).animate().fadeIn(delay: 180.ms),
-        ),
-      ],
+class _SparklinePainter extends CustomPainter {
+  final List<double> points;
+  final Color color;
+  final Color fillColor;
+  final double strokeWidth;
+
+  const _SparklinePainter({
+    required this.points,
+    required this.color,
+    required this.fillColor,
+    this.strokeWidth = 1.8,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final min = points.reduce((a, b) => a < b ? a : b);
+    final max = points.reduce((a, b) => a > b ? a : b);
+    final range = (max - min).clamp(0.001, double.infinity);
+    final xStep = size.width / (points.length - 1);
+
+    Offset pt(int i) => Offset(
+      i * xStep,
+      size.height -
+          ((points[i] - min) / range) * size.height * 0.82 -
+          size.height * 0.09,
+    );
+
+    final fill = Path()..moveTo(0, size.height);
+    for (int i = 0; i < points.length; i++) {
+      fill.lineTo(pt(i).dx, pt(i).dy);
+    }
+    fill
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+
+    final line = Path()..moveTo(pt(0).dx, pt(0).dy);
+    for (int i = 1; i < points.length; i++) {
+      final p = pt(i - 1), c = pt(i);
+      final cx = (p.dx + c.dx) / 2;
+      line.cubicTo(cx, p.dy, cx, c.dy, c.dx, c.dy);
+    }
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
     );
   }
+
+  @override
+  bool shouldRepaint(_SparklinePainter o) =>
+      o.points != points || o.color != color;
 }
 
 // ── Mover card ─────────────────────────────────────────────────────────────────
@@ -1328,117 +1321,7 @@ class _HoldingRow extends StatelessWidget {
   }
 }
 
-// ── Sparkline painter ──────────────────────────────────────────────────────────
-
-class _SparklinePainter extends CustomPainter {
-  final List<double> points;
-  final Color color, fillColor;
-  final double strokeWidth;
-
-  const _SparklinePainter({
-    required this.points,
-    required this.color,
-    required this.fillColor,
-    this.strokeWidth = 1.8,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-    final min = points.reduce((a, b) => a < b ? a : b);
-    final max = points.reduce((a, b) => a > b ? a : b);
-    final range = (max - min).clamp(0.001, double.infinity);
-    final xStep = size.width / (points.length - 1);
-
-    Offset pt(int i) => Offset(
-      i * xStep,
-      size.height -
-          ((points[i] - min) / range) * size.height * 0.82 -
-          size.height * 0.09,
-    );
-
-    final fill = Path()..moveTo(0, size.height);
-    for (int i = 0; i < points.length; i++) {
-      fill.lineTo(pt(i).dx, pt(i).dy);
-    }
-    fill
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..color = fillColor
-        ..style = PaintingStyle.fill,
-    );
-
-    final line = Path()..moveTo(pt(0).dx, pt(0).dy);
-    for (int i = 1; i < points.length; i++) {
-      final p = pt(i - 1), c = pt(i);
-      final cx = (p.dx + c.dx) / 2;
-      line.cubicTo(cx, p.dy, cx, c.dy, c.dx, c.dy);
-    }
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SparklinePainter o) =>
-      o.points != points || o.color != color;
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.label,
-    this.trailing,
-    this.onTrailingTap,
-  });
-
-  final String label;
-  final String? trailing;
-  final VoidCallback? onTrailingTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.bricolageGrotesque(
-              fontWeight: FontWeight.w600,
-              color: ext.sectionHeader,
-              // letterSpacing: -.1,
-              fontSize: 12,
-            ),
-          ),
-          if (trailing != null)
-            GestureDetector(
-              onTap: onTrailingTap,
-              child: Text(
-                trailing!.toUpperCase(),
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  // letterSpacing: -.1,
-                  color: ext.sectionHeader.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
+// ── Action button ──────────────────────────────────────────────────────────────
 
 class _ActionButton extends StatelessWidget {
   final String icon;

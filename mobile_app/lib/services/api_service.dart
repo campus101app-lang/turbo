@@ -5,8 +5,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://turbo-production-afee.up.railway.app',
+    defaultValue: 'https://turbo-production-afee.up.railway.app', // Your Railway URL
   );
+
+  // Make baseUrl accessible for debugging
+  static String get getBaseUrl => baseUrl;
 
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -28,11 +31,18 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          print('API Request: ${options.method} ${options.path}');
           final token = await _storage.read(key: 'auth_token');
           if (token != null) options.headers['Authorization'] = 'Bearer $token';
           handler.next(options);
         },
+        onResponse: (response, handler) {
+          print('API Response: ${response.statusCode} ${response.requestOptions.path}');
+          handler.next(response);
+        },
         onError: (error, handler) async {
+          print('API Error: ${error.response?.statusCode} ${error.requestOptions.path}');
+          print('API Error Details: ${error.response?.data}');
           if (error.response?.statusCode == 401) {
             await _storage.delete(key: 'auth_token');
           }
@@ -304,6 +314,55 @@ class ApiService {
         data: {'bankCode': bankCode, 'accountNumber': accountNumber},
       )).data as Map<String, dynamic>;
 
+  // ─── Workflows ──────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getWorkflows({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async =>
+      (await _dio.get(
+        '/api/workflows',
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (status != null) 'status': status,
+        },
+      ))
+          .data as Map<String, dynamic>;
+
+  // ─── Organization ───────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getOrganization() async =>
+      (await _dio.get('/api/organization')).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> createOrganization(Map<String, dynamic> data) async =>
+      (await _dio.post('/api/organization', data: data)).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> updateOrganization(
+    String id,
+    Map<String, dynamic> data,
+  ) async =>
+      (await _dio.put('/api/organization/$id', data: data)).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> inviteOrganizationMember(Map<String, dynamic> data) async =>
+      (await _dio.post('/api/organization/invite', data: data)).data as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> updateOrganizationMember(
+    String organizationId,
+    String memberId,
+    Map<String, dynamic> data,
+  ) async =>
+      (await _dio.put('/api/organization/$organizationId/members/$memberId', data: data))
+          .data as Map<String, dynamic>;
+
+  Future<void> removeOrganizationMember(String organizationId, String memberId) async =>
+      await _dio.delete('/api/organization/$organizationId/members/$memberId');
+
+  Future<Map<String, dynamic>> getOrganizationFinancialDashboard(String period) async =>
+      (await _dio.get('/api/organization/financial-dashboard', queryParameters: {'period': period}))
+          .data as Map<String, dynamic>;
+
   // ─── Invoices ─────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getInvoices({
@@ -433,15 +492,7 @@ class ApiService {
       (await _dio.delete('/api/cards/$id')).data as Map<String, dynamic>;
 
   // ─── Workflows ────────────────────────────────────────────────────────────
-
-  /// GET /api/workflows — list active + paused workflows
-  Future<Map<String, dynamic>> getWorkflows({String? status}) async =>
-      (await _dio.get(
-        '/api/workflows',
-        queryParameters: {
-          if (status != null) 'status': status,
-        },
-      )).data as Map<String, dynamic>;
+  // getWorkflows method is already defined above with pagination support
 
   /// GET /api/workflows/:id
   Future<Map<String, dynamic>> getWorkflow(String id) async =>

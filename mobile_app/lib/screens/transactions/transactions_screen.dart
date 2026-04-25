@@ -315,6 +315,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final hasFilters = _assetFilter != null || _typeFilter != null;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -332,195 +333,222 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
           // Search bar overlay
           SizedBox(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.02),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: hasFilters
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_assetFilter != null)
-                                    _RemovableChip(
-                                      label: _getAssetDisplayName(
-                                        _assetFilter!,
-                                      ),
-                                      onRemove: () =>
-                                          _applyFilter(_typeFilter, null),
-                                    ),
-                                  if (_typeFilter != null)
-                                    _RemovableChip(
-                                      label: _typeFilter! == 'send'
-                                          ? 'Sent'
-                                          : (_typeFilter == 'receive'
-                                                ? 'Received'
-                                                : (_typeFilter == 'swap'
-                                                      ? 'Swapped'
-                                                      : _typeFilter!)),
-                                      onRemove: () =>
-                                          _applyFilter(null, _assetFilter),
-                                    ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width:
-                                        MediaQuery.of(context).size.width - 128,
-                                    child: TextField(
-                                      controller: _searchController,
-                                      focusNode: _searchFocus,
-                                      textAlign: TextAlign.start,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontSize: 17.5,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: .4,
-                                            height: 1.2,
-                                          ),
-                                      autofocus: false,
-                                      cursorColor: Theme.of(
-                                        context,
-                                      ).colorScheme.primary.withOpacity(0.5),
-                                      decoration: InputDecoration(
-                                        fillColor: Colors.transparent,
-                                        hintText: 'Search',
-                                        hintStyle: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: Theme.of(context)
+            width: size.width,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: SizedBox(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.02),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 405),
+
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: hasFilters
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (_assetFilter != null)
+                                            _RemovableChip(
+                                              label: _getAssetDisplayName(
+                                                _assetFilter!,
+                                              ),
+                                              onRemove: () => _applyFilter(
+                                                _typeFilter,
+                                                null,
+                                              ),
+                                            ),
+                                          if (_typeFilter != null)
+                                            _RemovableChip(
+                                              label: _typeFilter! == 'send'
+                                                  ? 'Sent'
+                                                  : (_typeFilter == 'receive'
+                                                        ? 'Received'
+                                                        : (_typeFilter == 'swap'
+                                                              ? 'Swapped'
+                                                              : _typeFilter!)),
+                                              onRemove: () => _applyFilter(
+                                                null,
+                                                _assetFilter,
+                                              ),
+                                            ),
+                                          const SizedBox(width: 8),
+                                          SizedBox(
+                                            width: 380,
+                                            child: TextField(
+                                                mouseCursor: SystemMouseCursors.text,
+                                              controller: _searchController,
+                                              focusNode: _searchFocus,
+                                              textAlign: TextAlign.start,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    fontSize: 17.5,
+                                                    fontWeight: FontWeight.w500,
+                                                    letterSpacing: .4,
+                                                    height: 1.2,
+                                                  ),
+                                              autofocus: false,
+                                              cursorColor: Theme.of(context)
                                                   .colorScheme
-                                                  .onSurface
+                                                  .primary
                                                   .withOpacity(0.5),
-                                              fontSize: 17.5,
-                                              fontWeight: FontWeight.w400,
-                                              height: 1.2,
-                                              letterSpacing: .4,
+                                              decoration: InputDecoration(
+                                                fillColor: Colors.transparent,
+                                                  hoverColor: Colors.transparent,
+                                                hintText: 'Search',
+                                                hintStyle: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurface
+                                                          .withOpacity(0.5),
+                                                      fontSize: 17.5,
+                                                      fontWeight:
+                                                          FontWeight.w400,
+                                                      height: 1.2,
+                                                      letterSpacing: .4,
+                                                    ),
+                                                prefixIcon: null,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 12,
+                                                    ),
+                                                border: InputBorder.none,
+                                                enabledBorder: InputBorder.none,
+                                                focusedBorder: InputBorder.none,
+                                                errorBorder: InputBorder.none,
+                                                isDense: true,
+                                              ),
                                             ),
-                                        prefixIcon: null,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 12,
-                                            ),
-                                        border: InputBorder.none,
-                                        enabledBorder: InputBorder.none,
-                                        focusedBorder: InputBorder.none,
-                                        errorBorder: InputBorder.none,
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 12),
-                                      child: SvgPicture.asset(
-                                        'assets/icons/svgs/search.svg',
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withOpacity(0.5),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width:
-                                          MediaQuery.of(context).size.width -
-                                          128,
-                                      child: TextField(
-                                        controller: _searchController,
-                                        focusNode: _searchFocus,
-                                        textAlign: TextAlign.center,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontSize: 17.5,
-                                              fontWeight: FontWeight.w500,
-                                              letterSpacing: .4,
-                                              height: 1.2,
-                                            ),
-                                        autofocus: false,
-                                        cursorColor: Theme.of(
-                                          context,
-                                        ).colorScheme.primary.withOpacity(0.5),
-                                        decoration: InputDecoration(
-                                          fillColor: Colors.transparent,
-                                          hintText: 'Search',
-                                          hintStyle: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
+                                          ),
+                                        ],
+                                      )
+                                    : Center(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 12,
+                                              ),
+                                              child: SvgPicture.asset(
+                                                'assets/icons/svgs/search.svg',
                                                 color: Theme.of(context)
                                                     .colorScheme
                                                     .onSurface
                                                     .withOpacity(0.5),
-                                                fontSize: 17.5,
-                                                fontWeight: FontWeight.w400,
-                                                height: 1.2,
-                                                letterSpacing: .4,
                                               ),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 12,
-                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 380,
+                                              child: TextField(
+                                                 mouseCursor: SystemMouseCursors.text,
+                                                controller: _searchController,
+                                                focusNode: _searchFocus,
+                                                textAlign: TextAlign.center,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      fontSize: 17.5,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      letterSpacing: .4,
+                                                      height: 1.2,
+                                                    ),
+                                                autofocus: false,
+                                                cursorColor: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(0.5),
+                                                decoration: InputDecoration(
+                                                    hoverColor: Colors.transparent,
+                                                  fillColor: Colors.transparent,
+                                                  hintText: 'Search',
+                                                  hintStyle: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurface
+                                                            .withOpacity(0.5),
+                                                        fontSize: 17.5,
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        height: 1.2,
+                                                        letterSpacing: .4,
+                                                      ),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 12,
+                                                      ),
 
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
-                                          errorBorder: InputBorder.none,
-                                          isDense: true,
+                                                  border: InputBorder.none,
+                                                  enabledBorder:
+                                                      InputBorder.none,
+                                                  focusedBorder:
+                                                      InputBorder.none,
+                                                  errorBorder: InputBorder.none,
+                                                  isDense: true,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                  ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => _showFilterMenu(),
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: SvgPicture.asset(
+                                  'assets/icons/svgs/filter.svg',
+                                  color: hasFilters
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurface
+                                            .withOpacity(0.5),
                                 ),
                               ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showFilterMenu(),
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: SvgPicture.asset(
-                          'assets/icons/svgs/filter.svg',
-                          color: hasFilters
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -1261,7 +1289,10 @@ class _TxTile extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: ((tx['flutterwaveStatus'] as String?)?.toLowerCase() == 'settled')
+                      color:
+                          ((tx['flutterwaveStatus'] as String?)
+                                  ?.toLowerCase() ==
+                              'settled')
                           ? DayFiColors.green
                           : const Color(0xFFFFA726),
                     ),

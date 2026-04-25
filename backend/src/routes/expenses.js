@@ -12,7 +12,7 @@
 
 import express from "express";
 import { body, validationResult } from "express-validator";
-import { authenticate, requireManager } from "../middleware/auth.js";
+import { authenticate, requirePermission, hasPermission } from "../middleware/auth.js";
 import { PrismaClient } from "@prisma/client";
 import { sendError, sendNotFound, sendValidationError } from "../utils/http.js";
 
@@ -313,44 +313,61 @@ router.post("/:id/submit", authenticate, async (req, res) => {
   }
 });
 
-// ─── POST /api/expenses/:id/approve ───────────────────────────────────────────
+// ─── POST /api/expenses/:id/approve ────────────────────────────────────────────
 // Manager approves expense
 
-router.post("/:id/approve", authenticate, requireManager, async (req, res) => {
-  try {
-    const existing = await prisma.expense.findUnique({
-      where: { id: req.params.id },
-    });
+router.post(
+  "/:id/approve",
+  authenticate,
+  requirePermission('approve_expenses'),
+  async (req, res) => {
+    try {
+      const existing = await prisma.expense.findUnique({
+        where: { id: req.params.id },
+        include: {
+          submittedBy: { select: { id: true, organizationMemberships: true } }
+        }
+      });
 
-    if (!existing) return sendNotFound(res, "Expense");
-    if (existing.submittedById === req.user.id) {
-      return sendError(res, 403, "FORBIDDEN", "Managers cannot approve their own expenses.");
-    }
-    if (existing.status === "approved") {
-      return sendError(res, 400, "INVALID_STATE", "Expense already approved.");
-    }
-    if (existing.status !== "pending") {
-      return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be approved.");
-    }
+      if (!existing) return sendNotFound(res, "Expense");
+      
+      // Check if user is trying to approve their own expense
+      if (existing.submittedById === req.user.id) {
+        return sendError(res, 403, "FORBIDDEN", "Cannot approve your own expense.");
+      }
+      
+      // Check if user has permission to approve this expense
+      const canApprove = hasPermission(req.user, 'approve_expenses', existing.organizationId);
+      if (!canApprove) {
+        return sendError(res, 403, "FORBIDDEN", "Insufficient permissions to approve expenses.");
+      }
+      
+      if (existing.status === "approved") {
+        return sendError(res, 400, "INVALID_STATE", "Expense already approved.");
+      }
+      if (existing.status !== "pending") {
+        return sendError(res, 400, "INVALID_STATE", "Only pending expenses can be approved.");
+      }
 
-    const updated = await prisma.expense.update({
-      where: { id: req.params.id },
-      data: {
-        status: "approved",
-        approvedById: req.user.id,
-        approvedAt: new Date(),
-      },
-      include: {
-        submittedBy: { select: { id: true, businessName: true } },
-        approvedBy: { select: { id: true, businessName: true } },
-      },
-    });
+      const updated = await prisma.expense.update({
+        where: { id: req.params.id },
+        data: {
+          status: "approved",
+          approvedById: req.user.id,
+          approvedAt: new Date(),
+        },
+        include: {
+          submittedBy: { select: { id: true, businessName: true } },
+          approvedBy: { select: { id: true, businessName: true } },
+        },
+      });
 
-    res.json({ expense: updated });
-  } catch (err) {
-    sendError(res, 500, "INTERNAL_ERROR", err.message);
+      res.json({ expense: updated });
+    } catch (err) {
+      sendError(res, 500, "INTERNAL_ERROR", err.message);
+    }
   }
-});
+);
 
 // ─── POST /api/expenses/:id/reject ────────────────────────────────────────────
 // Manager rejects expense with reason
@@ -358,7 +375,7 @@ router.post("/:id/approve", authenticate, requireManager, async (req, res) => {
 router.post(
   "/:id/reject",
   authenticate,
-  requireManager,
+  requirePermission('approve_expenses'),
   [
     body("rejectionNote")
       .notEmpty()

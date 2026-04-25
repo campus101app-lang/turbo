@@ -1,14 +1,17 @@
 // lib/screens/expenses/expenses_screen.dart
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_app/widgets/app_bottomsheet.dart';
 import '../../providers/wallet_provider.dart'; // for ngnRateProvider
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/app_bottomsheet.dart';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 
@@ -96,37 +99,57 @@ class ExpensesScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: expAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _buildError(context, ref, e.toString()),
-        data: (expenses) => _buildBody(context, ref, expenses, userAsync),
-      ),
-      floatingActionButton: Container(
-        height: 60,
-        width: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-          ),
-        ),
-        child: InkWell(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          onTap: () => _showCreateSheet(context, ref),
+      body: SizedBox(
+        width: double.infinity,
+        child: SingleChildScrollView(
           child: Center(
-            child: FaIcon(
-              FontAwesomeIcons.add,
-              size: 22,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
+                child: expAsync.when(
+                  loading: () => const SizedBox(
+                    height: 400,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, _) => _buildError(context, ref, e.toString()),
+                  data: (expenses) => _buildBody(context, ref, expenses, userAsync),
+                ),
+              ),
             ),
           ),
         ),
-      ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0),
+      ),
+      floatingActionButton: _buildFab(context, ref),
     );
+  }
+
+  Widget _buildFab(BuildContext context, WidgetRef ref) {
+    return Container(
+      height: 60,
+      width: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+        ),
+      ),
+      child: InkWell(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        onTap: () => _showCreateModal(context, ref),
+        child: Center(
+          child: FaIcon(
+            FontAwesomeIcons.add,
+            size: 22,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
+          ),
+        ),
+      ),
+    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
   }
 
   Widget _buildError(BuildContext context, WidgetRef ref, String err) {
@@ -158,62 +181,1105 @@ class ExpensesScreen extends ConsumerWidget {
     final currentUserId = userAsync.value?['id']?.toString();
 
     if (expenses.isEmpty) {
-      return _EmptyState(onTap: () => _showCreateSheet(context, ref));
+      return _EmptyState(onTap: () => _showCreateModal(context, ref));
     }
 
     final pending = expenses.where((e) => e.status == 'pending').toList();
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(_expensesProvider),
-      child: _ExpensesBody(
-        expenses: expenses,
-        pending: pending,
-        isMerchant: isMerchant,
-        currentUserId: currentUserId,
-        onShowDetail: (e) =>
-            _showDetailSheet(context, ref, e, isMerchant, currentUserId),
-        onShowCreate: () => _showCreateSheet(context, ref),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Left: Expense Insights ────────────────────────────────────────
+          Expanded(
+            child: _ExpenseInsightsPanel(
+              expenses: expenses,
+              pending: pending,
+              isMerchant: isMerchant,
+            ),
+          ),
+          const SizedBox(width: 16),
+          // ── Right: Expense List ───────────────────────────────────────────
+          Expanded(
+            child: _ExpenseListPanel(
+              expenses: expenses,
+              pending: pending,
+              isMerchant: isMerchant,
+              currentUserId: currentUserId,
+              onShowDetail: (e) => _showDetailModal(context, ref, e, isMerchant, currentUserId),
+              onShowCreate: () => _showCreateModal(context, ref),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void _showCreateSheet(BuildContext context, WidgetRef ref) {
-    showDayFiBottomSheet(
+  void _showCreateModal(BuildContext context, WidgetRef ref) {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      child: _CreateExpenseSheet(
-        onCreated: () {
-          // Invalidate both providers to ensure data refreshes
-          ref.invalidate(_expensesProvider);
-          ref.invalidate(_userMeProvider);
-        },
+      barrierDismissible: false,
+      builder: (_) => _GlassModal(
+        child: _CreateExpenseFlow(
+          onCreated: () {
+            ref.invalidate(_expensesProvider);
+            ref.invalidate(_userMeProvider);
+            Navigator.of(context).pop();
+          },
+        ),
       ),
     );
   }
 
-  void _showDetailSheet(
+  void _showDetailModal(
     BuildContext context,
     WidgetRef ref,
     Expense expense,
     bool isMerchant,
     String? currentUserId,
   ) {
-    showDayFiBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      child: _ExpenseDetailSheet(
-        expense: expense,
-        isMerchant: isMerchant,
-        currentUserId: currentUserId,
-        onRefresh: () => ref.invalidate(_expensesProvider),
+      barrierDismissible: false,
+      builder: (_) => _GlassModal(
+        child: _ExpenseDetailContent(
+          expense: expense,
+          isMerchant: isMerchant,
+          currentUserId: currentUserId,
+          onRefresh: () {
+            ref.invalidate(_expensesProvider);
+            Navigator.of(context).pop();
+          },
+          onClose: () => Navigator.of(context).pop(),
+        ),
       ),
     );
   }
 }
 
-// ─── Body (ConsumerWidget so it can watch ngnRateProvider) ───────────────────
+// ─── Glass Modal ────────────────────────────────────────────────────────────────
 
-class _ExpensesBody extends ConsumerWidget {
+class _GlassModal extends StatelessWidget {
+  final Widget child;
+  const _GlassModal({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: 520,
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Create Expense Flow ───────────────────────────────────────────────────────
+
+class _CreateExpenseFlow extends ConsumerStatefulWidget {
+  final VoidCallback onCreated;
+  const _CreateExpenseFlow({required this.onCreated});
+
+  @override
+  ConsumerState<_CreateExpenseFlow> createState() => _CreateExpenseFlowState();
+}
+
+class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
+    with TickerProviderStateMixin {
+  int _step = 1;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  final _titleCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  final _descriptionCtrl = TextEditingController();
+  String _selectedCategory = 'other';
+  String _selectedCurrency = 'NGNT';
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _titleCtrl.dispose();
+    _amountCtrl.dispose();
+    _descriptionCtrl.dispose();
+    super.dispose();
+  }
+
+  void _nextStep() {
+    if (_step < 3) {
+      setState(() => _step++);
+      _fadeController.reset();
+      _fadeController.forward();
+    }
+  }
+
+  void _prevStep() {
+    if (_step > 1) {
+      setState(() => _step--);
+      _fadeController.reset();
+      _fadeController.forward();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Header
+        _ModalHeader(
+          title: 'Create Expense',
+          step: _step,
+          totalSteps: 3,
+          onBack: _step > 1 ? _prevStep : null,
+          onClose: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(height: 24),
+        // Content
+        Expanded(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: _buildStep(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep() {
+    switch (_step) {
+      case 1:
+        return _buildStep1();
+      case 2:
+        return _buildStep2();
+      case 3:
+        return _buildStep3();
+      default:
+        return const SizedBox();
+    }
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel('Expense Details'),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _titleCtrl,
+          decoration: _modalField(context, 'e.g. Office Supplies'),
+          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+        ),
+        const SizedBox(height: 20),
+        _FieldLabel('Amount'),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _amountCtrl,
+          keyboardType: TextInputType.number,
+          decoration: _modalField(context, '0.00'),
+          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+        ),
+        const SizedBox(height: 20),
+        _FieldLabel('Category'),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['office', 'travel', 'food', 'supplies', 'other'].map((cat) {
+            return _SegmentButton(
+              label: cat[0].toUpperCase() + cat.substring(1),
+              selected: _selectedCategory == cat,
+              onTap: () => setState(() => _selectedCategory = cat),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 32),
+        _ModalPrimaryButton(label: 'Continue →', onTap: _nextStep),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel('Description (Optional)'),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _descriptionCtrl,
+          maxLines: 3,
+          decoration: _modalField(context, 'Add details about this expense...'),
+        ),
+        const SizedBox(height: 20),
+        _FieldLabel('Currency'),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['NGNT', 'USDC'].map((curr) {
+            return _SegmentButton(
+              label: curr,
+              selected: _selectedCurrency == curr,
+              onTap: () => setState(() => _selectedCurrency = curr),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 32),
+        _ModalPrimaryButton(label: 'Continue →', onTap: _nextStep),
+      ],
+    );
+  }
+
+  Widget _buildStep3() {
+    final amount = double.tryParse(_amountCtrl.text) ?? 0.0;
+    final symbol = _selectedCurrency == 'USDC' ? '\$' : '₦';
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FieldLabel('Review & Submit'),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _titleCtrl.text.trim(),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _selectedCategory[0].toUpperCase() + _selectedCategory.substring(1),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+              if (_descriptionCtrl.text.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _descriptionCtrl.text.trim(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    'Total:',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '$symbol${amount.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        _ModalPrimaryButton(
+          label: 'Create Expense',
+          onTap: _submitExpense,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitExpense() async {
+    try {
+      final amount = double.tryParse(_amountCtrl.text);
+      if (amount == null || _titleCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fill in all required fields')),
+        );
+        return;
+      }
+
+      await apiService.createExpense({
+        'title': _titleCtrl.text.trim(),
+        'amount': amount,
+        'category': _selectedCategory,
+        'currency': _selectedCurrency,
+        'description': _descriptionCtrl.text.trim().isEmpty
+            ? null
+            : _descriptionCtrl.text.trim(),
+      });
+
+      widget.onCreated();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create expense: $e')),
+        );
+      }
+    }
+  }
+}
+
+// ─── Expense Detail Content ────────────────────────────────────────────────────
+
+class _ExpenseDetailContent extends ConsumerStatefulWidget {
+  final Expense expense;
+  final bool isMerchant;
+  final String? currentUserId;
+  final VoidCallback onRefresh;
+  final VoidCallback onClose;
+
+  const _ExpenseDetailContent({
+    required this.expense,
+    required this.isMerchant,
+    required this.currentUserId,
+    required this.onRefresh,
+    required this.onClose,
+  });
+
+  @override
+  ConsumerState<_ExpenseDetailContent> createState() => _ExpenseDetailContentState();
+}
+
+class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
+  bool _approving = false;
+  bool _rejecting = false;
+  bool _deleting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final ngnAmount = widget.expense.toNgn(usdToNgn);
+    final usdAmount = widget.expense.currency == 'NGNT'
+        ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)
+        : widget.expense.amount;
+
+    return Column(
+      children: [
+        // Header
+        _ModalHeader(
+          title: 'Expense Details',
+          onBack: null,
+          onClose: widget.onClose, step: 0, totalSteps: 0,
+        ),
+        const SizedBox(height: 24),
+        // Content
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Status and Amount
+                Row(
+                  children: [
+                    _StatusPill(status: widget.expense.status),
+                    const Spacer(),
+                    Text(
+                      widget.expense.currency == 'USDC'
+                          ? '\$${widget.expense.amount.toStringAsFixed(2)}'
+                          : '₦${widget.expense.amount.toStringAsFixed(0)}',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 24,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.expense.currency == 'USDC'
+                      ? '≈ ₦${ngnAmount.toStringAsFixed(0)}'
+                      : '≈ \$${usdAmount.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Details
+                _DetailRow(label: 'Title', value: widget.expense.title),
+                if (widget.expense.description != null)
+                  _DetailRow(label: 'Description', value: widget.expense.description!),
+                _DetailRow(label: 'Category', value: widget.expense.category),
+                _DetailRow(
+                  label: 'Date',
+                  value: DateFormat('MMM d, yyyy').format(widget.expense.createdAt),
+                ),
+                if (widget.expense.approvedAt != null)
+                  _DetailRow(
+                    label: 'Approved',
+                    value: DateFormat('MMM d, yyyy').format(widget.expense.approvedAt!),
+                  ),
+                if (widget.expense.rejectionNote != null)
+                  _DetailRow(label: 'Rejection Note', value: widget.expense.rejectionNote!),
+                
+                const SizedBox(height: 32),
+                
+                // Actions
+                if (widget.isMerchant && widget.expense.status == 'pending')
+                  _buildMerchantActions()
+                else if (!widget.isMerchant && widget.expense.status == 'pending')
+                  _buildEmployeeActions()
+                else if (widget.expense.status == 'rejected')
+                  _buildRejectedActions(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMerchantActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DayFiColors.red,
+              side: BorderSide(color: DayFiColors.red.withOpacity(0.5)),
+            ),
+            onPressed: _rejecting ? null : _rejectExpense,
+            child: _rejecting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Reject'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DayFiColors.green,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: _approving ? null : _approveExpense,
+            child: _approving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Approve'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmployeeActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DayFiColors.red,
+              side: BorderSide(color: DayFiColors.red.withOpacity(0.5)),
+            ),
+            onPressed: _deleting ? null : _deleteExpense,
+            child: _deleting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Delete'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRejectedActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DayFiColors.red,
+              side: BorderSide(color: DayFiColors.red.withOpacity(0.5)),
+            ),
+            onPressed: _deleting ? null : _deleteExpense,
+            child: _deleting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Delete'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _approveExpense() async {
+    setState(() => _approving = true);
+    try {
+      await apiService.approveExpense(widget.expense.id);
+      widget.onRefresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to approve: $e')),
+        );
+      }
+    } finally {
+      setState(() => _approving = false);
+    }
+  }
+
+  Future<void> _rejectExpense() async {
+    final reason = await _showRejectDialog();
+    if (reason == null) return;
+
+    setState(() => _rejecting = true);
+    try {
+      await apiService.rejectExpense(widget.expense.id, reason);
+      widget.onRefresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reject: $e')),
+        );
+      }
+    } finally {
+      setState(() => _rejecting = false);
+    }
+  }
+
+  Future<void> _deleteExpense() async {
+    setState(() => _deleting = true);
+    try {
+      await apiService.deleteExpense(widget.expense.id);
+      widget.onRefresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: $e')),
+        );
+      }
+    } finally {
+      setState(() => _deleting = false);
+    }
+  }
+
+  Future<String?> _showRejectDialog() async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reject Expense'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Please provide a reason for rejection:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Rejection reason...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// ─── Expense Insights Panel ───────────────────────────────────────────────────
+
+class _ExpenseInsightsPanel extends ConsumerWidget {
+  final List<Expense> expenses;
+  final List<Expense> pending;
+  final bool isMerchant;
+
+  const _ExpenseInsightsPanel({
+    required this.expenses,
+    required this.pending,
+    required this.isMerchant,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    
+    final approved = expenses.where((e) => e.status == 'approved').toList();
+    final rejected = expenses.where((e) => e.status == 'rejected').toList();
+    
+    final totalApproved = approved.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
+    final totalPending = pending.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
+    final totalRejected = rejected.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
+    
+    final totalExpenses = totalApproved + totalPending + totalRejected;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Row(
+          children: [
+            Text(
+              'Expense Insights',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'This Month',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        
+        // Metric Cards Row
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                label: 'Total Expenses',
+                value: '₦${totalExpenses.toStringAsFixed(0)}',
+                icon: Icons.receipt_long,
+                color: const Color(0xFF9B8EF8),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                label: 'Pending',
+                value: '₦${totalPending.toStringAsFixed(0)}',
+                icon: Icons.pending,
+                color: const Color(0xFFFFA726),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                label: 'Approved',
+                value: '₦${totalApproved.toStringAsFixed(0)}',
+                icon: Icons.check_circle,
+                color: DayFiColors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                label: 'Rejected',
+                value: '₦${totalRejected.toStringAsFixed(0)}',
+                icon: Icons.cancel,
+                color: DayFiColors.red,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        
+        // Category Breakdown
+        _CategoryBreakdownCard(expenses: expenses, usdToNgn: usdToNgn),
+        const SizedBox(height: 24),
+        
+        // Status Distribution
+        _StatusDistributionCard(
+          approved: approved.length,
+          pending: pending.length,
+          rejected: rejected.length,
+          total: expenses.length,
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Metric Card ───────────────────────────────────────────────────────────────
+
+class _MetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontSize: 24,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Category Breakdown Card ────────────────────────────────────────────────────
+
+class _CategoryBreakdownCard extends ConsumerWidget {
+  final List<Expense> expenses;
+  final double usdToNgn;
+
+  const _CategoryBreakdownCard({
+    required this.expenses,
+    required this.usdToNgn,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoryTotals = <String, double>{};
+    
+    for (final expense in expenses) {
+      final amount = expense.toNgn(usdToNgn);
+      categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + amount;
+    }
+    
+    final sortedCategories = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    final total = categoryTotals.values.fold(0.0, (sum, val) => sum + val);
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Category Breakdown',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...sortedCategories.take(5).map((entry) {
+            final percentage = total > 0 ? (entry.value / total) * 100 : 0.0;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(entry.key),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      entry.key[0].toUpperCase() + entry.key.substring(1),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '₦${entry.value.toStringAsFixed(0)}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+  
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case 'office':
+        return const Color(0xFF9B8EF8);
+      case 'travel':
+        return const Color(0xFFFFA726);
+      case 'food':
+        return DayFiColors.green;
+      case 'supplies':
+        return const Color(0xFF42A5F5);
+      default:
+        return const Color(0xFF78909C);
+    }
+  }
+}
+
+// ─── Status Distribution Card ───────────────────────────────────────────────────
+
+class _StatusDistributionCard extends StatelessWidget {
+  final int approved;
+  final int pending;
+  final int rejected;
+  final int total;
+
+  const _StatusDistributionCard({
+    required this.approved,
+    required this.pending,
+    required this.rejected,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Status Distribution',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (total == 0)
+            Text(
+              'No expenses yet',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
+            )
+          else ...[
+            _StatusBar(
+              label: 'Approved',
+              count: approved,
+              total: total,
+              color: DayFiColors.green,
+            ),
+            const SizedBox(height: 12),
+            _StatusBar(
+              label: 'Pending',
+              count: pending,
+              total: total,
+              color: const Color(0xFFFFA726),
+            ),
+            const SizedBox(height: 12),
+            _StatusBar(
+              label: 'Rejected',
+              count: rejected,
+              total: total,
+              color: DayFiColors.red,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Status Bar ────────────────────────────────────────────────────────────────
+
+class _StatusBar extends StatelessWidget {
+  final String label;
+  final int count;
+  final int total;
+  final Color color;
+
+  const _StatusBar({
+    required this.label,
+    required this.count,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final percentage = total > 0 ? count / total : 0.0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '$count',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 8,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: percentage,
+            child: Container(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+// ─── Expense List Panel ──────────────────────────────────────────────────────
+
+class _ExpenseListPanel extends ConsumerWidget {
   final List<Expense> expenses;
   final List<Expense> pending;
   final bool isMerchant;
@@ -221,7 +1287,7 @@ class _ExpensesBody extends ConsumerWidget {
   final ValueChanged<Expense> onShowDetail;
   final VoidCallback onShowCreate;
 
-  const _ExpensesBody({
+  const _ExpenseListPanel({
     required this.expenses,
     required this.pending,
     required this.isMerchant,
@@ -243,43 +1309,61 @@ class _ExpensesBody extends ConsumerWidget {
     final grouped = _groupByDate(myExpenses);
     final dateKeys = _sortedDateKeys(grouped);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Summary row ──────────────────────────────────────────────
-        _SummaryRow(expenses: expenses, usdToNgn: usdToNgn),
-        const SizedBox(height: 32),
-
-        // ── My Expenses (date-grouped) ───────────────────────────────
-        _SectionLabel(label: 'My Expenses', count: myExpenses.length),
-        const SizedBox(height: 8),
-
-        for (final dateLabel in dateKeys) ...[
-          // Date sub-header
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 6),
-            child: Text(
-              dateLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+        // Header
+        Row(
+          children: [
+            Text(
+              'Expenses',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                letterSpacing: -0.5,
               ),
             ),
-          ),
-          for (final e in grouped[dateLabel]!)
-            _ExpenseTile(
-              expense: e,
-              usdToNgn: usdToNgn,
-              onTap: () => onShowDetail(e),
+            const Spacer(),
+            if (myExpenses.isNotEmpty)
+              _CreateButton(onTap: onShowCreate),
+          ],
+        ),
+        const SizedBox(height: 24),
+        
+        // My Expenses (date-grouped)
+        if (myExpenses.isEmpty)
+          _EmptyExpenseCard(onCreate: onShowCreate)
+        else ...[
+          _SectionHeader(label: 'My Expenses', count: myExpenses.length),
+          const SizedBox(height: 12),
+          for (final dateLabel in dateKeys) ...[
+            // Date sub-header
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              child: Text(
+                dateLabel,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
             ),
+            ...grouped[dateLabel]!.map(
+              (e) => _ExpenseTile(
+                expense: e,
+                usdToNgn: usdToNgn,
+                onTap: () => onShowDetail(e),
+              ),
+            ),
+          ],
         ],
 
-        // ── Pending Approval (merchants only) ────────────────────────
+        // Pending Approval (merchants only)
         if (isMerchant && pending.isNotEmpty) ...[
           const SizedBox(height: 32),
-          _SectionLabel(label: 'Pending Approval', count: pending.length),
-          const SizedBox(height: 8),
+          _SectionHeader(label: 'Pending Approval', count: pending.length),
+          const SizedBox(height: 12),
           ...pending.map(
             (e) => _ExpenseTile(
               expense: e,
@@ -319,6 +1403,7 @@ class _ExpensesBody extends ConsumerWidget {
     return grouped;
   }
 
+  /// Returns sorted date keys in chronological order (newest first).
   List<String> _sortedDateKeys(Map<String, List<Expense>> grouped) {
     final keys = grouped.keys.toList();
     keys.sort((a, b) {
@@ -326,19 +1411,618 @@ class _ExpensesBody extends ConsumerWidget {
       if (b == 'Today') return 1;
       if (a == 'Yesterday') return -1;
       if (b == 'Yesterday') return 1;
-      // Both are "MMM d" — compare by the first expense date in each group
-      final da = grouped[a]!.first.createdAt;
-      final db = grouped[b]!.first.createdAt;
-      return db.compareTo(da); // newest first
+      // For MMM d format, parse and compare dates
+      try {
+        final dateA = DateFormat('MMM d').parse(a);
+        final dateB = DateFormat('MMM d').parse(b);
+        return dateB.compareTo(dateA);
+      } catch (_) {
+        return a.compareTo(b);
+      }
     });
     return keys;
   }
 }
 
-// ─── Summary row ──────────────────────────────────────────────────────────────
+// ─── Create Button ─────────────────────────────────────────────────────────────
 
+class _CreateButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CreateButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'New Expense',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty Expense Card ───────────────────────────────────────────────────────
+
+class _EmptyExpenseCard extends StatelessWidget {
+  final VoidCallback onCreate;
+  const _EmptyExpenseCard({required this.onCreate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No expenses yet',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first expense to start tracking.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          _CreateButton(onTap: onCreate),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Section Header ─────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final int count;
+  const _SectionHeader({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$count',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+// ─── Modal Components ───────────────────────────────────────────────────────────
+
+class _ModalHeader extends StatelessWidget {
+  final String title;
+  final int step;
+  final int totalSteps;
+  final VoidCallback? onBack;
+  final VoidCallback onClose;
+
+  const _ModalHeader({
+    required this.title,
+    required this.step,
+    required this.totalSteps,
+    this.onBack,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (onBack != null)
+          _SmallIconButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            onTap: onBack!,
+          )
+        else
+          const SizedBox(width: 36),
+        Expanded(
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+        ),
+        _SmallIconButton(icon: Icons.close_rounded, onTap: onClose),
+      ],
+    );
+  }
+}
+
+class _StepIndicator extends StatelessWidget {
+  final int current;
+  final int total;
+  const _StepIndicator({required this.current, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        total,
+        (i) => Container(
+          width: 32,
+          height: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: i < current
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModalPrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool loading;
+  const _ModalPrimaryButton({
+    required this.label,
+    required this.onTap,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cs.primary,
+          foregroundColor: cs.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        onPressed: loading ? null : onTap,
+        child: loading
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Theme.of(context).colorScheme.surface,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _SmallIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _SmallIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: .3,
+      ),
+    );
+  }
+}
+
+InputDecoration _modalField(BuildContext context, String hint) {
+  final cs = Theme.of(context).colorScheme;
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: cs.onSurface.withOpacity(.35), fontSize: 14),
+    filled: true,
+    fillColor: cs.onSurface.withOpacity(.07),
+    hoverColor: Colors.transparent,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: cs.primary, width: 1.5),
+    ),
+  );
+}
+
+class _SegmentButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? cs.primary : cs.onSurface.withOpacity(.07),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? cs.onPrimary : cs.onSurface.withOpacity(.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final String status;
+  const _StatusPill({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    Color c;
+    switch (status) {
+      case 'approved':
+        c = DayFiColors.green;
+        break;
+      case 'pending':
+        c = const Color(0xFFFFA726);
+        break;
+      case 'rejected':
+        c = DayFiColors.red;
+        break;
+      default:
+        c = const Color(0xFF78909C);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status[0].toUpperCase() + status.substring(1),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: c,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Expense Tile ───────────────────────────────────────────────────────────────
+
+class _ExpenseTile extends StatelessWidget {
+  final Expense expense;
+  final double usdToNgn;
+  final VoidCallback onTap;
+  final bool showApprove;
+
+  const _ExpenseTile({
+    required this.expense,
+    required this.usdToNgn,
+    required this.onTap,
+    this.showApprove = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ngnAmount = expense.toNgn(usdToNgn);
+    final usdAmount = expense.currency == 'NGNT'
+        ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)
+        : expense.amount;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getCategoryColor(expense.category).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _categoryIcon(expense.category),
+                size: 20,
+                color: _getCategoryColor(expense.category),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    expense.title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    expense.category[0].toUpperCase() + expense.category.substring(1),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  expense.currency == 'USDC'
+                      ? '\$${expense.amount.toStringAsFixed(2)}'
+                      : '₦${expense.amount.toStringAsFixed(0)}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _StatusPill(status: expense.status),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _categoryIcon(String category) {
+    switch (category) {
+      case 'office':
+        return Icons.business_center;
+      case 'travel':
+        return Icons.flight;
+      case 'food':
+        return Icons.restaurant;
+      case 'supplies':
+        return Icons.inventory;
+      default:
+        return Icons.more_horiz;
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case 'office':
+        return const Color(0xFF9B8EF8);
+      case 'travel':
+        return const Color(0xFFFFA726);
+      case 'food':
+        return DayFiColors.green;
+      case 'supplies':
+        return const Color(0xFF42A5F5);
+      default:
+        return const Color(0xFF78909C);
+    }
+  }
+}
+
+// ─── Empty State ───────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onTap;
+  const _EmptyState({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No expenses yet',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first expense to start tracking.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            child: const Text('Create Expense'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// ─── Add missing imports ───────────────────────────────────────────────────────────
 class _SummaryRow extends StatefulWidget {
-  final List<Expense> expenses;
+  final List<Expense> expenses; 
   final double usdToNgn;
 
   const _SummaryRow({required this.expenses, required this.usdToNgn});
@@ -491,7 +2175,10 @@ class _MiniAllocationRow extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             letterSpacing: .95,
                             height: 1,
-                            color: ext.primaryText,
+                            color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
                           ),
                         ),
                         if (hasPct)
@@ -502,7 +2189,10 @@ class _MiniAllocationRow extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.95,
                               height: 1,
-                              color: ext.primaryText.withOpacity(0.72),
+                              color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          .withOpacity(0.72),
                             ),
                           ),
                       ],
@@ -548,367 +2238,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// ─── Expense tile ─────────────────────────────────────────────────────────────
-
-class _ExpenseTile extends StatelessWidget {
-  final Expense expense;
-  final double usdToNgn;
-  final VoidCallback onTap;
-  final bool showApprove;
-
-  const _ExpenseTile({
-    required this.expense,
-    required this.usdToNgn,
-    required this.onTap,
-    this.showApprove = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-
-    // Always display in NGN; show USD equivalent as subtitle
-    final ngnAmount = expense.toNgn(usdToNgn);
-    final usdAmount = expense.currency == 'NGNT'
-        ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)
-        : expense.amount; // USDC is already USD
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: ext.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _categoryIcon(expense.category),
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              flex: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    expense.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.bricolageGrotesque(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(.95),
-                      letterSpacing: .4,
-                    ),
-                  ),
-                  // const SizedBox(height: 2),
-                  Text(
-                    '${expense.category[0].toUpperCase()}${expense.category.substring(1)}',
-                    style: GoogleFonts.bricolageGrotesque(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      letterSpacing: -.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(flex: 2,
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.inversePrimary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        expense.status.toUpperCase(),
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 10,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .1,
-                          height: 1.4,
-                        ),
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Amount + status
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Primary: NGN
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: '₦',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        TextSpan(
-                          text: _fmtNgn(ngnAmount),
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(.95),
-                            letterSpacing: .4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Secondary: USD equivalent
-                  Text(
-                    '\$${usdAmount.toStringAsFixed(2)}',
-                    style: GoogleFonts.bricolageGrotesque(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      letterSpacing: -.1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _fmtNgn(double v) {
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}k';
-    return NumberFormat('#,##0').format(v);
-  }
-
-  IconData _categoryIcon(String cat) {
-    switch (cat) {
-      case 'travel':
-        return Icons.flight_rounded;
-      case 'meals':
-        return Icons.restaurant_rounded;
-      case 'accommodation':
-        return Icons.hotel_rounded;
-      case 'equipment':
-        return Icons.devices_rounded;
-      case 'software':
-        return Icons.code_rounded;
-      case 'marketing':
-        return Icons.campaign_rounded;
-      case 'utilities':
-        return Icons.bolt_rounded;
-      case 'salary':
-        return Icons.payments_rounded;
-      default:
-        return Icons.receipt_rounded;
-    }
-  }
-}
-
-// ─── Status pill ──────────────────────────────────────────────────────────────
-
-class _StatusPill extends StatelessWidget {
-  final String status;
-  const _StatusPill({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-    return Text(
-      _label(status).toUpperCase(),
-      style: GoogleFonts.bricolageGrotesque(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: ext.sectionHeader,
-      ),
-    );
-  }
-
-  String _label(String s) {
-    switch (s) {
-      case 'pending':
-        return 'Pending';
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      case 'reimbursed':
-        return 'Reimbursed';
-      case 'my_expenses':
-        return 'My Expenses';
-      case 'pending_approval':
-        return 'Pending Approval';
-      default:
-        return '${s[0].toUpperCase()}${s.substring(1)}';
-    }
-  }
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onTap;
-  const _EmptyState({required this.onTap});
-
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Expense guides are coming soon.')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Stack(
-            children: [
-              Center(
-                child: Container(
-                  height: 54,
-                  width: MediaQuery.of(context).size.width * .85,
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: ext.cardBorder.withValues(alpha: 0.5),
-                      width: 1,
-                    ),
-                    color: ext.monthlyCardSurface,
-                  ),
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.fromLTRB(0, 6, 0, 0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: ext.cardBorder, width: .5),
-                  color: ext.cardSurface,
-                ),
-                padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'track your business spending',
-                      style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: .4,
-                        color: ext.sectionHeader,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              elevation: 0,
-                              backgroundColor: Theme.of(
-                                context,
-                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            onPressed: onTap,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-                              child: Text(
-                                'ADD EXPENSE',
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: .2,
-                                  height: 1,
-                                  color: ext.sectionHeader,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              elevation: 0,
-                              backgroundColor: Theme.of(
-                                context,
-                              ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                              foregroundColor: ext.primaryText,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            onPressed: () => _showComingSoon(context),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-                              child: Text(
-                                'LEARN MORE',
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: .2,
-                                  height: 1,
-                                  color: ext.sectionHeader,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Create expense sheet ─────────────────────────────────────────────────────
 
 class _CreateExpenseSheet extends ConsumerStatefulWidget {
   final VoidCallback onCreated;
@@ -1015,7 +2344,10 @@ class _CreateExpenseSheetState extends ConsumerState<_CreateExpenseSheet> {
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: ext.primaryText,
+              color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(.555)
+                          ,
             ),
           ),
           const SizedBox(height: 20),
@@ -1400,7 +2732,7 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
             _DetailRow(
               label: 'Rejection reason',
               value: e.rejectionNote!,
-              isWarning: true,
+              // isWarning: true,
             ),
           if (e.approvedAt != null)
             _DetailRow(
@@ -1762,45 +3094,6 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
   }
 }
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
-class _DetailRow extends StatelessWidget {
-  final String label, value;
-  final bool isWarning;
-  const _DetailRow({
-    required this.label,
-    required this.value,
-    this.isWarning = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: isWarning ? DayFiColors.red : null,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _Label extends StatelessWidget {
   final String text;

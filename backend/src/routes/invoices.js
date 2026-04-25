@@ -11,7 +11,7 @@
 
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireMerchant, requirePermission, hasPermission } from "../middleware/auth.js";
 import { PrismaClient } from '@prisma/client';
 
 const router = express.Router();
@@ -289,6 +289,168 @@ router.get('/pay/:invoiceNumber', async (req, res) => {
     }
 
     res.json({ invoice });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/invoices/:id/submit-for-approval ───────────────────────────────
+// Submit invoice for organization approval workflow
+router.post('/:id/submit-for-approval', authenticate, requirePermission('create_invoices'), async (req, res) => {
+  try {
+    const { requiredApprovals = 1 } = req.body;
+    
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: { user: true }
+    });
+
+    if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+    if (existing.status !== 'draft') {
+      return res.status(400).json({ error: 'Only draft invoices can be submitted for approval' });
+    }
+
+    // Check if user belongs to an organization
+    const userOrg = await prisma.organization.findFirst({
+      where: {
+        OR: [
+          { ownerUserId: req.user.id },
+          { members: { some: { userId: req.user.id } } }
+        ]
+      }
+    });
+
+    if (!userOrg) {
+      return res.status(400).json({ error: 'Organization membership required for approval workflow' });
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: req.params.id },
+      data: {
+        organizationId: userOrg.id,
+        status: 'pending_approval',
+        requiredApprovals,
+        approvalLevel: 0,
+      },
+      include: {
+        user: { select: { id: true, email: true, businessName: true } },
+        organization: true,
+      }
+    });
+
+    res.json({ invoice: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/invoices/:id/approve ───────────────────────────────────────────
+// Approve invoice (multi-level workflow)
+router.post('/:id/approve', authenticate, requirePermission('approve_expenses'), async (req, res) => {
+  try {
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: true,
+        organization: {
+          include: {
+            members: {
+              include: { user: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+    
+    // Check if user can approve this invoice
+    const canApprove = hasPermission(req.user, 'approve_expenses', existing.organizationId);
+    if (!canApprove) {
+      return res.status(403).json({ error: 'Insufficient permissions to approve invoices' });
+    }
+
+    if (existing.status !== 'pending_approval') {
+      return res.status(400).json({ error: 'Invoice is not pending approval' });
+    }
+
+    // Check if user already approved this invoice
+    if (existing.approvedById === req.user.id) {
+      return res.status(400).json({ error: 'You have already approved this invoice' });
+    }
+
+    const currentLevel = existing.approvalLevel || 0;
+    const newLevel = currentLevel + 1;
+    const isFinalApproval = newLevel >= existing.requiredApprovals;
+
+    const updated = await prisma.invoice.update({
+      where: { id: req.params.id },
+      data: {
+        approvedById: req.user.id,
+        approvalLevel: newLevel,
+        status: isFinalApproval ? 'sent' : 'pending_approval',
+        ...(isFinalApproval && { 
+          sentAt: new Date(),
+          paymentLink: generatePaymentLink(existing.invoiceNumber)
+        }),
+      },
+      include: {
+        user: { select: { id: true, email: true, businessName: true } },
+        approvedBy: { select: { id: true, email: true, businessName: true } },
+        organization: true,
+      }
+    });
+
+    res.json({ 
+      invoice: updated,
+      message: isFinalApproval ? 'Invoice fully approved and sent' : 'Invoice approved at level ' + newLevel
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/invoices/:id/reject ────────────────────────────────────────────
+// Reject invoice in approval workflow
+router.post('/:id/reject', authenticate, requirePermission('approve_expenses'), [
+  body('reason').notEmpty().withMessage('Rejection reason is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const { reason } = req.body;
+    
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+    
+    // Check if user can reject this invoice
+    const canApprove = hasPermission(req.user, 'approve_expenses', existing.organizationId);
+    if (!canApprove) {
+      return res.status(403).json({ error: 'Insufficient permissions to reject invoices' });
+    }
+
+    if (existing.status !== 'pending_approval') {
+      return res.status(400).json({ error: 'Invoice is not pending approval' });
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'rejected',
+        // Store rejection reason in description or add a new field
+        description: (existing.description || '') + '\n\nREJECTED: ' + reason,
+      },
+      include: {
+        user: { select: { id: true, email: true, businessName: true } },
+        organization: true,
+      }
+    });
+
+    res.json({ invoice: updated, message: 'Invoice rejected' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

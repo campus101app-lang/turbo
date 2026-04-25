@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/screens/buy/buy_screen.dart';
 import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
-import 'package:mobile_app/screens/requests/requests_screen.dart';
+import 'package:mobile_app/screens/invoices/invoices_screen.dart';
+import 'package:mobile_app/screens/organization/organization_screen.dart';
 import 'package:mobile_app/screens/requests/public_request_pay_screen.dart';
 import 'package:mobile_app/screens/shell/main_shell.dart';
 import 'package:mobile_app/screens/swap/swap_screen.dart';
 import 'package:mobile_app/screens/auth/backup_screen.dart';
 import 'package:mobile_app/screens/auth/business_profile_screen.dart';
+import 'package:mobile_app/screens/auth/business_onboarding_screen.dart';
+import 'package:mobile_app/screens/requests/requests_screen.dart';
 import 'package:mobile_app/screens/security/security_screen.dart';
 import 'package:mobile_app/screens/security/recovery_phrase_screen.dart';
 import 'package:mobile_app/screens/transactions/transactions_screen.dart';
@@ -26,6 +29,25 @@ import 'screens/merchant/merchant_dashboard.dart';
 import 'screens/merchant/checkout_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
 import 'screens/invoices/invoices_screen.dart';
+
+// Custom fade transition
+CustomTransitionPage buildFadeTransition({
+  required BuildContext context,
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: child,
+      );
+    },
+  );
+}
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -55,117 +77,213 @@ final appRouter = GoRouter(
       },
     ),
 
-    GoRoute(path: '/mainshell', builder: (_, __) => const MainShell()),
-    GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+    GoRoute(path: '/mainshell', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const MainShell(),
+    )),
+    GoRoute(path: '/home', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const HomeScreen(),
+    )),
 
     // ── Onboarding ──────────────────────────────────────────
-    GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+    GoRoute(path: '/onboarding', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const OnboardingScreen(),
+    )),
 
     // ── Auth ────────────────────────────────────────────────
     GoRoute(
       path: '/auth/email',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return EmailScreen(isNewUser: extra?['isNewUser'] ?? true);
-      },
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: EmailScreen(isNewUser: (state.extra as Map<String, dynamic>?)?['isNewUser'] ?? true),
+      ),
     ),
     GoRoute(
       path: '/auth/otp',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>;
-        return OtpScreen(
-          email: extra['email'],
-          isNewUser: extra['isNewUser'] ?? false,
-        );
-      },
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: OtpScreen(
+          email: (state.extra as Map<String, dynamic>)['email'],
+          isNewUser: (state.extra as Map<String, dynamic>)['isNewUser'] ?? false,
+          destination: (state.extra as Map<String, dynamic>)['destination'],
+        ),
+      ),
     ),
 
     // username_screen.dart is DELETED — all new-user post-OTP flows
     // land here instead.
     GoRoute(
-      path: '/auth/business-profile',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>;
-        return BusinessProfileScreen(setupToken: extra['setupToken']);
-      },
+      path: '/auth/business-onboarding',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: BusinessOnboardingScreen(
+          setupToken: (state.extra as Map<String, dynamic>)['setupToken'] ?? '',
+        ),
+      ),
     ),
 
     GoRoute(
       path: '/auth/biometric',
-      builder: (_, __) => const BiometricScreen(),
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const BiometricScreen(),
+      ),
     ),
-    GoRoute(path: '/auth/backup', builder: (_, __) => const BackupScreen()),
+    GoRoute(path: '/auth/backup', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const BackupScreen(),
+    )),
 
     // ── Main app ─────────────────────────────────────────────
     GoRoute(
       path: '/receive',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return ReceiveScreen(initialAsset: extra?['asset'] as String?);
-      },
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: ReceiveScreen(initialAsset: (state.extra as Map<String, dynamic>?)?['asset'] as String?),
+      ),
     ),
     GoRoute(
       path: '/send',
-      builder: (_, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return SendScreen(initialAsset: extra?['asset'] as String?);
-      },
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: SendScreen(initialAsset: (state.extra as Map<String, dynamic>?)?['asset'] as String?),
+      ),
     ),
 
-    GoRoute(path: '/buy', builder: (_, __) => const BuyScreen()),
-    GoRoute(path: '/swap', builder: (_, __) => const SwapScreen()),
+    GoRoute(path: '/buy', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const BuyScreen(),
+    )),
+    GoRoute(path: '/swap', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const SwapScreen(),
+    )),
     GoRoute(
       path: '/transactions',
-      builder: (_, __) => const TransactionsScreen(),
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const TransactionsScreen(),
+      ),
     ),
-    GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
-    GoRoute(path: '/portfolio', builder: (_, __) => const PortfolioScreen()),
+    GoRoute(path: '/settings', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const SettingsScreen(),
+    )),
+    GoRoute(path: '/portfolio', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const PortfolioScreen(),
+    )),
 
     // ── Fund with NGN shortcut ───────────────────────────────
     // Navigating to /fund just opens the Receive screen on Tab 2 (NGN)
     GoRoute(
       path: '/fund',
-      builder: (_, __) => const ReceiveScreen(initialAsset: 'NGNT'),
-    ),
-
-    // ── Security ─────────────────────────────────────────────
-    GoRoute(path: '/security', builder: (_, __) => const SecurityScreen()),
-    GoRoute(
-      path: '/security/phrase',
-      builder: (_, __) => const RecoveryPhraseScreen(),
-    ),
-
-    // ── Merchant ─────────────────────────────────────────────
-    GoRoute(path: '/merchant', builder: (_, __) => const MerchantDashboard()),
-    GoRoute(
-      path: '/merchant/checkout',
-      builder: (_, __) => const CheckoutScreen(),
-    ),
-    // ── Invoices ─────────────────────────────────────────
-    GoRoute(path: '/invoices', builder: (_, __) => const InvoicesScreen()),
-    GoRoute(
-      path: '/invoices/:id',
-      builder: (_, state) {
-        final id = state.pathParameters['id'];
-        return Scaffold(
-          appBar: AppBar(title: const Text('Invoice Detail')),
-          body: Center(child: Text('Invoice: $id')),
-        );
-      },
-    ),
-
-    // ── Expenses ─────────────────────────────────────────
-    GoRoute(path: '/expenses', builder: (_, __) => const ExpensesScreen()),
-
-    GoRoute(path: '/requests', builder: (_, __) => const RequestsScreen()),
-    GoRoute(
-      path: '/requests/pay/:requestNumber',
-      builder: (_, state) => PublicRequestPayScreen(
-        requestNumber: state.pathParameters['requestNumber'] ?? '',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const ReceiveScreen(initialAsset: 'NGNT'),
       ),
     ),
 
-    GoRoute(path: '/workflows', builder: (_, __) => const WorkflowsScreen()),
+    // ── Security ─────────────────────────────────────────────
+    GoRoute(path: '/security', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const SecurityScreen(),
+    )),
+    GoRoute(
+      path: '/security/phrase',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const RecoveryPhraseScreen(),
+      ),
+    ),
+
+    // ── Merchant ─────────────────────────────────────────────
+    GoRoute(path: '/merchant', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const MerchantDashboard(),
+    )),
+    GoRoute(
+      path: '/merchant/checkout',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const CheckoutScreen(),
+      ),
+    ),
+    // ── Invoices ─────────────────────────────────────────
+    GoRoute(path: '/invoices', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const InvoicesScreen(),
+    )),
+    GoRoute(
+      path: '/invoices/:id',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Invoice Detail')),
+          body: Center(child: Text('Invoice: ${state.pathParameters['id']}')),
+        ),
+      ),
+    ),
+
+    // ── Expenses ─────────────────────────────────────────
+    GoRoute(path: '/expenses', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const ExpensesScreen(),
+    )),
+
+    GoRoute(path: '/requests', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const RequestsScreen(),
+    )),
+    GoRoute(
+      path: '/requests/pay/:requestNumber',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: PublicRequestPayScreen(
+          requestNumber: state.pathParameters['requestNumber'] ?? '',
+        ),
+      ),
+    ),
+
+    GoRoute(path: '/workflows', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const WorkflowsScreen(),
+    )),
+
+    // ── Organization ─────────────────────────────────────────
+    GoRoute(path: '/organization', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const OrganizationScreen(),
+    )),
 
     // GoRoute(
     //   path: '/expenses/create',
