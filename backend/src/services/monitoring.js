@@ -2,8 +2,10 @@
 // Production monitoring and alerting system
 
 import { PrismaClient } from '@prisma/client';
-import { Server } from 'stellar-sdk';
+import pkg from 'stellar-sdk';
 import FraudDetection from './fraudDetection.js';
+
+const { Server } = pkg;
 
 const prisma = new PrismaClient();
 
