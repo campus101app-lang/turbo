@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:mobile_app/widgets/app_background.dart';
+import 'package:mobile_app/services/snackbar_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
 import 'router.dart';
@@ -19,30 +20,48 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 Future<void> _initFirebase(WidgetRef ref) async {
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  final messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission(alert: true, badge: true, sound: true);
-  final token = await messaging.getToken();
-  if (token != null) {
-    await ref
-        .read(userNotifierProvider.notifier)
-        .registerDeviceToken(
-          token,
-          defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        );
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyDummyKeyForWeb",
+          authDomain: "dayfi.firebaseapp.com",
+          projectId: "dayfi",
+          storageBucket: "dayfi.appspot.com",
+          messagingSenderId: "123456789",
+          appId: "1:123456789:web:abcdef",
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
+    final token = await messaging.getToken();
+    if (token != null) {
+      await ref
+          .read(userNotifierProvider.notifier)
+          .registerDeviceToken(
+            token,
+            defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+          );
+    }
+    messaging.onTokenRefresh.listen((newToken) {
+      ref
+          .read(userNotifierProvider.notifier)
+          .registerDeviceToken(
+            newToken,
+            defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+          );
+    });
+    FirebaseMessaging.onMessage.listen((msg) {
+      debugPrint('FCM foreground: ${msg.notification?.title}');
+    });
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
   }
-  messaging.onTokenRefresh.listen((newToken) {
-    ref
-        .read(userNotifierProvider.notifier)
-        .registerDeviceToken(
-          newToken,
-          defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        );
-  });
-  FirebaseMessaging.onMessage.listen((msg) {
-    debugPrint('FCM foreground: ${msg.notification?.title}');
-  });
 }
 
 void main() async {
@@ -72,6 +91,8 @@ class _DayFiAppState extends ConsumerState<DayFiApp>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await _initFirebase(ref);
+        // Initialize snackbar service
+        await SnackbarService().initialize();
       } catch (e) {
         debugPrint('Firebase: $e');
       }

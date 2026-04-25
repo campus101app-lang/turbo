@@ -69,35 +69,49 @@ class _OtpScreenState extends State<OtpScreen> {
       if (!mounted) return;
 
       final step = result['step'];
+      final token = result['token'];
+
+      if (token != null) {
+        await apiService.saveToken(token);
+      }
 
       if (step == 'setup_username') {
         if (widget.isNewUser) {
-          context.push(widget.destination ?? '/auth/business-onboarding');
+          final destination = widget.destination ?? '/auth/business-onboarding';
+          if (mounted) {
+            context.push(destination);
+          }
         } else {
           // Existing user - go straight to home if profile complete
-          await apiService.saveToken(result['token']);
-          context.go('/mainshell');
+          if (mounted) {
+            context.go('/mainshell');
+          }
         }
       } else if (step == 'setup_profile') {
-        context.push(
-          '/auth/business-profile',
-          extra: {
-            'setupToken': result['setupToken'],
-            'existingProfile': result['existingProfile'],
-          },
-        );
+        if (mounted) {
+          context.push(
+            '/auth/business-profile',
+            extra: {
+              'setupToken': result['setupToken'],
+              'existingProfile': result['existingProfile'],
+            },
+          );
+        }
       } else if (step == 'complete') {
-        await apiService.saveToken(result['token']);
-        context.go('/mainshell');
+        if (mounted) {
+          context.go('/mainshell');
+        }
       } else {
-        context.push('/auth/biometric');
+        if (mounted) {
+          context.push('/auth/biometric');
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(apiService.parseError(e)),
-            backgroundColor: DayFiColors.red,
+            backgroundColor: DayFiColors.error,
           ),
         );
         _pinController.clear();
