@@ -74,7 +74,9 @@ class _OtpScreenState extends State<OtpScreen> {
         if (widget.isNewUser) {
           context.push(widget.destination ?? '/auth/business-onboarding');
         } else {
-          context.push('/auth/business-profile', extra: {'setupToken': result['setupToken']});
+          // Existing user - go straight to home if profile complete
+          await apiService.saveToken(result['token']);
+          context.go('/mainshell');
         }
       } else if (step == 'setup_profile') {
         context.push(
