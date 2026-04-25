@@ -92,7 +92,7 @@ class TransactionItem extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: _getAmountColor(),
+                      color: _getAmountColor(context),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -148,8 +148,11 @@ class TransactionItem extends StatelessWidget {
     }
   }
 
-  Color _getAmountColor() {
+  Color _getAmountColor(BuildContext context) {
     final type = transaction['type'] as String?;
+    final theme = Theme.of(context);
+    final themeExtension = theme.extension<AppThemeExtension>()!;
+    
     switch (type) {
       case 'income':
         return DayFiColors.success;
