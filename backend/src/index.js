@@ -22,6 +22,8 @@ import workflowsRoutes   from './routes/workflows.js';
 import requestsRoutes    from './routes/requests.js';
 import businessAuthRoutes from './routes/businessAuth.js';
 import organizationRoutes from './routes/organization.js';
+import billingRoutes      from './routes/billing.js';
+import shopRoutes         from './routes/shop.js';
 import { errorHandler }  from './middleware/errorHandler.js';
 import { attachRequestContext } from './middleware/requestContext.js';
 import { auditLogger, addRequestStartTime } from './middleware/auditLogger.js';
@@ -118,7 +120,8 @@ app.use('/api/expenses',     expensesRoutes);
 app.use('/api/cards',        cardsRoutes);
 app.use('/api/workflows',    workflowsRoutes);
 app.use('/api/requests',     requestsRoutes);
-app.use('/api/organization', organizationRoutes);
+app.use('/api/billing',      billingRoutes);
+app.use('/api/shop',         shopRoutes);
 
 // ─── SEP Routes ───────────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@
 // Production monitoring and alerting system
 
 import { PrismaClient } from '@prisma/client';
+import { Server } from 'stellar-sdk';
 import FraudDetection from './fraudDetection.js';
 
 const prisma = new PrismaClient();
@@ -12,6 +13,8 @@ export class MonitoringService {
     this.metrics = new Map();
     this.healthChecks = new Map();
     this.fraudDetector = new FraudDetection();
+    this.lastCleanup = Date.now();
+    this.maxAlerts = 50; // Limit alerts to prevent memory buildup
     
     // Initialize monitoring
     this.initializeMonitoring();
@@ -50,7 +53,6 @@ export class MonitoringService {
       check: async () => {
         try {
           // Check Stellar network connectivity
-          const { Server } = require('stellar-sdk');
           const server = new Server(process.env.STELLAR_HORIZON_URL || 'https://horizon.stellar.org');
           await server.root();
           return { status: 'healthy', message: 'Stellar network reachable' };
@@ -131,12 +133,21 @@ export class MonitoringService {
   }
 
   async collectMetrics() {
-    const timestamp = new Date();
+    const timestamp = new Date().toISOString();
+    
+    // Run cleanup every 5 minutes
+    if (Date.now() - this.lastCleanup > 5 * 60 * 1000) {
+      this.cleanupMemory();
+    }
     
     try {
+      // Memory usage
+      const memUsage = process.memoryUsage();
+      const memoryUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+      
       // User metrics
       const totalUsers = await prisma.user.count();
-      const activeUsers = await this.getActiveUsersCount(24 * 60 * 60 * 1000); // Last 24 hours
+      const activeUsers = await this.getActiveUsersCount(24 * 60 * 60 * 1000);
       const newUsers = await this.getNewUsersCount(24 * 60 * 60 * 1000);
       
       // Organization metrics
@@ -415,6 +426,28 @@ export class MonitoringService {
     }
     
     return filteredAlerts.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  // Memory cleanup to prevent memory buildup
+  cleanupMemory() {
+    const now = Date.now();
+    
+    // Clean up old alerts (keep only last 50)
+    if (this.alerts.length > this.maxAlerts) {
+      this.alerts = this.alerts
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, this.maxAlerts);
+    }
+    
+    // Clean up old metrics (keep only last 24 hours)
+    const metricsCutoff = now - (24 * 60 * 60 * 1000);
+    for (const [timestamp] of this.metrics.entries()) {
+      if (new Date(timestamp).getTime() < metricsCutoff) {
+        this.metrics.delete(timestamp);
+      }
+    }
+    
+    this.lastCleanup = now;
   }
 
   async getSystemOverview() {

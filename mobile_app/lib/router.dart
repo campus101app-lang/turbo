@@ -6,15 +6,19 @@ import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
 import 'package:mobile_app/screens/organization/organization_screen.dart';
 import 'package:mobile_app/screens/requests/public_request_pay_screen.dart';
-import 'package:mobile_app/screens/shell/main_shell.dart';
-import 'package:mobile_app/screens/swap/swap_screen.dart';
-import 'package:mobile_app/screens/auth/backup_screen.dart';
-import 'package:mobile_app/screens/auth/business_profile_screen.dart';
+import 'package:mobile_app/screens/merchant/merchant_dashboard.dart';
+import 'package:mobile_app/screens/merchant/checkout_screen.dart';
+import 'package:mobile_app/screens/expenses/expenses_screen.dart';
+import 'package:mobile_app/screens/billing/enhanced_billing_screen.dart';
+import 'package:mobile_app/screens/shop/enhanced_shop_screen.dart';
 import 'package:mobile_app/screens/auth/business_onboarding_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
 import 'package:mobile_app/screens/security/security_screen.dart';
 import 'package:mobile_app/screens/security/recovery_phrase_screen.dart';
 import 'package:mobile_app/screens/transactions/transactions_screen.dart';
+import 'package:mobile_app/screens/swap/swap_screen.dart';
+import 'package:mobile_app/screens/auth/backup_screen.dart';
+import 'package:mobile_app/screens/shell/main_shell.dart';
 import 'package:mobile_app/screens/workflows/workflows_screen.dart';
 import 'screens/auth/email_screen.dart';
 import 'screens/auth/otp_screen.dart';
@@ -28,7 +32,6 @@ import 'services/api_service.dart';
 import 'screens/merchant/merchant_dashboard.dart';
 import 'screens/merchant/checkout_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
-import 'screens/invoices/invoices_screen.dart';
 
 // Custom fade transition
 CustomTransitionPage buildFadeTransition({
@@ -283,6 +286,20 @@ final appRouter = GoRouter(
       context: context,
       state: state,
       child: const OrganizationScreen(),
+    )),
+
+    // ── Business/Billing ─────────────────────────────────────
+    GoRoute(path: '/billing', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const InvoicesScreen(),
+    )),
+
+    // ── Shop ────────────────────────────────────────────────
+    GoRoute(path: '/shop', pageBuilder: (context, state) => buildFadeTransition(
+      context: context,
+      state: state,
+      child: const MerchantDashboard(),
     )),
 
     // GoRoute(
