@@ -93,6 +93,7 @@ model User {
   transactions        Transaction[]
   deviceTokens        DeviceToken[]
   invoices            Invoice[]
+  invoiceApprovals    Invoice[]           @relation("InvoiceApprovedBy")
   expenseSubmissions  Expense[]          @relation("SubmittedBy")
   expenseApprovals    Expense[]          @relation("ApprovedBy")
   flutterwavePayments FlutterwavePayment[]
@@ -229,6 +230,9 @@ model Expense {
   approvedById  String?
   approvedBy    User?  @relation("ApprovedBy", fields: [approvedById], references: [id])
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   title         String
   description   String?
   amount        Float
@@ -252,6 +256,7 @@ model Expense {
 
   @@index([submittedById])
   @@index([status])
+  @@index([organizationId])
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
@@ -305,6 +310,9 @@ model Workflow {
   id        String @id @default(cuid())
   userId    String
   user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   name        String
   description String?
@@ -499,16 +507,76 @@ enum TransactionType {
   requestPayment
 }
 
-enum InvoiceStatus { draft, sent, viewed, paid, overdue, cancelled }
-enum ExpenseStatus { pending, submitted, approved, rejected, reimbursed }
-enum ExpenseCategory { software, hardware, marketing, travel, office, utilities, other }
-enum CardType { virtual, physical }
-enum CardCurrency { USDC, NGN }
-enum CardStatus { active, frozen, cancelled, expired }
-enum InvoicePaymentType { crypto, bank }
-enum WorkflowStatus { active, paused, disabled }
-enum WorkflowTriggerType { scheduled, balanceThreshold, invoicePaid, expenseApproved, manualRun }
-enum WorkflowActionType { sendPayment, createInvoice, sendReminder, notifyUser, flagExpense }
+enum InvoiceStatus {
+  draft
+  sent
+  viewed
+  paid
+  overdue
+  cancelled
+}
+
+enum ExpenseStatus {
+  pending
+  submitted
+  approved
+  rejected
+  reimbursed
+}
+
+enum ExpenseCategory {
+  software
+  hardware
+  marketing
+  travel
+  office
+  utilities
+  other
+}
+
+enum CardType {
+  virtual
+  physical
+}
+
+enum CardCurrency {
+  USDC
+  NGN
+}
+
+enum CardStatus {
+  active
+  frozen
+  cancelled
+  expired
+}
+
+enum InvoicePaymentType {
+  crypto
+  bank
+}
+
+enum WorkflowStatus {
+  active
+  paused
+  disabled
+}
+
+enum WorkflowTriggerType {
+  scheduled
+  balanceThreshold
+  invoicePaid
+  expenseApproved
+  manualRun
+}
+
+enum WorkflowActionType {
+  sendPayment
+  createInvoice
+  sendReminder
+  notifyUser
+  flagExpense
+}
 
 enum TransactionStatus {
   pending
@@ -543,36 +611,11 @@ model AuditLog {
 }
 
 
-enum InvoicePaymentType {
-  crypto
-  bankTransfer
-  both
-}
-
 enum RecurringInterval {
   weekly
   monthly
   quarterly
   annually
-}
-
-enum ExpenseCategory {
-  travel
-  meals
-  accommodation
-  equipment
-  software
-  marketing
-  utilities
-  salary
-  other
-}
-
-enum ExpenseStatus {
-  pending
-  approved
-  rejected
-  reimbursed
 }
 
 enum FwPaymentType {
@@ -587,47 +630,39 @@ enum FwPaymentStatus {
   failed
 }
 
-enum CardType {
-  virtual
-  physical
-}
-
-enum CardCurrency {
-  USDC
-  NGN
-}
-
-enum CardStatus {
-  active
-  frozen
-  cancelled
-}
-
-enum WorkflowTrigger {
-  scheduled          // runs on a cron-like schedule
-  balanceThreshold   // triggers when balance drops below X
-  invoicePaid        // triggers when an invoice is marked paid
-  expenseApproved    // triggers when an expense is approved
-  manualRun          // user triggers it manually
-}
-
-enum WorkflowAction {
-  sendPayment        // auto-send funds to a recipient
-  createInvoice      // auto-generate a recurring invoice
-  sendReminder       // send payment reminder notification
-  notifyUser         // push notification to user
-  flagExpense        // flag expense for review
-}
-
-enum WorkflowStatus {
-  active
-  paused
-  archived
-}
-
 enum RequestStatus {
   pending
   paid
   expired
   cancelled
+}
+
+enum OrganizationPlan {
+  free
+  starter
+  pro
+  enterprise
+}
+
+enum OrganizationRole {
+  owner
+  admin
+  manager
+  staff
+}
+
+enum WorkflowTrigger {
+  scheduled
+  balanceThreshold
+  invoicePaid
+  expenseApproved
+  manualRun
+}
+
+enum WorkflowAction {
+  sendPayment
+  createInvoice
+  sendReminder
+  notifyUser
+  flagExpense
 }
