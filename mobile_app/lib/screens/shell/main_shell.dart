@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:mobile_app/providers/user_provider.dart';
 import 'package:mobile_app/providers/wallet_provider.dart';
 import 'package:mobile_app/screens/accounts/accounts_screen.dart';
 import 'package:mobile_app/screens/cards/cards_screen.dart';
@@ -14,7 +15,6 @@ import 'package:mobile_app/screens/home/home_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
 import 'package:mobile_app/screens/merchant/merchant_dashboard.dart';
 // import 'package:mobile_app/screens/expenses/expenses_screen.dart';
-import 'package:mobile_app/screens/requests/requests_screen.dart';
 // import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/settings/settings_screen.dart';
 import 'package:mobile_app/screens/transactions/transactions_screen.dart';
@@ -67,7 +67,7 @@ class _MainShellState extends ConsumerState<MainShell>
   }
 
   void _openMenu() {
-    final userAsync = ref.read(userProvider);
+    final userAsync = ref.read(userNotifierProvider);
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,

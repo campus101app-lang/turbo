@@ -1,12 +1,13 @@
 // lib/screens/invoices/invoices_screen.dart
 //
-// Web-first two-column layout:
-//   Left  — invoice insights (metrics + chart + period selector)
-//   Right — invoice list grouped by status
-//
-// Modal — centered 520px glass card, fixed 80vh height, scrollable.
-//   Create flow navigates internally across 3 steps with fade transitions.
-//   apiService & invoiceItemLibraryProvider calls are untouched.
+// Changes vs previous version:
+//   1. Status count chips added to _InsightsPanel (Draft/Sent/Viewed/Paid/Overdue/Cancelled)
+//   2. Step 3 now has TWO buttons: [Save as Draft] + [Send Invoice →]
+//      – Send Invoice calls createInvoice then sendInvoice
+//      – Save as Draft calls createInvoice only
+//   3. _InvoiceTile now has a ⋮ button opening a status-aware bottom-sheet menu
+//      (full-card tap no longer the primary action; ⋮ opens actions)
+//   4. apiService & invoiceItemLibraryProvider calls are untouched
 
 import 'dart:ui';
 import 'dart:async';
@@ -127,8 +128,7 @@ class InvoicesScreen extends ConsumerWidget {
       return _EmptyState(onTapCreate: () => _showInvoiceModal(context, ref));
     }
 
-    // Group invoices by status
-    const order = ['overdue', 'sent', 'viewed', 'draft', 'paid'];
+    const order = ['overdue', 'sent', 'viewed', 'draft', 'paid', 'cancelled'];
     final groups = <String, List<Map<String, dynamic>>>{
       for (final s in order) s: [],
     };
@@ -140,15 +140,15 @@ class InvoicesScreen extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Left: Insights ────────────────────────────────────────────────
-        Expanded(child: _InsightsPanel(invoices: invoices)),
+        Expanded(child: _InsightsPanel(invoices: invoices, groups: groups)),
         const SizedBox(width: 16),
-        // ── Right: Invoice list ───────────────────────────────────────────
         Expanded(
           child: _InvoiceListPanel(
             groups: groups,
             order: order,
             onTapInvoice: (inv) => _showDetailModal(context, ref, inv),
+            onMenuAction: (action, inv) =>
+                _handleMenuAction(context, ref, action, inv),
             onCreateTap: () => _showInvoiceModal(context, ref),
           ),
         ),
@@ -192,6 +192,115 @@ class InvoicesScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  // ── 3-dot menu action dispatcher ──────────────────────────────────────────
+
+  Future<void> _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+    Map<String, dynamic> inv,
+  ) async {
+    final id = inv['id'] as String;
+    final paymentLink = inv['paymentLink'] as String?;
+
+    switch (action) {
+      case 'view':
+        _showDetailModal(context, ref, inv);
+      case 'send':
+        try {
+          await apiService.sendInvoice(id);
+          ref.invalidate(invoicesProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invoice sent')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(apiService.parseError(e))),
+            );
+          }
+        }
+      case 'copy_link':
+        if (paymentLink != null) {
+          await Clipboard.setData(ClipboardData(text: paymentLink));
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Payment link copied')),
+            );
+          }
+        }
+      case 'share_whatsapp':
+        if (paymentLink != null) {
+          final clientName = (inv['clientName'] as String?) ?? 'there';
+          final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+          final currency = (inv['currency'] as String?) ?? 'NGNT';
+          final sym = currency == 'USDC' ? '\$' : '₦';
+          final msg =
+              'Hi $clientName, you have an invoice for $sym${amount.toStringAsFixed(0)}.\nPay here: $paymentLink';
+          final encoded = Uri.encodeComponent(msg);
+          final phone = (inv['clientPhone'] as String?) ?? '';
+          final url = phone.isNotEmpty
+              ? 'https://wa.me/$phone?text=$encoded'
+              : 'https://wa.me/?text=$encoded';
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        }
+      case 'share_email':
+        if (paymentLink != null) {
+          Share.share('Pay my invoice here: $paymentLink');
+        }
+      case 'reminder':
+        try {
+          await apiService.sendInvoice(id); // re-sends
+          ref.invalidate(invoicesProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reminder sent')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(apiService.parseError(e))),
+            );
+          }
+        }
+      case 'mark_paid':
+        try {
+          await apiService.markInvoicePaid(id);
+          ref.invalidate(invoicesProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Marked as paid')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(apiService.parseError(e))),
+            );
+          }
+        }
+      case 'cancel':
+        try {
+          await apiService.deleteInvoice(id);
+          ref.invalidate(invoicesProvider);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invoice cancelled')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(apiService.parseError(e))),
+            );
+          }
+        }
+    }
   }
 }
 
@@ -245,7 +354,6 @@ class _GlassModalState extends State<_GlassModal>
         final t = _fade.value;
         return Stack(
           children: [
-            // Blur + scrim backdrop
             Positioned.fill(
               child: GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
@@ -257,14 +365,13 @@ class _GlassModalState extends State<_GlassModal>
                 ),
               ),
             ),
-            // Centered modal card
             Center(
               child: Opacity(
                 opacity: t,
                 child: Transform.scale(
                   scale: 0.96 + 0.04 * t,
                   child: GestureDetector(
-                    onTap: () {}, // absorb taps so backdrop doesn't close
+                    onTap: () {},
                     child: SizedBox(
                       width: 520,
                       height: MediaQuery.of(context).size.height * 0.80,
@@ -306,7 +413,7 @@ class _GlassModalState extends State<_GlassModal>
   }
 }
 
-// ─── Create invoice flow (3 steps, internal fade transitions) ─────────────────
+// ─── Create invoice flow (3 steps) ───────────────────────────────────────────
 
 class _CreateInvoiceFlow extends ConsumerStatefulWidget {
   final VoidCallback onCreated;
@@ -318,32 +425,33 @@ class _CreateInvoiceFlow extends ConsumerStatefulWidget {
 
 class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
     with SingleTickerProviderStateMixin {
-  int _step = 0; // 0,1,2
+  int _step = 0;
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
 
-  // Shared draft state
-  // Sheet 1
   final _titleCtrl = TextEditingController();
   final _clientNameCtrl = TextEditingController();
   final _clientEmailCtrl = TextEditingController();
+  final _clientPhoneCtrl = TextEditingController();
   final _formKey1 = GlobalKey<FormState>();
 
-  // Sheet 2
   late List<_ModalLineItem> _lineItems;
   bool _vatEnabled = false;
   static const _vatRate = 7.5;
 
-  // Sheet 3
   String _currency = 'NGNT';
   String _paymentType = 'crypto';
   DateTime? _dueDate;
   bool _isRecurring = false;
   String _recurringInterval = 'monthly';
   final _descCtrl = TextEditingController();
-  bool _submitting = false;
 
-  // Autocomplete
+  // ── Loading states
+  bool _submittingDraft = false;
+  bool _submittingAndSending = false;
+
+  bool get _anySubmitting => _submittingDraft || _submittingAndSending;
+
   List<Map<String, dynamic>> _suggestions = [];
   static const _pastClients = [
     {'name': 'Acme Corp', 'email': 'billing@acme.com'},
@@ -373,10 +481,9 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
     _titleCtrl.dispose();
     _clientNameCtrl.dispose();
     _clientEmailCtrl.dispose();
+    _clientPhoneCtrl.dispose();
     _descCtrl.dispose();
-    for (final item in _lineItems) {
-      item.dispose();
-    }
+    for (final item in _lineItems) item.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -405,14 +512,13 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
     _goTo(2);
   }
 
-  Future<void> _submit() async {
-    setState(() => _submitting = true);
-    try {
-      final payload = {
+  Map<String, dynamic> _buildPayload() => {
         'title': _titleCtrl.text.trim(),
         'clientName': _clientNameCtrl.text.trim(),
         if (_clientEmailCtrl.text.trim().isNotEmpty)
           'clientEmail': _clientEmailCtrl.text.trim(),
+        if (_clientPhoneCtrl.text.trim().isNotEmpty)
+          'clientPhone': _clientPhoneCtrl.text.trim(),
         if (_descCtrl.text.trim().isNotEmpty)
           'description': _descCtrl.text.trim(),
         'lineItems': _lineItems
@@ -436,12 +542,18 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
         if (_isRecurring) 'recurringInterval': _recurringInterval,
         if (_dueDate != null) 'dueDate': _dueDate!.toIso8601String(),
       };
-      await apiService.createInvoice(payload);
+
+  // ── Save as Draft only ────────────────────────────────────────────────────
+
+  Future<void> _saveAsDraft() async {
+    setState(() => _submittingDraft = true);
+    try {
+      await apiService.createInvoice(_buildPayload());
       if (mounted) {
         widget.onCreated();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Invoice created successfully!'),
+            content: Text('✅ Draft saved'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -456,7 +568,38 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
         );
       }
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) setState(() => _submittingDraft = false);
+    }
+  }
+
+  // ── Create + immediately send ─────────────────────────────────────────────
+
+  Future<void> _createAndSend() async {
+    setState(() => _submittingAndSending = true);
+    try {
+      final result = await apiService.createInvoice(_buildPayload());
+      final invoiceId = result['invoice']['id'] as String;
+      await apiService.sendInvoice(invoiceId);
+      if (mounted) {
+        widget.onCreated();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Invoice created & sent!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submittingAndSending = false);
     }
   }
 
@@ -478,15 +621,12 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // ── Modal header ────────────────────────────────────────────────────
         _ModalHeader(
           step: _step,
           onBack: _step > 0 ? () => _goTo(_step - 1) : null,
           onClose: () => Navigator.of(context).pop(),
         ),
-        // ── Step indicator ──────────────────────────────────────────────────
         _StepIndicator(current: _step, total: 3),
-        // ── Content (fades between steps) ───────────────────────────────────
         Expanded(
           child: FadeTransition(opacity: _fadeAnim, child: _buildStep()),
         ),
@@ -554,6 +694,15 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
               prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
             ),
           ),
+          const SizedBox(height: 12),
+          _FieldLabel('Client phone (optional — for WhatsApp delivery)'),
+          TextFormField(
+            controller: _clientPhoneCtrl,
+            keyboardType: TextInputType.phone,
+            decoration: _modalField(context, '+234 800 000 0000').copyWith(
+              prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+            ),
+          ),
           const SizedBox(height: 32),
           _ModalPrimaryButton(label: 'Continue →', onTap: _nextStep1),
         ],
@@ -619,12 +768,14 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
   }
 
   // ── Step 3: Payment & Schedule ────────────────────────────────────────────
+  // Now has TWO action buttons: Save as Draft | Send Invoice →
 
   Widget _buildStep3() {
     final suggestUsdc =
         _clientEmailCtrl.text.isNotEmpty &&
         !_clientEmailCtrl.text.endsWith('.ng');
     final symbol = _currency == 'USDC' ? '\$' : '₦';
+    final hasPhone = _clientPhoneCtrl.text.trim().isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
@@ -752,7 +903,6 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
         ),
         const SizedBox(height: 20),
 
-        // Summary card
         _InvoiceSummaryCard(
           title: _titleCtrl.text.trim(),
           clientName: _clientNameCtrl.text.trim(),
@@ -761,19 +911,106 @@ class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
           symbol: symbol,
           dueDate: _dueDate,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
-        _ModalPrimaryButton(
-          label: 'Create Invoice',
-          onTap: _submitting ? null : _submit,
-          loading: _submitting,
+        // ── WhatsApp nudge if phone missing ──────────────────────────────
+        if (!hasPhone)
+          _SuggestionBanner(
+            message: 'Add client phone on step 1 to enable WhatsApp delivery.',
+            actionLabel: 'Go back',
+            onAction: () => _goTo(0),
+          ),
+
+        const SizedBox(height: 8),
+
+        // ── DUAL ACTION BUTTONS ──────────────────────────────────────────
+        Row(
+          children: [
+            // Save as Draft
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.2),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: _anySubmitting ? null : _saveAsDraft,
+                  child: _submittingDraft
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        )
+                      : Text(
+                          'Save Draft',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Send Invoice
+            Expanded(
+              flex: 2,
+              child: SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.onSurface,
+                    foregroundColor:
+                        Theme.of(context).colorScheme.surface,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: _anySubmitting ? null : _createAndSend,
+                  child: _submittingAndSending
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color:
+                                Theme.of(context).colorScheme.surface,
+                          ),
+                        )
+                      : const Text(
+                          'Send Invoice →',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
   void _showItemLibrary(BuildContext context) {
-    // Keeps apiService/provider calls untouched — delegates to original logic
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
@@ -926,7 +1163,6 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
 
     return Column(
       children: [
-        // Header
         Padding(
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
           child: Row(
@@ -950,7 +1186,6 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
             children: [
-              // Amount hero
               Center(
                 child: Column(
                   children: [
@@ -970,7 +1205,6 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
               ),
               const SizedBox(height: 28),
 
-              // Detail rows
               _DetailRow(label: 'Invoice #', value: inv['invoiceNumber'] ?? ''),
               _DetailRow(label: 'Client', value: inv['clientName'] ?? ''),
               _DetailRow(label: 'Currency', value: currency),
@@ -984,7 +1218,6 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
               if (inv['title'] != null)
                 _DetailRow(label: 'Title', value: inv['title'] as String),
 
-              // Payment link
               if (paymentLink != null) ...[
                 const SizedBox(height: 20),
                 Container(
@@ -1036,8 +1269,6 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
               ],
 
               const SizedBox(height: 28),
-
-              // Actions
               if (status == 'draft') ...[
                 _ModalPrimaryButton(
                   label: 'Send Invoice',
@@ -1061,11 +1292,13 @@ class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
   }
 }
 
-// ─── Insights panel (left column) ─────────────────────────────────────────────
+// ─── Insights panel ────────────────────────────────────────────────────────────
+// CHANGE: now accepts `groups` and renders status count chips at the top.
 
 class _InsightsPanel extends StatefulWidget {
   final List<Map<String, dynamic>> invoices;
-  const _InsightsPanel({required this.invoices});
+  final Map<String, List<Map<String, dynamic>>> groups;
+  const _InsightsPanel({required this.invoices, required this.groups});
 
   @override
   State<_InsightsPanel> createState() => _InsightsPanelState();
@@ -1121,6 +1354,10 @@ class _InsightsPanelState extends State<_InsightsPanel> {
           ),
         ),
 
+        // ── STATUS COUNT CHIPS (new) ─────────────────────────────────────
+        _StatusCountChips(groups: widget.groups),
+        const SizedBox(height: 16),
+
         // ── Metrics card ────────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -1135,7 +1372,6 @@ class _InsightsPanelState extends State<_InsightsPanel> {
           ),
           child: Column(
             children: [
-              // Metric row
               Row(
                 children: [
                   Expanded(
@@ -1170,8 +1406,6 @@ class _InsightsPanelState extends State<_InsightsPanel> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Line chart
               SizedBox(
                 height: 60,
                 child: LineChart(
@@ -1183,8 +1417,6 @@ class _InsightsPanelState extends State<_InsightsPanel> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Period selector
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: _periodLabels.asMap().entries.map((e) {
@@ -1294,18 +1526,99 @@ class _InsightsPanelState extends State<_InsightsPanel> {
   }
 }
 
-// ─── Invoice list panel (right column) ────────────────────────────────────────
+// ─── Status count chips (new widget) ─────────────────────────────────────────
+// Shows [Draft: 3] [Sent: 5] [Viewed: 2] [Paid: 12] [Overdue: 1] [Cancelled: 0]
+
+class _StatusCountChips extends StatelessWidget {
+  final Map<String, List<Map<String, dynamic>>> groups;
+
+  const _StatusCountChips({required this.groups});
+
+  static const _statusOrder = [
+    'overdue',
+    'sent',
+    'viewed',
+    'draft',
+    'paid',
+    'cancelled',
+  ];
+
+  Color _colorFor(String status, BuildContext context) {
+    switch (status) {
+      case 'paid':
+        return DayFiColors.green;
+      case 'sent':
+        return const Color(0xFF2775CA);
+      case 'viewed':
+        return const Color(0xFF9C27B0);
+      case 'overdue':
+        return DayFiColors.red;
+      case 'cancelled':
+        return Theme.of(context).colorScheme.onSurface.withOpacity(0.3);
+      default:
+        return Theme.of(context).colorScheme.onSurface.withOpacity(0.45);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: _statusOrder.map((status) {
+        final count = (groups[status] ?? []).length;
+        final color = _colorFor(status, context);
+        final label = status[0].toUpperCase() + status.substring(1);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.20)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$label: $count',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─── Invoice list panel ────────────────────────────────────────────────────────
 
 class _InvoiceListPanel extends StatelessWidget {
   final Map<String, List<Map<String, dynamic>>> groups;
   final List<String> order;
   final void Function(Map<String, dynamic>) onTapInvoice;
+  final void Function(String action, Map<String, dynamic> inv) onMenuAction;
   final VoidCallback onCreateTap;
 
   const _InvoiceListPanel({
     required this.groups,
     required this.order,
     required this.onTapInvoice,
+    required this.onMenuAction,
     required this.onCreateTap,
   });
 
@@ -1374,6 +1687,7 @@ class _InvoiceListPanel extends StatelessWidget {
               (inv) => _InvoiceTile(
                 invoice: inv,
                 onTap: () => onTapInvoice(inv),
+                onMenuAction: (action) => onMenuAction(action, inv),
               ).animate().fadeIn(duration: 300.ms),
             ),
             const SizedBox(height: 20),
@@ -2074,10 +2388,72 @@ class _ListSectionHeader extends StatelessWidget {
   }
 }
 
+// ─── Invoice tile with ⋮ menu (CHANGED) ───────────────────────────────────────
+
 class _InvoiceTile extends StatelessWidget {
   final Map<String, dynamic> invoice;
   final VoidCallback onTap;
-  const _InvoiceTile({required this.invoice, required this.onTap});
+  final void Function(String action) onMenuAction;
+
+  const _InvoiceTile({
+    required this.invoice,
+    required this.onTap,
+    required this.onMenuAction,
+  });
+
+  // Returns context-aware menu items based on status
+  List<_MenuEntry> _menuEntries(String status, bool hasPaymentLink) {
+    switch (status) {
+      case 'draft':
+        return [
+          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+          _MenuEntry('send', Icons.send_rounded, 'Send'),
+          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
+        ];
+      case 'sent':
+      case 'viewed':
+        return [
+          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+          if (hasPaymentLink)
+            _MenuEntry('copy_link', Icons.link_rounded, 'Copy payment link'),
+          _MenuEntry('share_whatsapp', Icons.chat_rounded, 'Share via WhatsApp'),
+          _MenuEntry('share_email', Icons.mail_outline_rounded, 'Share via Email'),
+          _MenuEntry('mark_paid', Icons.check_circle_outline_rounded, 'Mark as Paid'),
+          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
+        ];
+      case 'overdue':
+        return [
+          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+          if (hasPaymentLink)
+            _MenuEntry('copy_link', Icons.link_rounded, 'Copy payment link'),
+          _MenuEntry('reminder', Icons.notifications_outlined, 'Send reminder'),
+          _MenuEntry('mark_paid', Icons.check_circle_outline_rounded, 'Mark as Paid'),
+          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
+        ];
+      case 'paid':
+        return [
+          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+        ];
+      default:
+        return [
+          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+        ];
+    }
+  }
+
+  void _showMenu(BuildContext context, String status, bool hasPaymentLink) {
+    final entries = _menuEntries(status, hasPaymentLink);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _InvoiceActionSheet(
+        entries: entries,
+        invoiceTitle: (invoice['title'] as String?) ?? 'Invoice',
+        invoiceNumber: (invoice['invoiceNumber'] as String?) ?? '',
+        onAction: onMenuAction,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2090,12 +2466,13 @@ class _InvoiceTile extends StatelessWidget {
     final dueDate = invoice['dueDate'] != null
         ? DateTime.tryParse(invoice['dueDate'])
         : null;
+    final hasPaymentLink = (invoice['paymentLink'] as String?) != null;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8, top: 2),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
         decoration: BoxDecoration(
           color: Theme.of(
             context,
@@ -2107,6 +2484,7 @@ class _InvoiceTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // ── Invoice info ───────────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2154,6 +2532,7 @@ class _InvoiceTile extends StatelessWidget {
                 ],
               ),
             ),
+            // ── Amount + status ────────────────────────────────────────────
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -2170,7 +2549,170 @@ class _InvoiceTile extends StatelessWidget {
                 _StatusPill(status: status),
               ],
             ),
+            // ── ⋮ button ───────────────────────────────────────────────────
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => _showMenu(context, status, hasPaymentLink),
+              child: Container(
+                width: 32,
+                height: 32,
+                margin: const EdgeInsets.only(left: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.more_vert_rounded,
+                  size: 16,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Menu entry model ─────────────────────────────────────────────────────────
+
+class _MenuEntry {
+  final String action;
+  final IconData icon;
+  final String label;
+  final bool danger;
+
+  const _MenuEntry(this.action, this.icon, this.label, {this.danger = false});
+}
+
+// ─── Bottom sheet action sheet ────────────────────────────────────────────────
+
+class _InvoiceActionSheet extends StatelessWidget {
+  final List<_MenuEntry> entries;
+  final String invoiceTitle;
+  final String invoiceNumber;
+  final void Function(String action) onAction;
+
+  const _InvoiceActionSheet({
+    required this.entries,
+    required this.invoiceTitle,
+    required this.invoiceNumber,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? DayFiColors.surface.withOpacity(0.92)
+                : DayFiColors.lightSurface.withOpacity(0.95),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? DayFiColors.border.withOpacity(0.5)
+                    : DayFiColors.lightBorder.withOpacity(0.7),
+                width: 0.75,
+              ),
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 4),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Invoice header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              invoiceTitle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (invoiceNumber.isNotEmpty)
+                              Text(
+                                invoiceNumber,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.45),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 20, indent: 20, endIndent: 20),
+                // Action rows
+                ...entries.map(
+                  (e) => ListTile(
+                    leading: Icon(
+                      e.icon,
+                      size: 20,
+                      color: e.danger
+                          ? DayFiColors.red
+                          : Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                    title: Text(
+                      e.label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: e.danger ? DayFiColors.red : null,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onAction(e.action);
+                    },
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -2191,6 +2733,8 @@ class _StatusPill extends StatelessWidget {
         return const Color(0xFF9C27B0);
       case 'overdue':
         return DayFiColors.red;
+      case 'cancelled':
+        return Theme.of(context).colorScheme.onSurface.withOpacity(0.35);
       case 'draft':
         return Theme.of(context).colorScheme.onSurface.withOpacity(0.4);
       default:
@@ -2631,7 +3175,7 @@ class _ModalLineItemCard extends StatelessWidget {
   }
 }
 
-// ─── Chart helpers ────────────────────────────────────────────────────────────
+// ─── Chart helpers (unchanged) ────────────────────────────────────────────────
 
 DateTime _periodStart(DateTime now, int periodIndex) {
   switch (periodIndex) {

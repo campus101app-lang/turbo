@@ -159,16 +159,15 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
   // ─── Helpers ────────────────────────────────────────────
 
-  double? _computeLastKnown({
-    required double usdcBalance,
-    required double xlmBalance,
-    required double ngntBalance,
-    required double ngntPriceUsd,
-  }) {
-    // XLM excluded — it's reserved and not shown to users
-    final live = usdcBalance + (ngntBalance * ngntPriceUsd);
-    return live > 0 ? live : state.lastKnownTotal;
-  }
+double? _computeLastKnown({
+  required double usdcBalance,
+  required double ngntBalance,
+  required double ngntPriceUsd,
+}) {
+  // XLM excluded — it's reserved and not shown to users
+  final live = usdcBalance + (ngntBalance * ngntPriceUsd);
+  return live > 0 ? live : state.lastKnownTotal;
+}
 
   bool _isNetworkError(Object e) {
     return e is SocketException ||
@@ -212,7 +211,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
       state = state.copyWith(
         usdcBalance: usdc,
-        xlmBalance: xlm,
+        // xlmBalance: xlm,
         ngntBalance: ngnt,
         xlmReserved: xlmReserved,
         xlmPriceUSD: xlmPrice,
@@ -225,7 +224,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
         isOffline: false,
         lastKnownTotal: _computeLastKnown(
           usdcBalance: usdc,
-          xlmBalance: xlm,
+          // xlmBalance: xlm,
           ngntBalance: ngnt,
           ngntPriceUsd: ngntPriceUsd,
         ),
@@ -278,7 +277,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
 
       state = state.copyWith(
         usdcBalance: usdc,
-        xlmBalance: xlm,
+        // xlmBalance: xlm,
         ngntBalance: ngnt,
         xlmReserved: xlmReserved,
         xlmPriceUSD: xlmPrice,
@@ -289,7 +288,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
         isOffline: false,
         lastKnownTotal: _computeLastKnown(
           usdcBalance: usdc,
-          xlmBalance: xlm,
+          // xlmBalance: xlm,
           ngntBalance: ngnt,
           ngntPriceUsd: ngntPriceUsd,
         ),
