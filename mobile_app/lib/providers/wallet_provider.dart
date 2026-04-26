@@ -163,7 +163,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
     required double usdcBalance,
     required double xlmBalance,
     required double ngntBalance,
-    required double xlmPrice,
     required double ngntPriceUsd,
   }) {
     // XLM excluded — it's reserved and not shown to users
@@ -228,7 +227,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
           usdcBalance: usdc,
           xlmBalance: xlm,
           ngntBalance: ngnt,
-          xlmPrice: xlmPrice,
           ngntPriceUsd: ngntPriceUsd,
         ),
         lastUpdated: DateTime.now(),
@@ -293,7 +291,6 @@ class WalletNotifier extends StateNotifier<WalletState> {
           usdcBalance: usdc,
           xlmBalance: xlm,
           ngntBalance: ngnt,
-          xlmPrice: xlmPrice,
           ngntPriceUsd: ngntPriceUsd,
         ),
         lastUpdated: DateTime.now(),
