@@ -83,17 +83,18 @@ router.post('/verify-otp', [
       return res.status(400).json({ error: 'Invalid code.', attemptsLeft: 5 - (user.otpAttempts + 1) });
     }
 
-    // Check if user needs business profile setup
-    const needsProfileSetup = !user.fullName || !user.businessName || !user.businessCategory;
-    const needsUsername = !user.username || user.username.startsWith('user_');
-    
+    // Determine what setup steps are needed
+    const hasBusinessProfile = !!(user.fullName && user.businessName && user.businessCategory);
+    const hasOnboarding = !!(user.stellarPublicKey);
+    const isNewUser = !hasBusinessProfile && !hasOnboarding;
+
     await prisma.user.update({
       where: { email },
       data: { otpCode: null, otpExpiry: null, otpAttempts: 0, isVerified: true },
     });
 
-    // If user has complete profile and wallet, return token
-    if (!needsProfileSetup && !needsUsername && user.stellarPublicKey) {
+    // Fully complete — go straight to shell
+    if (hasBusinessProfile && hasOnboarding) {
       const token = jwt.sign(
         { userId: user.id, email: user.email },
         process.env.JWT_SECRET,
@@ -104,11 +105,8 @@ router.post('/verify-otp', [
         user: {
           id: user.id, email: user.email,
           username: user.username,
-          dayfiUsername: `${user.username}@dayfi.me`,
           fullName: user.fullName,
           businessName: user.businessName,
-          businessCategory: user.businessCategory,
-          businessEmail: user.businessEmail,
           stellarPublicKey: user.stellarPublicKey,
           isBackedUp: user.isBackedUp,
           isMerchant: user.isMerchant,
@@ -116,35 +114,39 @@ router.post('/verify-otp', [
       });
     }
 
-    // If user needs business profile setup, send to profile screen
-    if (needsProfileSetup) {
-      const setupToken = jwt.sign(
-        { userId: user.id, email: user.email, setupMode: true },
-        process.env.JWT_SECRET,
-        { expiresIn: '30m' }
-      );
-      return res.json({ 
-        success: true, 
-        step: 'setup_profile', 
-        setupToken, 
-        userId: user.id,
-        // Pre-fill existing data if partial profile exists
-        existingProfile: {
-          fullName: user.fullName,
-          businessName: user.businessName,
-          businessCategory: user.businessCategory,
-          businessEmail: user.businessEmail,
-        }
-      });
-    }
-
-    // If user only needs username setup (legacy flow)
+    // Generate setupToken for all incomplete flows
     const setupToken = jwt.sign(
       { userId: user.id, email: user.email, setupMode: true },
       process.env.JWT_SECRET,
       { expiresIn: '30m' }
     );
-    res.json({ success: true, step: 'setup_username', setupToken, userId: user.id });
+
+    // Missing business profile — go here first
+    if (!hasBusinessProfile) {
+      return res.json({
+        success: true,
+        step: 'setup_business_profile',
+        setupToken,
+        isNewUser,
+        completedSteps: { businessProfile: false, businessOnboarding: hasOnboarding },
+        existingData: {
+          fullName: user.fullName,
+          businessName: user.businessName,
+          businessCategory: user.businessCategory,
+          businessEmail: user.businessEmail,
+        },
+      });
+    }
+
+    // Has profile but missing onboarding
+    return res.json({
+      success: true,
+      step: 'setup_business_onboarding',
+      setupToken,
+      isNewUser: false,
+      completedSteps: { businessProfile: true, businessOnboarding: false },
+    });
+
   } catch (err) {
     console.error('Verify OTP error:', err);
     res.status(500).json({ error: 'Verification failed.' });
@@ -222,6 +224,102 @@ router.post('/setup-username', [
   }
 });
 
+// POST /api/auth/setup-onboarding
+router.post('/setup-onboarding', [
+  body('setupToken').isJWT(),
+  body('accountType').isIn(['individual', 'registeredBusiness', 'otherEntity']),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { setupToken, accountType, ...fields } = req.body;
+
+  try {
+    let decoded;
+    try { decoded = jwt.verify(setupToken, process.env.JWT_SECRET); }
+    catch { return res.status(401).json({ error: 'Invalid or expired setup token' }); }
+
+    if (!decoded.setupMode) return res.status(401).json({ error: 'Invalid token' });
+
+    // ─ Save KYC / compliance data ───────────────────────────────────────
+    await prisma.user.update({
+      where: { id: decoded.userId },
+      data: {
+        accountType: accountType === 'individual'
+          ? 'INDIVIDUAL'
+          : accountType === 'registeredBusiness'
+            ? 'REGISTERED_BUSINESS'
+            : 'OTHER_ENTITY',
+        phone: fields.phone || null,
+        homeAddress: fields.homeAddress || null,
+        bvn: fields.bvn || null,
+        businessAddress: fields.businessAddress || null,
+        businessType: fields.businessType?.toUpperCase() || null,
+        cacRegistrationNumber: fields.cacRegistrationNumber || null,
+        taxIdentificationNumber: fields.taxIdentificationNumber || null,
+      },
+    });
+
+    // ─ Create Stellar wallet (now that KYC is complete) ─────────────────
+    let user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+
+    if (!user.stellarPublicKey) {
+      console.log(`\n⚙️  Creating Stellar wallet for ${user.fullName}...`);
+      const { publicKey, encryptedSecretKey, encryptedMnemonic } = await createStellarWallet();
+
+      await prisma.user.update({
+        where: { id: decoded.userId },
+        data: { stellarPublicKey: publicKey, stellarSecretKey: encryptedSecretKey, encryptedMnemonic },
+      });
+
+      console.log(`✅ Wallet ready: ${publicKey}`);
+      await fundNewUserWallet(publicKey, decoded.userId);
+
+
+      // Re-fetch with updated stellarPublicKey for trustlines
+      user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+      await setupUserTrustlines(user);
+      console.log(`✅ Trustlines set up for ${user.fullName}`);
+
+      // ─ Auto-create virtual account if BVN provided ──────────────────────
+      if (fields.bvn) {
+        try {
+          const { createVirtualAccount } = await import('../services/flutterwaveService.js');
+          await createVirtualAccount({ userId: decoded.userId, bvn: fields.bvn });
+          console.log(`✅ Virtual account created for ${user.fullName}`);
+        } catch (err) {
+          // Non-fatal — user can create it manually from receive screen
+          console.warn('⚠️  Virtual account creation failed:', err.message);
+        }
+      }
+    }
+
+    // ─ Generate full auth token ─────────────────────────────────────────
+    const token = jwt.sign(
+      { userId: decoded.userId, email: decoded.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        businessName: user.businessName,
+        stellarPublicKey: user.stellarPublicKey,
+        isBackedUp: user.isBackedUp,
+        isMerchant: user.isMerchant,
+      },
+    });
+  } catch (err) {
+    console.error('Setup onboarding error:', err);
+    res.status(500).json({ error: err.message || 'Onboarding failed' });
+  }
+});
+
 // GET /api/auth/check-username/:username
 router.get('/check-username/:username', async (req, res) => {
   const lower = req.params.username.toLowerCase().trim();
@@ -241,7 +339,7 @@ router.get('/check-username/:username', async (req, res) => {
 router.get('/mnemonic', authenticate, async (req, res) => {
   try {
     const mnemonic = await getMnemonic(req.user.id);
-    const words    = mnemonic.split(' ');
+    const words = mnemonic.split(' ');
     res.json({ words });
   } catch (err) {
     res.status(404).json({ error: 'Recovery phrase not found' });
@@ -258,16 +356,19 @@ router.post('/mark-backed-up', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/auth/setup-profile (NEW BUSINESS ONBOARDING)
-// Replaces the old /setup-username flow
-// Called from business_profile_screen.dart after OTP verification
+// POST /api/auth/setup-profile
 router.post('/setup-profile', [
   body('setupToken').isJWT().withMessage('Invalid setup token'),
   body('fullName').notEmpty().withMessage('Full name is required'),
   body('businessName').notEmpty().withMessage('Business name is required'),
-  body('businessCategory').isIn(['software', 'retail', 'consulting', 'manufacturing', 'other']).withMessage('Invalid category'),
+  body('businessCategory').isIn([
+    'Retail & E-commerce', 'Food & Beverages', 'Professional Services',
+    'Technology', 'Healthcare', 'Education', 'Logistics & Delivery',
+    'Construction & Real Estate', 'Agriculture', 'Media & Entertainment',
+    'Finance & Fintech', 'Other',
+  ]).withMessage('Invalid category'),
   body('businessEmail').optional().isEmail().withMessage('Invalid email'),
-  body('organizationName').optional().isString().withMessage('Organization name must be a string'),
+  body('organizationName').optional().isString(),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -281,63 +382,24 @@ router.post('/setup-profile', [
 
     if (!decoded.setupMode) return res.status(401).json({ error: 'Invalid token' });
 
-    // ─ Create Stellar wallet (if not already created) ────────────────────
-    let user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    
-    if (!user.stellarPublicKey) {
-      console.log(`\n⚙️  Creating Stellar wallet for ${fullName}...`);
-      const { publicKey, encryptedSecretKey, encryptedMnemonic } = await createStellarWallet();
-
-      await prisma.user.update({
-        where: { id: decoded.userId },
-        data: {
-          stellarPublicKey: publicKey,
-          stellarSecretKey: encryptedSecretKey,
-          encryptedMnemonic,
-        },
-      });
-
-      console.log(`✅ Wallet ready: ${publicKey}`);
-
-      // Fund new user wallet
-      await fundNewUserWallet(publicKey, decoded.userId);
-    }
-
-    // ─ Create organization ─────────────────────────────────────────────
-    let organization;
+    // ─ Create organization (if not already exists) ─────────────────────
     const orgName = organizationName || businessName;
-    
-    // Check if user already has an organization
-    const existingOrg = await prisma.organization.findFirst({
-      where: { ownerUserId: decoded.userId }
+    let organization = await prisma.organization.findFirst({
+      where: { ownerUserId: decoded.userId },
     });
-    
-    if (!existingOrg) {
+
+    if (!organization) {
       organization = await prisma.organization.create({
-        data: {
-          name: orgName,
-          ownerUserId: decoded.userId,
-          plan: 'free',
-          maxMembers: 5,
-        },
+        data: { name: orgName, ownerUserId: decoded.userId, plan: 'free', maxMembers: 5 },
       });
-      
-      // Add user as organization owner
       await prisma.organizationMember.create({
-        data: {
-          organizationId: organization.id,
-          userId: decoded.userId,
-          role: 'owner',
-        },
+        data: { organizationId: organization.id, userId: decoded.userId, role: 'owner' },
       });
-      
       console.log(`✅ Organization created: ${organization.name}`);
-    } else {
-      organization = existingOrg;
     }
 
     // ─ Save business profile ────────────────────────────────────────────
-    user = await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: decoded.userId },
       data: {
         fullName,
@@ -349,14 +411,17 @@ router.post('/setup-profile', [
       },
     });
 
-    // ─ Set up trustlines (USDC + NGNT) ──────────────────────────────────
-    await setupUserTrustlines(user);
-
-    // ─ Generate token ──────────────────────────────────────────────────
+    // ─ Generate tokens ──────────────────────────────────────────────────
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+    );
+
+    const onboardingSetupToken = jwt.sign(
+      { userId: user.id, email: user.email, setupMode: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '30m' }
     );
 
     try { await sendWelcomeEmail(user.email, user.businessName); }
@@ -365,6 +430,7 @@ router.post('/setup-profile', [
     res.json({
       success: true,
       token,
+      setupToken: onboardingSetupToken,
       user: {
         id: user.id,
         email: user.email,
@@ -374,13 +440,13 @@ router.post('/setup-profile', [
         stellarPublicKey: user.stellarPublicKey,
         isBackedUp: user.isBackedUp,
         isMerchant: user.isMerchant,
-        organization: organization ? {
+        organization: {
           id: organization.id,
           name: organization.name,
           plan: organization.plan,
           maxMembers: organization.maxMembers,
-          role: 'owner'
-        } : null,
+          role: 'owner',
+        },
       },
     });
   } catch (err) {
@@ -395,7 +461,7 @@ router.post('/refresh', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'Token required' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user    = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) return res.status(404).json({ error: 'User not found' });
     const newToken = jwt.sign(
       { userId: user.id, email: user.email },

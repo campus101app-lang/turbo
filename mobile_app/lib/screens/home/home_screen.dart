@@ -247,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? walletState.xlmBalance - xlmReserve
         : 0.0;
 
-    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
 
     final txs = txAsync.value ?? [];
     final recentTxs = [...txs]

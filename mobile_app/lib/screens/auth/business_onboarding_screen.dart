@@ -2,17 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
-import '../../providers/auth_provider.dart';
 
-enum AccountType {
-  individual,
-  registeredBusiness,
-  otherEntity,
-}
+enum AccountType { individual, registeredBusiness, otherEntity }
 
 enum BusinessType {
   soleProprietorship,
@@ -27,21 +20,28 @@ enum BusinessType {
 
 class BusinessOnboardingScreen extends ConsumerStatefulWidget {
   final String setupToken;
+  final bool isNewUser;
 
-  const BusinessOnboardingScreen({super.key, required this.setupToken});
+  const BusinessOnboardingScreen({
+    super.key,
+    required this.setupToken,
+    this.isNewUser = true,
+  });
 
   @override
-  ConsumerState<BusinessOnboardingScreen> createState() => _BusinessOnboardingScreenState();
+  ConsumerState<BusinessOnboardingScreen> createState() =>
+      _BusinessOnboardingScreenState();
 }
 
-class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScreen> {
+class _BusinessOnboardingScreenState
+    extends ConsumerState<BusinessOnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  
+
   // Form data
   AccountType _selectedAccountType = AccountType.individual;
   BusinessType? _selectedBusinessType;
-  
+
   // Individual Account fields
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -49,7 +49,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
   final _addressController = TextEditingController();
   final _bvnController = TextEditingController();
   final _businessDescriptionController = TextEditingController();
-  
+
   // Registered Business fields
   final _businessNameController = TextEditingController();
   final _businessAddressController = TextEditingController();
@@ -59,7 +59,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
   final _directorBvnController = TextEditingController();
   final _businessPhoneController = TextEditingController();
   final _businessEmailController = TextEditingController();
-  
+
   // Other Entity fields
   final _organizationNameController = TextEditingController();
   final _organizationTypeController = TextEditingController();
@@ -69,7 +69,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
   final _signatoryBvnController = TextEditingController();
   final _organizationPhoneController = TextEditingController();
   final _organizationEmailController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _agreeToTerms = false;
 
@@ -158,7 +158,8 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         _AccountTypeCard(
           icon: Icons.person,
           title: 'Individual Account',
-          subtitle: 'For unregistered businesses. Anyone selling, building, or offering services without formal CAC registration.',
+          subtitle:
+              'For unregistered businesses. Anyone selling, building, or offering services without formal CAC registration.',
           isSelected: _selectedAccountType == AccountType.individual,
           onTap: () {
             setState(() => _selectedAccountType = AccountType.individual);
@@ -169,10 +170,13 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         _AccountTypeCard(
           icon: Icons.business,
           title: 'Registered Business Account',
-          subtitle: 'For CAC-registered businesses. Companies officially registered with the Corporate Affairs Commission.',
+          subtitle:
+              'For CAC-registered businesses. Companies officially registered with the Corporate Affairs Commission.',
           isSelected: _selectedAccountType == AccountType.registeredBusiness,
           onTap: () {
-            setState(() => _selectedAccountType = AccountType.registeredBusiness);
+            setState(
+              () => _selectedAccountType = AccountType.registeredBusiness,
+            );
             _nextPage();
           },
         ),
@@ -180,7 +184,8 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         _AccountTypeCard(
           icon: Icons.handshake,
           title: 'Other Entities',
-          subtitle: 'For Non-profits, Trusts, Religious Organisations and other entities.',
+          subtitle:
+              'For Non-profits, Trusts, Religious Organisations and other entities.',
           isSelected: _selectedAccountType == AccountType.otherEntity,
           onTap: () {
             setState(() => _selectedAccountType = AccountType.otherEntity);
@@ -240,8 +245,8 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         const SizedBox(height: 16),
         _buildTextField(
           controller: _businessDescriptionController,
-          label: _selectedAccountType == AccountType.individual 
-              ? 'What do you do? (Business Description)' 
+          label: _selectedAccountType == AccountType.individual
+              ? 'What do you do? (Business Description)'
               : 'Describe your business activities',
           icon: Icons.work,
           maxLines: 3,
@@ -259,25 +264,32 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         _BusinessTypeCard(
           title: 'Sole Proprietorship',
           isSelected: _selectedBusinessType == BusinessType.soleProprietorship,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.soleProprietorship),
+          onTap: () => setState(
+            () => _selectedBusinessType = BusinessType.soleProprietorship,
+          ),
         ),
         const SizedBox(height: 12),
         _BusinessTypeCard(
           title: 'Limited Liability Company',
           isSelected: _selectedBusinessType == BusinessType.limitedLiability,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.limitedLiability),
+          onTap: () => setState(
+            () => _selectedBusinessType = BusinessType.limitedLiability,
+          ),
         ),
         const SizedBox(height: 12),
         _BusinessTypeCard(
           title: 'Public Limited Company',
           isSelected: _selectedBusinessType == BusinessType.publicLimited,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.publicLimited),
+          onTap: () => setState(
+            () => _selectedBusinessType = BusinessType.publicLimited,
+          ),
         ),
         const SizedBox(height: 12),
         _BusinessTypeCard(
           title: 'Partnership',
           isSelected: _selectedBusinessType == BusinessType.partnership,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.partnership),
+          onTap: () =>
+              setState(() => _selectedBusinessType = BusinessType.partnership),
         ),
       ],
     );
@@ -369,19 +381,22 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         _BusinessTypeCard(
           title: 'Religious Organisation',
           isSelected: _selectedBusinessType == BusinessType.religiousOrg,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.religiousOrg),
+          onTap: () =>
+              setState(() => _selectedBusinessType = BusinessType.religiousOrg),
         ),
         const SizedBox(height: 12),
         _BusinessTypeCard(
           title: 'Trust',
           isSelected: _selectedBusinessType == BusinessType.trust,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.trust),
+          onTap: () =>
+              setState(() => _selectedBusinessType = BusinessType.trust),
         ),
         const SizedBox(height: 12),
         _BusinessTypeCard(
           title: 'Other',
           isSelected: _selectedBusinessType == BusinessType.other,
-          onTap: () => setState(() => _selectedBusinessType = BusinessType.other),
+          onTap: () =>
+              setState(() => _selectedBusinessType = BusinessType.other),
         ),
       ],
     );
@@ -470,9 +485,9 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
             children: [
               Text(
                 'By creating an account, you agree to:',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               ...[
@@ -481,13 +496,15 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
                 '• Anti-Money Laundering (AML) Policy',
                 '• BVN verification for compliance',
                 '• Nigerian financial regulations',
-              ].map((term) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  term,
-                  style: Theme.of(context).textTheme.bodyMedium,
+              ].map(
+                (term) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    term,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -496,7 +513,8 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
           children: [
             Checkbox(
               value: _agreeToTerms,
-              onChanged: (value) => setState(() => _agreeToTerms = value ?? false),
+              onChanged: (value) =>
+                  setState(() => _agreeToTerms = value ?? false),
             ),
             Expanded(
               child: Text(
@@ -508,13 +526,12 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         ),
         const SizedBox(height: 24),
         ElevatedButton(
-          onPressed: _agreeToTerms && !_isLoading ? _submitOnboarding : null,
+          // ✅
+          onPressed: !_isLoading ? _nextPage : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(double.infinity, 48),
           ),
-          child: _isLoading
-              ? const CircularProgressIndicator()
-              : const Text('Complete Setup'),
+          child: Text(_currentPage < totalPages - 1 ? 'Next' : 'Complete'),
         ),
       ],
     );
@@ -535,9 +552,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: validator,
     );
@@ -545,98 +560,84 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
 
   Future<void> _submitOnboarding() async {
     if (!_agreeToTerms) return;
-
     setState(() => _isLoading = true);
 
     try {
-      final Map<String, dynamic> profileData = {
+      // Build payload based on account type
+      final Map<String, dynamic> onboardingData = {
+        'setupToken': widget.setupToken,
         'accountType': _selectedAccountType.name,
       };
 
       switch (_selectedAccountType) {
         case AccountType.individual:
-          profileData.addAll({
-            'fullName': '${_firstNameController.text} ${_lastNameController.text}',
-            'phone': _phoneController.text,
-            'homeAddress': _addressController.text,
-            'bvn': _bvnController.text,
-            'businessCategory': _businessDescriptionController.text,
+          onboardingData.addAll({
+            'fullName':
+                '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+            'phone': _phoneController.text.trim(),
+            'homeAddress': _addressController.text.trim(),
+            'bvn': _bvnController.text.trim(),
+            'businessDescription': _businessDescriptionController.text.trim(),
           });
           break;
         case AccountType.registeredBusiness:
-          profileData.addAll({
-            'businessName': _businessNameController.text,
-            'businessAddress': _businessAddressController.text,
+          onboardingData.addAll({
+            'fullName': _directorNameController.text.trim(),
+            'businessName': _businessNameController.text.trim(),
+            'businessAddress': _businessAddressController.text.trim(),
             'businessType': _selectedBusinessType?.name,
-            'cacRegistrationNumber': _cacNumberController.text,
-            'taxIdentificationNumber': _tinController.text,
-            'phone': _businessPhoneController.text,
-            'businessEmail': _businessEmailController.text,
+            'cacRegistrationNumber': _cacNumberController.text.trim(),
+            'taxIdentificationNumber': _tinController.text.trim(),
+            'bvn': _directorBvnController.text.trim(),
+            'phone': _businessPhoneController.text.trim(),
+            'businessEmail': _businessEmailController.text.trim().isEmpty
+                ? null
+                : _businessEmailController.text.trim(),
           });
           break;
         case AccountType.otherEntity:
-          profileData.addAll({
-            'businessName': _organizationNameController.text,
-            'businessAddress': _organizationAddressController.text,
-            'businessType': 'OTHER_ENTITY',
-            'phone': _organizationPhoneController.text,
-            'businessEmail': _organizationEmailController.text,
+          onboardingData.addAll({
+            'fullName': _signatoryNameController.text.trim(),
+            'businessName': _organizationNameController.text.trim(),
+            'businessAddress': _organizationAddressController.text.trim(),
+            'businessType': _selectedBusinessType?.name ?? 'other',
+            'registrationNumber': _registrationNumberController.text.trim(),
+            'bvn': _signatoryBvnController.text.trim(),
+            'phone': _organizationPhoneController.text.trim(),
+            'businessEmail': _organizationEmailController.text.trim().isEmpty
+                ? null
+                : _organizationEmailController.text.trim(),
           });
           break;
       }
 
-      // Submit to API
-      String fullName = '';
-      String businessName = '';
-      String businessCategory = '';
-      String? businessEmail;
+      // Call the correct endpoint — NOT setup-profile again
+      final result = await apiService.setupBusinessOnboarding(onboardingData);
 
-      switch (_selectedAccountType) {
-        case AccountType.individual:
-          fullName = '${_firstNameController.text} ${_lastNameController.text}';
-          businessName = fullName; // Use full name as business name for individuals
-          businessCategory = _businessDescriptionController.text;
-          break;
-        case AccountType.registeredBusiness:
-          fullName = _directorNameController.text;
-          businessName = _businessNameController.text;
-          businessCategory = _selectedBusinessType?.name ?? 'Business';
-          businessEmail = _businessEmailController.text.trim().isEmpty 
-              ? null 
-              : _businessEmailController.text.trim();
-          break;
-        case AccountType.otherEntity:
-          fullName = _signatoryNameController.text;
-          businessName = _organizationNameController.text;
-          businessCategory = 'Other Entity';
-          businessEmail = _organizationEmailController.text.trim().isEmpty 
-              ? null 
-              : _organizationEmailController.text.trim();
-          break;
+      if (result['token'] != null) {
+        await apiService.saveToken(result['token']);
       }
 
-      await apiService.setupBusinessProfile(
-        setupToken: widget.setupToken,
-        fullName: fullName,
-        businessName: businessName,
-        businessCategory: businessCategory,
-        businessEmail: businessEmail,
-      );
-      
-      // Navigate to dashboard
-      if (mounted) {
-        context.go('/dashboard');
+      if (!mounted) return;
+
+      // New users → biometric → backup → shell
+      // Existing users → straight to shell
+      if (widget.isNewUser) {
+        context.go('/auth/biometric');
+      } else {
+        context.go('/mainshell');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(apiService.parseError(e)),
+            backgroundColor: DayFiColors.error,
+          ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -659,7 +660,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
               ),
             ),
           ),
-          
+
           // Main content
           SafeArea(
             child: Column(
@@ -686,18 +687,20 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
                     ],
                   ),
                 ),
-                
+
                 // Progress indicator
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: LinearProgressIndicator(
                     value: (_currentPage + 1) / totalPages,
-                    backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.1),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // PageView
                 Expanded(
                   child: PageView(
@@ -706,7 +709,7 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
                     children: _buildPages(),
                   ),
                 ),
-                
+
                 // Navigation buttons
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -722,8 +725,21 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
                       if (_currentPage > 0) const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _currentPage < totalPages - 1 ? _nextPage : null,
-                          child: Text(_currentPage < totalPages - 1 ? 'Next' : 'Complete'),
+                          onPressed: _agreeToTerms && !_isLoading
+                              ? _submitOnboarding
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Complete Setup'),
                         ),
                       ),
                     ],
@@ -758,9 +774,9 @@ class _OnboardingPage extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
@@ -853,7 +869,9 @@ class _AccountTypeCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],

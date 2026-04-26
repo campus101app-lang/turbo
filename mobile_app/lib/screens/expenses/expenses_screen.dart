@@ -596,7 +596,7 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
     final ngnAmount = widget.expense.toNgn(usdToNgn);
     final usdAmount = widget.expense.currency == 'NGNT'
         ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)
@@ -865,7 +865,7 @@ class _ExpenseInsightsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
     
     final approved = expenses.where((e) => e.status == 'approved').toList();
     final rejected = expenses.where((e) => e.status == 'rejected').toList();
@@ -1298,7 +1298,7 @@ class _ExpenseListPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
 
     // Filter out pending expenses if merchant (will show separately below)
     final myExpenses = isMerchant
@@ -2626,7 +2626,7 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final e = widget.expense;
-    final usdToNgn = ref.watch(ngnRateProvider) ?? 1354.92;
+    final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
     final ngnAmount = e.toNgn(usdToNgn);
     final usdAmount = e.currency == 'NGNT'
         ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)

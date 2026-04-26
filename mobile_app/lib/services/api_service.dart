@@ -5,7 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://turbo-production-afee.up.railway.app', // Your Railway URL
+    defaultValue:
+        'https://turbo-production-afee.up.railway.app', // Your Railway URL
   );
 
   // Make baseUrl accessible for debugging
@@ -37,11 +38,15 @@ class ApiService {
           handler.next(options);
         },
         onResponse: (response, handler) {
-          print('API Response: ${response.statusCode} ${response.requestOptions.path}');
+          print(
+            'API Response: ${response.statusCode} ${response.requestOptions.path}',
+          );
           handler.next(response);
         },
         onError: (error, handler) async {
-          print('API Error: ${error.response?.statusCode} ${error.requestOptions.path}');
+          print(
+            'API Error: ${error.response?.statusCode} ${error.requestOptions.path}',
+          );
           print('API Error Details: ${error.response?.data}');
           if (error.response?.statusCode == 401) {
             await _storage.delete(key: 'auth_token');
@@ -71,7 +76,7 @@ class ApiService {
     String? businessEmail,
   }) async {
     final resp = await _dio.post(
-      '/api/auth/setup-business-profile',
+      '/api/auth/setup-profile', // ← was setup-business-profile, wrong
       data: {
         'setupToken': setupToken,
         'fullName': fullName,
@@ -92,6 +97,12 @@ class ApiService {
     return words.cast<String>();
   }
 
+  Future<Map<String, dynamic>> setupBusinessOnboarding(
+    Map<String, dynamic> data,
+  ) async =>
+      (await _dio.post('/api/auth/setup-onboarding', data: data)).data
+          as Map<String, dynamic>;
+
   // ─── User ─────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getMe() async =>
@@ -105,9 +116,10 @@ class ApiService {
 
   // ─── Token ────────────────────────────────────────────────────────────────
 
-  Future<void>    saveToken(String t) async => _storage.write(key: 'auth_token', value: t);
-  Future<String?> getToken()           async => _storage.read(key: 'auth_token');
-  Future<void>    clearToken()         async => _storage.delete(key: 'auth_token');
+  Future<void> saveToken(String t) async =>
+      _storage.write(key: 'auth_token', value: t);
+  Future<String?> getToken() async => _storage.read(key: 'auth_token');
+  Future<void> clearToken() async => _storage.delete(key: 'auth_token');
 
   // ─── Wallet ───────────────────────────────────────────────────────────────
 
@@ -125,16 +137,15 @@ class ApiService {
     required double amount,
     required String asset,
     String? memo,
-  }) async =>
-      (await _dio.post(
-        '/api/wallet/send',
-        data: {
-          'to': to,
-          'amount': amount,
-          'asset': asset,
-          if (memo != null) 'memo': memo,
-        },
-      )).data;
+  }) async => (await _dio.post(
+    '/api/wallet/send',
+    data: {
+      'to': to,
+      'amount': amount,
+      'asset': asset,
+      if (memo != null) 'memo': memo,
+    },
+  )).data;
 
   Future<Map<String, dynamic>> resolveRecipient(String identifier) async =>
       (await _dio.get('/api/wallet/resolve/$identifier')).data;
@@ -143,25 +154,23 @@ class ApiService {
     required String fromAsset,
     required String toAsset,
     required double amount,
-  }) async =>
-      (await _dio.get(
-        '/api/wallet/swap-quote',
-        queryParameters: {
-          'from': fromAsset,
-          'to': toAsset,
-          'amount': amount.toString(),
-        },
-      )).data;
+  }) async => (await _dio.get(
+    '/api/wallet/swap-quote',
+    queryParameters: {
+      'from': fromAsset,
+      'to': toAsset,
+      'amount': amount.toString(),
+    },
+  )).data;
 
   Future<Map<String, dynamic>> executeSwap({
     required String fromAsset,
     required String toAsset,
     required double amount,
-  }) async =>
-      (await _dio.post(
-        '/api/wallet/swap',
-        data: {'fromAsset': fromAsset, 'toAsset': toAsset, 'amount': amount},
-      )).data;
+  }) async => (await _dio.post(
+    '/api/wallet/swap',
+    data: {'fromAsset': fromAsset, 'toAsset': toAsset, 'amount': amount},
+  )).data;
 
   Future<Map<String, dynamic>> syncTransactionsFromBlockchain() async =>
       (await _dio.post('/api/wallet/sync-transactions')).data;
@@ -176,28 +185,26 @@ class ApiService {
     required String buyAsset,
     double? sellAmount,
     double? buyAmount,
-  }) async =>
-      (await _dio.get(
-        '/sep38/price',
-        queryParameters: {
-          'sell_asset': sellAsset,
-          'buy_asset': buyAsset,
-          if (sellAmount != null) 'sell_amount': sellAmount.toString(),
-          if (buyAmount != null) 'buy_amount': buyAmount.toString(),
-        },
-      )).data;
+  }) async => (await _dio.get(
+    '/sep38/price',
+    queryParameters: {
+      'sell_asset': sellAsset,
+      'buy_asset': buyAsset,
+      if (sellAmount != null) 'sell_amount': sellAmount.toString(),
+      if (buyAmount != null) 'buy_amount': buyAmount.toString(),
+    },
+  )).data;
 
   Future<Map<String, dynamic>> getPrices({
     required String sellAsset,
     required double sellAmount,
-  }) async =>
-      (await _dio.get(
-        '/sep38/prices',
-        queryParameters: {
-          'sell_asset': sellAsset,
-          'sell_amount': sellAmount.toString(),
-        },
-      )).data;
+  }) async => (await _dio.get(
+    '/sep38/prices',
+    queryParameters: {
+      'sell_asset': sellAsset,
+      'sell_amount': sellAmount.toString(),
+    },
+  )).data;
 
   // ─── SEP-24: Deposit / Withdraw ───────────────────────────────────────────
 
@@ -205,29 +212,27 @@ class ApiService {
     required String assetCode,
     required String account,
     double? amount,
-  }) async =>
-      (await _dio.post(
-        '/sep24/transactions/deposit/interactive',
-        data: {
-          'asset_code': assetCode,
-          'account': account,
-          if (amount != null) 'amount': amount.toString(),
-        },
-      )).data;
+  }) async => (await _dio.post(
+    '/sep24/transactions/deposit/interactive',
+    data: {
+      'asset_code': assetCode,
+      'account': account,
+      if (amount != null) 'amount': amount.toString(),
+    },
+  )).data;
 
   Future<Map<String, dynamic>> initiateWithdraw({
     required String assetCode,
     required String account,
     double? amount,
-  }) async =>
-      (await _dio.post(
-        '/sep24/transactions/withdraw/interactive',
-        data: {
-          'asset_code': assetCode,
-          'account': account,
-          if (amount != null) 'amount': amount.toString(),
-        },
-      )).data;
+  }) async => (await _dio.post(
+    '/sep24/transactions/withdraw/interactive',
+    data: {
+      'asset_code': assetCode,
+      'account': account,
+      if (amount != null) 'amount': amount.toString(),
+    },
+  )).data;
 
   Future<Map<String, dynamic>> getDepositStatus(String txId) async =>
       (await _dio.get(
@@ -242,16 +247,15 @@ class ApiService {
     int limit = 20,
     String? type,
     String? asset,
-  }) async =>
-      (await _dio.get(
-        '/api/transactions',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (type != null) 'type': type,
-          if (asset != null) 'asset': asset,
-        },
-      )).data;
+  }) async => (await _dio.get(
+    '/api/transactions',
+    queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (type != null) 'type': type,
+      if (asset != null) 'asset': asset,
+    },
+  )).data;
 
   // ─── Virtual Account (NGN) ────────────────────────────────────────────────
 
@@ -263,25 +267,28 @@ class ApiService {
     required String bvn,
   }) async =>
       (await _dio.post(
-        '/api/payments/virtual-account',
-        data: {'bvn': bvn},
-      )).data as Map<String, dynamic>;
+            '/api/payments/virtual-account',
+            data: {'bvn': bvn},
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> initFlutterwaveDeposit({
     required double amount,
   }) async =>
       (await _dio.post(
-        '/api/payments/flutterwave/init',
-        data: {'amount': amount, 'currency': 'NGN'},
-      )).data as Map<String, dynamic>;
+            '/api/payments/flutterwave/init',
+            data: {'amount': amount, 'currency': 'NGN'},
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> verifyFlutterwaveDeposit({
     required String txRef,
   }) async =>
       (await _dio.post(
-        '/api/payments/flutterwave/verify',
-        data: {'txRef': txRef},
-      )).data as Map<String, dynamic>;
+            '/api/payments/flutterwave/verify',
+            data: {'txRef': txRef},
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> withdrawToBank({
     required double ngntAmount,
@@ -291,15 +298,16 @@ class ApiService {
     String? idempotencyKey,
   }) async =>
       (await _dio.post(
-        '/api/payments/flutterwave/withdraw',
-        data: {
-          'ngntAmount': ngntAmount,
-          'bankCode': bankCode,
-          'accountNumber': accountNumber,
-          'accountName': accountName,
-          if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
-        },
-      )).data as Map<String, dynamic>;
+            '/api/payments/flutterwave/withdraw',
+            data: {
+              'ngntAmount': ngntAmount,
+              'bankCode': bankCode,
+              'accountNumber': accountNumber,
+              'accountName': accountName,
+              if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+            },
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> getNigeriaBanks() async =>
       (await _dio.get('/api/payments/flutterwave/banks')).data
@@ -310,9 +318,10 @@ class ApiService {
     required String accountNumber,
   }) async =>
       (await _dio.post(
-        '/api/payments/flutterwave/resolve-account',
-        data: {'bankCode': bankCode, 'accountNumber': accountNumber},
-      )).data as Map<String, dynamic>;
+            '/api/payments/flutterwave/resolve-account',
+            data: {'bankCode': bankCode, 'accountNumber': accountNumber},
+          )).data
+          as Map<String, dynamic>;
 
   // ─── Workflows ──────────────────────────────────────────────────────────────────
 
@@ -322,46 +331,64 @@ class ApiService {
     String? status,
   }) async =>
       (await _dio.get(
-        '/api/workflows',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null) 'status': status,
-        },
-      ))
-          .data as Map<String, dynamic>;
+            '/api/workflows',
+            queryParameters: {
+              'page': page,
+              'limit': limit,
+              if (status != null) 'status': status,
+            },
+          )).data
+          as Map<String, dynamic>;
 
   // ─── Organization ───────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getOrganization() async =>
       (await _dio.get('/api/organization')).data as Map<String, dynamic>;
 
-  Future<Map<String, dynamic>> createOrganization(Map<String, dynamic> data) async =>
-      (await _dio.post('/api/organization', data: data)).data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> createOrganization(
+    Map<String, dynamic> data,
+  ) async =>
+      (await _dio.post('/api/organization', data: data)).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> updateOrganization(
     String id,
     Map<String, dynamic> data,
   ) async =>
-      (await _dio.put('/api/organization/$id', data: data)).data as Map<String, dynamic>;
+      (await _dio.put('/api/organization/$id', data: data)).data
+          as Map<String, dynamic>;
 
-  Future<Map<String, dynamic>> inviteOrganizationMember(Map<String, dynamic> data) async =>
-      (await _dio.post('/api/organization/invite', data: data)).data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> inviteOrganizationMember(
+    Map<String, dynamic> data,
+  ) async =>
+      (await _dio.post('/api/organization/invite', data: data)).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> updateOrganizationMember(
     String organizationId,
     String memberId,
     Map<String, dynamic> data,
   ) async =>
-      (await _dio.put('/api/organization/$organizationId/members/$memberId', data: data))
-          .data as Map<String, dynamic>;
+      (await _dio.put(
+            '/api/organization/$organizationId/members/$memberId',
+            data: data,
+          )).data
+          as Map<String, dynamic>;
 
-  Future<void> removeOrganizationMember(String organizationId, String memberId) async =>
+  Future<void> removeOrganizationMember(
+    String organizationId,
+    String memberId,
+  ) async =>
       await _dio.delete('/api/organization/$organizationId/members/$memberId');
 
-  Future<Map<String, dynamic>> getOrganizationFinancialDashboard(String period) async =>
-      (await _dio.get('/api/organization/financial-dashboard', queryParameters: {'period': period}))
-          .data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> getOrganizationFinancialDashboard(
+    String period,
+  ) async =>
+      (await _dio.get(
+            '/api/organization/financial-dashboard',
+            queryParameters: {'period': period},
+          )).data
+          as Map<String, dynamic>;
 
   // ─── Invoices ─────────────────────────────────────────────────────────────
 
@@ -371,13 +398,14 @@ class ApiService {
     String? status,
   }) async =>
       (await _dio.get(
-        '/api/invoices',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null) 'status': status,
-        },
-      )).data as Map<String, dynamic>;
+            '/api/invoices',
+            queryParameters: {
+              'page': page,
+              'limit': limit,
+              if (status != null) 'status': status,
+            },
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> createInvoice(
     Map<String, dynamic> payload,
@@ -399,7 +427,8 @@ class ApiService {
       (await _dio.post('/api/invoices/$id/send')).data as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> markInvoicePaid(String id) async =>
-      (await _dio.post('/api/invoices/$id/mark-paid')).data as Map<String, dynamic>;
+      (await _dio.post('/api/invoices/$id/mark-paid')).data
+          as Map<String, dynamic>;
 
   // ─── Expenses ─────────────────────────────────────────────────────────────
 
@@ -410,14 +439,15 @@ class ApiService {
     String? category,
   }) async =>
       (await _dio.get(
-        '/api/expenses',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null)   'status': status,
-          if (category != null) 'category': category,
-        },
-      )).data as Map<String, dynamic>;
+            '/api/expenses',
+            queryParameters: {
+              'page': page,
+              'limit': limit,
+              if (status != null) 'status': status,
+              if (category != null) 'category': category,
+            },
+          )).data
+          as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> getExpense(String id) async =>
       (await _dio.get('/api/expenses/$id')).data as Map<String, dynamic>;
@@ -447,9 +477,10 @@ class ApiService {
     String rejectionNote,
   ) async =>
       (await _dio.post(
-        '/api/expenses/$id/reject',
-        data: {'rejectionNote': rejectionNote},
-      )).data as Map<String, dynamic>;
+            '/api/expenses/$id/reject',
+            data: {'rejectionNote': rejectionNote},
+          )).data
+          as Map<String, dynamic>;
 
   // ─── Cards ────────────────────────────────────────────────────────────────
 
@@ -464,9 +495,7 @@ class ApiService {
   /// POST /api/cards — create virtual card
   /// payload: { cardholderName, currency, label?, color?, spendingLimit? }
   /// Returns: { card, cvv } — cvv shown once only
-  Future<Map<String, dynamic>> createCard(
-    Map<String, dynamic> payload,
-  ) async =>
+  Future<Map<String, dynamic>> createCard(Map<String, dynamic> payload) async =>
       (await _dio.post('/api/cards', data: payload)).data
           as Map<String, dynamic>;
 
@@ -484,15 +513,13 @@ class ApiService {
 
   /// POST /api/cards/:id/unfreeze
   Future<Map<String, dynamic>> unfreezeCard(String id) async =>
-      (await _dio.post('/api/cards/$id/unfreeze')).data
-          as Map<String, dynamic>;
+      (await _dio.post('/api/cards/$id/unfreeze')).data as Map<String, dynamic>;
 
   /// DELETE /api/cards/:id — cancel card permanently
   Future<Map<String, dynamic>> cancelCard(String id) async =>
       (await _dio.delete('/api/cards/$id')).data as Map<String, dynamic>;
 
   // ─── Workflows ────────────────────────────────────────────────────────────
-  // getWorkflows method is already defined above with pagination support
 
   /// GET /api/workflows/:id
   Future<Map<String, dynamic>> getWorkflow(String id) async =>
@@ -541,13 +568,14 @@ class ApiService {
     String? status,
   }) async =>
       (await _dio.get(
-        '/api/requests',
-        queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null) 'status': status,
-        },
-      )).data as Map<String, dynamic>;
+            '/api/requests',
+            queryParameters: {
+              'page': page,
+              'limit': limit,
+              if (status != null) 'status': status,
+            },
+          )).data
+          as Map<String, dynamic>;
 
   /// GET /api/requests/:id
   Future<Map<String, dynamic>> getRequest(String id) async =>
@@ -597,32 +625,30 @@ class ApiService {
     String? sku,
     String? category,
     String? imageUrl,
-  }) async =>
-      (await _dio.post(
-        '/api/inventory',
-        data: {
-          'name': name,
-          'priceUsdc': priceUsdc,
-          'stock': stock,
-          'threshold': threshold,
-          if (sku != null)      'sku': sku,
-          if (category != null) 'category': category,
-          if (imageUrl != null) 'imageUrl': imageUrl,
-        },
-      )).data['item'];
+  }) async => (await _dio.post(
+    '/api/inventory',
+    data: {
+      'name': name,
+      'priceUsdc': priceUsdc,
+      'stock': stock,
+      'threshold': threshold,
+      if (sku != null) 'sku': sku,
+      if (category != null) 'category': category,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+    },
+  )).data['item'];
 
   Future<Map<String, dynamic>> updateStock(
     String itemId, {
     int? delta,
     int? absolute,
-  }) async =>
-      (await _dio.patch(
-        '/api/inventory/$itemId/stock',
-        data: {
-          if (delta != null)    'delta': delta,
-          if (absolute != null) 'absolute': absolute,
-        },
-      )).data['item'];
+  }) async => (await _dio.patch(
+    '/api/inventory/$itemId/stock',
+    data: {
+      if (delta != null) 'delta': delta,
+      if (absolute != null) 'absolute': absolute,
+    },
+  )).data['item'];
 
   Future<Map<String, dynamic>> updateInventoryItem(
     String itemId,
@@ -636,11 +662,10 @@ class ApiService {
   Future<Map<String, dynamic>> getCheckoutUri({
     required List<Map<String, dynamic>> items,
     required double totalUsdc,
-  }) async =>
-      (await _dio.post(
-        '/api/inventory/checkout/uri',
-        data: {'items': items, 'totalUsdc': totalUsdc},
-      )).data;
+  }) async => (await _dio.post(
+    '/api/inventory/checkout/uri',
+    data: {'items': items, 'totalUsdc': totalUsdc},
+  )).data;
 
   Future<Map<String, dynamic>> rawGet(String url) async =>
       (await _dio.get(url)).data as Map<String, dynamic>;
@@ -651,7 +676,7 @@ class ApiService {
     if (error is DioException) {
       final data = error.response?.data;
       if (data is Map && data['message'] != null) return data['message'];
-      if (data is Map && data['error'] != null)   return data['error'];
+      if (data is Map && data['error'] != null) return data['error'];
       if (data is Map && data['errors'] != null) {
         return (data['errors'] as List).map((e) => e['msg']).join(', ');
       }
@@ -661,8 +686,9 @@ class ApiService {
       return error.message ?? 'Network error';
     }
     final errStr = error.toString();
-    if (errStr.contains('not a function'))   return 'Server processing error - please try again';
-    if (errStr.contains('Insufficient'))     return errStr.split('\n')[0];
+    if (errStr.contains('not a function'))
+      return 'Server processing error - please try again';
+    if (errStr.contains('Insufficient')) return errStr.split('\n')[0];
     return errStr.length > 100 ? '${errStr.substring(0, 97)}...' : errStr;
   }
 }

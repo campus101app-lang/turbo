@@ -31,10 +31,15 @@ const _categories = [
 
 class BusinessProfileScreen extends StatefulWidget {
   final String setupToken;
-  final Map<String, dynamic>? existingProfile; // Add this parameter
+  final bool isNewUser;
+  final Map<String, dynamic> existingData; // renamed from existingProfile
 
-  const BusinessProfileScreen({super.key, required this.setupToken, this.existingProfile});
-
+  const BusinessProfileScreen({
+    super.key,
+    required this.setupToken,
+    this.isNewUser = true,
+    this.existingData = const {},
+  });
   @override
   State<BusinessProfileScreen> createState() => _BusinessProfileScreenState();
 }
@@ -57,19 +62,16 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     'Adding NGNT trustline...',
     'Almost done...',
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    // Pre-fill form with existing profile data if available
-    if (widget.existingProfile != null) {
-      final profile = widget.existingProfile!;
-      _fullNameController.text = profile['fullName'] ?? '';
-      _businessNameController.text = profile['businessName'] ?? '';
-      _businessEmailController.text = profile['businessEmail'] ?? '';
-      _selectedCategory = profile['businessCategory'];
-    }
+@override
+void initState() {
+  super.initState();
+  if (widget.existingData.isNotEmpty) {
+    _fullNameController.text = widget.existingData['fullName'] ?? '';
+    _businessNameController.text = widget.existingData['businessName'] ?? '';
+    _businessEmailController.text = widget.existingData['businessEmail'] ?? '';
+    _selectedCategory = widget.existingData['businessCategory'];
   }
+}
 
   @override
   void dispose() {
@@ -145,58 +147,62 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  Future<void> _continue() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedCategory == null) {
+Future<void> _continue() async {
+  if (!_formKey.currentState!.validate()) return;
+  if (_selectedCategory == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select a business category')),
+    );
+    return;
+  }
+  if (_loading) return;
+  setState(() => _loading = true);
+
+  try {
+    setState(() => _currentStep = 0);
+    await Future.delayed(const Duration(milliseconds: 400));
+    setState(() => _currentStep = 1);
+
+    final result = await apiService.setupBusinessProfile(
+      setupToken: widget.setupToken,
+      fullName: _fullNameController.text.trim(),
+      businessName: _businessNameController.text.trim(),
+      businessCategory: _selectedCategory!,
+      businessEmail: _businessEmailController.text.trim().isEmpty
+          ? null
+          : _businessEmailController.text.trim(),
+    );
+
+    setState(() => _currentStep = 2);
+    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() => _currentStep = 3);
+    await Future.delayed(const Duration(milliseconds: 600));
+    setState(() => _currentStep = 4);
+    await Future.delayed(const Duration(milliseconds: 700));
+    setState(() => _currentStep = 5);
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    await apiService.saveToken(result['token']);
+
+    if (!mounted) return;
+
+    // Always go to business onboarding next — new or existing user
+    context.pushReplacement('/auth/business-onboarding', extra: {
+      'setupToken': result['setupToken'] ?? '',  // backend needs to return this
+      'isNewUser': widget.isNewUser,
+    });
+  } catch (e) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a business category')),
+        SnackBar(
+          content: Text(apiService.parseError(e)),
+          backgroundColor: DayFiColors.red,
+        ),
       );
-      return;
-    }
-    if (_loading) return;
-    setState(() => _loading = true);
-
-    try {
-      setState(() => _currentStep = 0);
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      setState(() => _currentStep = 1);
-
-      // Main call — backend creates wallet + funds it + adds USDC & NGNT trustlines
-      final result = await apiService.setupBusinessProfile(
-        setupToken:      widget.setupToken,
-        fullName:        _fullNameController.text.trim(),
-        businessName:    _businessNameController.text.trim(),
-        businessCategory: _selectedCategory!,
-        businessEmail:   _businessEmailController.text.trim().isEmpty
-            ? null
-            : _businessEmailController.text.trim(),
-      );
-
-      setState(() => _currentStep = 2);
-      await Future.delayed(const Duration(milliseconds: 500));
-      setState(() => _currentStep = 3);
-      await Future.delayed(const Duration(milliseconds: 600));
-      setState(() => _currentStep = 4);
-      await Future.delayed(const Duration(milliseconds: 700));
-      setState(() => _currentStep = 5);
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      await apiService.saveToken(result['token']);
-      if (mounted) context.go('/auth/biometric');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(apiService.parseError(e)),
-            backgroundColor: DayFiColors.red,
-          ),
-        );
-        setState(() => _loading = false);
-      }
+      setState(() => _loading = false);
     }
   }
-
+}
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   InputDecoration _fieldDecoration(String hint, {Widget? suffix}) {
@@ -277,7 +283,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   const SizedBox(height: 24),
 
                   Text(
-                    'Set up your\nbusiness profile',
+                   'Business\nprofile',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.8,
@@ -292,7 +298,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Text(
-                      'We\'ll use this to personalise your invoices, expenses, and payment links.',
+                    'Step 1 of 2 — Tell us about your business.',
+                    
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 15,
                         letterSpacing: -0.3,
@@ -414,7 +421,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                   const Spacer(),
 
                   AuthButton(
-                    label: 'Create my account',
+              label: 'Continue',
                     onPressed: canSubmit && !_loading ? _continue : null,
                     isLoading: _loading,
                     loadingText: _steps[_currentStep],

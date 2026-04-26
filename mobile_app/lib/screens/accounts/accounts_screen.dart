@@ -27,7 +27,7 @@ final _ngnRateProvider = FutureProvider<double>((ref) async {
       return (data['rates']['NGN'] as num).toDouble();
     }
   } catch (_) {}
-  return 1354.92;
+  return 1600.0;
 });
 
 final _txAccountsProvider = FutureProvider<List<Map<String, dynamic>>>((
@@ -241,10 +241,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       data: (rate) => rate,
       loading: () => (w.ngnRate != null && w.ngnRate! > 0)
           ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
-          : 1354.92,
+          : 1600.0,
       error: (_, __) => (w.ngnRate != null && w.ngnRate! > 0)
           ? (w.ngnRate! < 1 ? 1 / w.ngnRate! : w.ngnRate!)
-          : 1354.92,
+          : 1600.0,
     );
 
     final priceHistory = priceHistoryAsync.value ?? {};

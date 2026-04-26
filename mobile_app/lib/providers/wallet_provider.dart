@@ -49,7 +49,8 @@ class WalletState {
   double get totalUSD => usdcBalance + (ngntBalance * (ngntPriceUSD ?? 0));
 
   // Available XLM = total balance - reserved (all reserved XLM is locked)
-  double get availableXLM => (xlmBalance - xlmReserved).clamp(0, double.infinity);
+  double get availableXLM =>
+      (xlmBalance - xlmReserved).clamp(0, double.infinity);
   double get availableXLMUSD => availableXLM * xlmPriceUSD;
 
   // NGN display value of NGNT (1:1)
@@ -98,6 +99,15 @@ class WalletState {
 
 class WalletNotifier extends StateNotifier<WalletState> {
   WalletNotifier() : super(const WalletState(isLoading: true)) {
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    final token = await apiService.getToken();
+    if (token == null) {
+      state = const WalletState(isLoading: false);
+      return;
+    }
     load();
   }
 
@@ -143,7 +153,7 @@ class WalletNotifier extends StateNotifier<WalletState> {
       }
     } catch (_) {}
     // Fallback: ₦1700 per USD
-    const fallbackRate = 1354.92;
+    const fallbackRate = 1600.0;
     return (1.0 / fallbackRate, fallbackRate);
   }
 
@@ -156,8 +166,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
     required double xlmPrice,
     required double ngntPriceUsd,
   }) {
-    final live =
-        usdcBalance + (xlmBalance * xlmPrice) + (ngntBalance * ngntPriceUsd);
+    // XLM excluded — it's reserved and not shown to users
+    final live = usdcBalance + (ngntBalance * ngntPriceUsd);
     return live > 0 ? live : state.lastKnownTotal;
   }
 
@@ -198,7 +208,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
       final usdc = (balances['USDC'] as num?)?.toDouble() ?? 0.0;
       final xlm = (balances['XLM'] as num?)?.toDouble() ?? 0.0;
       final ngnt = (balances['NGNT'] as num?)?.toDouble() ?? 0.0;
-      final xlmReserved = (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
+      final xlmReserved =
+          (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
 
       state = state.copyWith(
         usdcBalance: usdc,
@@ -264,7 +275,8 @@ class WalletNotifier extends StateNotifier<WalletState> {
       final usdc = (balances['USDC'] as num?)?.toDouble() ?? 0.0;
       final xlm = (balances['XLM'] as num?)?.toDouble() ?? 0.0;
       final ngnt = (balances['NGNT'] as num?)?.toDouble() ?? 0.0;
-      final xlmReserved = (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
+      final xlmReserved =
+          (balanceData['xlmReserved'] as num?)?.toDouble() ?? 0.0;
 
       state = state.copyWith(
         usdcBalance: usdc,

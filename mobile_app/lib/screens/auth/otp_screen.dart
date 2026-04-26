@@ -14,7 +14,12 @@ class OtpScreen extends StatefulWidget {
   final bool isNewUser;
   final String? destination;
 
-  const OtpScreen({super.key, required this.email, required this.isNewUser, this.destination});
+  const OtpScreen({
+    super.key,
+    required this.email,
+    required this.isNewUser,
+    this.destination,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -59,7 +64,6 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   String get _otp => _pinController.text;
-
   Future<void> _verify() async {
     if (_otp.length < 6) return;
     setState(() => _loading = true);
@@ -70,41 +74,43 @@ class _OtpScreenState extends State<OtpScreen> {
 
       final step = result['step'];
       final token = result['token'];
+      final setupToken = (result['setupToken'] ?? '') as String;
+      final isNewUser = (result['isNewUser'] ?? false) as bool;
 
       if (token != null) {
         await apiService.saveToken(token);
       }
 
-      if (step == 'setup_username') {
-        if (widget.isNewUser) {
-          final destination = widget.destination ?? '/auth/business-onboarding';
+      switch (step) {
+        case 'complete':
+          if (mounted) context.go('/mainshell');
+          break;
+
+        case 'setup_business_profile':
           if (mounted) {
-            context.push(destination);
+            context.push(
+              '/auth/business-profile',
+              extra: {
+                'setupToken': setupToken,
+                'isNewUser': isNewUser,
+                'existingData': result['existingData'] ?? {},
+              },
+            );
           }
-        } else {
-          // Existing user - go straight to home if profile complete
+          break;
+
+        case 'setup_business_onboarding':
           if (mounted) {
-            context.go('/mainshell');
+            context.push(
+              '/auth/business-onboarding',
+              extra: {'setupToken': setupToken, 'isNewUser': false},
+            );
           }
-        }
-      } else if (step == 'setup_profile') {
-        if (mounted) {
-          context.push(
-            '/auth/business-profile',
-            extra: {
-              'setupToken': result['setupToken'],
-              'existingProfile': result['existingProfile'],
-            },
-          );
-        }
-      } else if (step == 'complete') {
-        if (mounted) {
-          context.go('/mainshell');
-        }
-      } else {
-        if (mounted) {
-          context.push('/auth/biometric');
-        }
+          break;
+
+        default:
+          // Fallback — shouldn't happen with updated backend
+          if (mounted) context.go('/mainshell');
       }
     } catch (e) {
       if (mounted) {
@@ -209,28 +215,30 @@ class _OtpScreenState extends State<OtpScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
 
+                // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
                 const SizedBox(height: 6),
 
-        ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child:            Text(
-                  'Enter the code we\'ve sent to $masked',
-                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    fontSize: 17,
-                    letterSpacing: -.5,
-                    height: 1.3,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Text(
+                    'Enter the code we\'ve sent to $masked',
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      fontSize: 17,
+                      letterSpacing: -.5,
+                      height: 1.3,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
 
-               ),       const SizedBox(height: 32),
+                  // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
+                ),
+                const SizedBox(height: 32),
 
                 // ── Pinput replaces the manual Row of TextFormFields ──
-                Pinput( enableSuggestions: true,    
+                Pinput(
+                  enableSuggestions: true,
                   length: 6,
                   controller: _pinController,
                   focusNode: _pinFocusNode,
@@ -255,8 +263,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   onChanged: (_) => setState(() {}),
                   onCompleted: (_) => _verify(),
                 ),
-                // .animate().fadeIn(delay: 200.ms),
 
+                // .animate().fadeIn(delay: 200.ms),
                 const SizedBox(height: 32),
 
                 // Resend

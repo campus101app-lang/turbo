@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
+import '../../services/snackbar_service.dart';
 import '../../widgets/auth_button.dart';
 import '../../widgets/app_background.dart';
 // import '../../theme/app_theme.dart';
@@ -34,17 +35,13 @@ class _EmailScreenState extends State<EmailScreen> {
     try {
       final email = _emailController.text.trim();
       final result = await apiService.sendOtp(email);
-      
+
       if (mounted) {
         if (result['isNewUser'] == false) {
           // Existing user - go to OTP then dashboard
           context.push(
             '/auth/otp',
-            extra: {
-              'email': email,
-              'isNewUser': false,
-              'destination': '/dashboard',
-            },
+            extra: {'email': email, 'isNewUser': result['isNewUser'] ?? true},
           );
         } else {
           // New user - go to OTP then business onboarding
@@ -117,23 +114,24 @@ class _EmailScreenState extends State<EmailScreen> {
                       .slideY(begin: 0.2, end: 0),
                   const SizedBox(height: 6),
 
-             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child:         Text(
-                    widget.isNewUser
-                        ? 'If this email is new, we\'ll continue creating your account. If it already has an account, we\'ll help you sign in.'
-                        : 'If this email already has an account, we\'ll proceed with login. If it\'s new, we\'ll start creating your account.',
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      fontSize: 17,
-                      letterSpacing: -.5,
-                      height: 1.3,
-                      color: Theme.of(context).textTheme.bodyMedium?.color!,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Text(
+                      widget.isNewUser
+                          ? 'If this email is new, we\'ll continue creating your account. If it already has an account, we\'ll help you sign in.'
+                          : 'If this email already has an account, we\'ll proceed with login. If it\'s new, we\'ll start creating your account.',
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                        fontSize: 17,
+                        letterSpacing: -.5,
+                        height: 1.3,
+                        color: Theme.of(context).textTheme.bodyMedium?.color!,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
 
-                     ),        const SizedBox(height: 32),
+                    // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
+                  ),
+                  const SizedBox(height: 32),
 
                   // Email field
                   ConstrainedBox(
@@ -202,7 +200,7 @@ class _EmailScreenState extends State<EmailScreen> {
                         return null;
                       },
                     ),
-                // .animate().fadeIn(delay: 200.ms, duration: 400.ms),
+                    // .animate().fadeIn(delay: 200.ms, duration: 400.ms),
                   ),
                   const Spacer(flex: 4),
 
@@ -217,51 +215,51 @@ class _EmailScreenState extends State<EmailScreen> {
 
                   const SizedBox(height: 6),
                   // Terms agreement text
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child:          Text.rich(
-                    TextSpan(
-                      text: 'By continuing, I agree to the ',
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
-                        letterSpacing: -.1,
-                        fontSize: 12,
-                        height: 1.4,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'By continuing, I agree to the ',
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.6),
+                          letterSpacing: -.1,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Terms of Service',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  decoration: TextDecoration.underline,
+                                  letterSpacing: -.1,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.8),
+                                  fontSize: 12,
+                                ),
+                          ),
+                          const TextSpan(text: ' & '),
+                          TextSpan(
+                            text: 'Privacy Statement',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  decoration: TextDecoration.underline,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.8),
+                                  letterSpacing: -.1,
+                                  fontSize: 12,
+                                ),
+                          ),
+                          const TextSpan(text: '.'),
+                        ],
                       ),
-                      children: [
-                        TextSpan(
-                          text: 'Terms of Service',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                decoration: TextDecoration.underline,
-                                letterSpacing: -.1,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.8),
-                                fontSize: 12,
-                              ),
-                        ),
-                        const TextSpan(text: ' & '),
-                        TextSpan(
-                          text: 'Privacy Statement',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.8),
-                                letterSpacing: -.1,
-                                fontSize: 12,
-                              ),
-                        ),
-                        const TextSpan(text: '.'),
-                      ],
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-            ),
                   const SizedBox(height: 32),
                 ],
               ),

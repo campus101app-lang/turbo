@@ -20,6 +20,7 @@ import 'package:mobile_app/screens/auth/backup_screen.dart';
 import 'package:mobile_app/screens/shell/main_shell.dart';
 import 'package:mobile_app/screens/workflows/workflows_screen.dart';
 import 'screens/auth/email_screen.dart';
+
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/biometric_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -40,10 +41,7 @@ CustomTransitionPage buildFadeTransition({
     child: child,
     transitionDuration: const Duration(milliseconds: 300),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(
-        opacity: animation,
-        child: child,
-      );
+      return FadeTransition(opacity: animation, child: child);
     },
   );
 }
@@ -62,7 +60,11 @@ final appRouter = GoRouter(
     final isOnboarding = loc == '/onboarding';
 
     if (isAuth && (isAuthRoute || isOnboarding)) return '/mainshell';
-    if (!isAuth && !isAuthRoute && !isOnboarding && !isPostSignup && !isPublicRequestPay) {
+    if (!isAuth &&
+        !isAuthRoute &&
+        !isOnboarding &&
+        !isPostSignup &&
+        !isPublicRequestPay) {
       return '/onboarding';
     }
     return null;
@@ -76,23 +78,32 @@ final appRouter = GoRouter(
       },
     ),
 
-    GoRoute(path: '/mainshell', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const MainShell(),
-    )),
-    GoRoute(path: '/home', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const HomeScreen(),
-    )),
+    GoRoute(
+      path: '/mainshell',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const MainShell(),
+      ),
+    ),
+    GoRoute(
+      path: '/home',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const HomeScreen(),
+      ),
+    ),
 
     // ── Onboarding ──────────────────────────────────────────
-    GoRoute(path: '/onboarding', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const OnboardingScreen(),
-    )),
+    GoRoute(
+      path: '/onboarding',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const OnboardingScreen(),
+      ),
+    ),
 
     // ── Auth ────────────────────────────────────────────────
     GoRoute(
@@ -100,47 +111,57 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) => buildFadeTransition(
         context: context,
         state: state,
-        child: EmailScreen(isNewUser: (state.extra as Map<String, dynamic>?)?['isNewUser'] ?? true),
+        child: EmailScreen(
+          isNewUser:
+              (state.extra as Map<String, dynamic>?)?['isNewUser'] ?? true,
+        ),
       ),
     ),
     GoRoute(
       path: '/auth/otp',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: OtpScreen(
-          email: (state.extra as Map<String, dynamic>)['email'],
-          isNewUser: (state.extra as Map<String, dynamic>)['isNewUser'] ?? false,
-          destination: (state.extra as Map<String, dynamic>)['destination'],
-        ),
-      ),
+      pageBuilder: (context, state) {
+        final extra = (state.extra as Map<String, dynamic>?) ?? {};
+        return buildFadeTransition(
+          context: context,
+          state: state,
+          child: OtpScreen(
+            email: extra['email'] ?? '',
+            isNewUser: extra['isNewUser'] ?? false,
+            destination: extra['destination'],
+          ),
+        );
+      },
     ),
 
-    // username_screen.dart is DELETED — all new-user post-OTP flows
-    // land here instead.
-    GoRoute(
-      path: '/auth/business-onboarding',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: BusinessOnboardingScreen(
-          setupToken: (state.extra as Map<String, dynamic>)['setupToken'] ?? '',
-        ),
+  GoRoute(
+  path: '/auth/business-profile',
+  pageBuilder: (context, state) {
+    final extra = (state.extra as Map<String, dynamic>?) ?? {};
+    return buildFadeTransition(
+      context: context,
+      state: state,
+      child: BusinessProfileScreen(
+        setupToken: extra['setupToken'] ?? '',
+        isNewUser: extra['isNewUser'] ?? true,
+        existingData: extra['existingData'] as Map<String, dynamic>? ?? {},
       ),
-    ),
-
-    GoRoute(
-      path: '/auth/business-profile',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: BusinessProfileScreen(
-          setupToken: (state.extra as Map<String, dynamic>)['setupToken'] ?? '',
-          existingProfile: (state.extra as Map<String, dynamic>)['existingProfile'] ?? false,
-        ),
+    );
+  },
+),
+GoRoute(
+  path: '/auth/business-onboarding',
+  pageBuilder: (context, state) {
+    final extra = (state.extra as Map<String, dynamic>?) ?? {};
+    return buildFadeTransition(
+      context: context,
+      state: state,
+      child: BusinessOnboardingScreen(
+        setupToken: extra['setupToken'] ?? '',
+        isNewUser: extra['isNewUser'] ?? true,
       ),
-    ),
-
+    );
+  },
+),
     GoRoute(
       path: '/auth/biometric',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -149,11 +170,14 @@ final appRouter = GoRouter(
         child: const BiometricScreen(),
       ),
     ),
-    GoRoute(path: '/auth/backup', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const BackupScreen(),
-    )),
+    GoRoute(
+      path: '/auth/backup',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const BackupScreen(),
+      ),
+    ),
 
     // ── Main app ─────────────────────────────────────────────
     GoRoute(
@@ -161,7 +185,10 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) => buildFadeTransition(
         context: context,
         state: state,
-        child: ReceiveScreen(initialAsset: (state.extra as Map<String, dynamic>?)?['asset'] as String?),
+        child: ReceiveScreen(
+          initialAsset:
+              (state.extra as Map<String, dynamic>?)?['asset'] as String?,
+        ),
       ),
     ),
     GoRoute(
@@ -169,20 +196,29 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) => buildFadeTransition(
         context: context,
         state: state,
-        child: SendScreen(initialAsset: (state.extra as Map<String, dynamic>?)?['asset'] as String?),
+        child: SendScreen(
+          initialAsset:
+              (state.extra as Map<String, dynamic>?)?['asset'] as String?,
+        ),
       ),
     ),
 
-    GoRoute(path: '/buy', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const BuyScreen(),
-    )),
-    GoRoute(path: '/swap', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const SwapScreen(),
-    )),
+    GoRoute(
+      path: '/buy',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const BuyScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/swap',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const SwapScreen(),
+      ),
+    ),
     GoRoute(
       path: '/transactions',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -191,16 +227,22 @@ final appRouter = GoRouter(
         child: const TransactionsScreen(),
       ),
     ),
-    GoRoute(path: '/settings', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const SettingsScreen(),
-    )),
-    GoRoute(path: '/portfolio', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const PortfolioScreen(),
-    )),
+    GoRoute(
+      path: '/settings',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const SettingsScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/portfolio',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const PortfolioScreen(),
+      ),
+    ),
 
     // ── Fund with NGN shortcut ───────────────────────────────
     // Navigating to /fund just opens the Receive screen on Tab 2 (NGN)
@@ -214,11 +256,14 @@ final appRouter = GoRouter(
     ),
 
     // ── Security ─────────────────────────────────────────────
-    GoRoute(path: '/security', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const SecurityScreen(),
-    )),
+    GoRoute(
+      path: '/security',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const SecurityScreen(),
+      ),
+    ),
     GoRoute(
       path: '/security/phrase',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -229,11 +274,14 @@ final appRouter = GoRouter(
     ),
 
     // ── Merchant ─────────────────────────────────────────────
-    GoRoute(path: '/merchant', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const MerchantDashboard(),
-    )),
+    GoRoute(
+      path: '/merchant',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const MerchantDashboard(),
+      ),
+    ),
     GoRoute(
       path: '/merchant/checkout',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -243,11 +291,14 @@ final appRouter = GoRouter(
       ),
     ),
     // ── Invoices ─────────────────────────────────────────
-    GoRoute(path: '/invoices', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const InvoicesScreen(),
-    )),
+    GoRoute(
+      path: '/invoices',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const InvoicesScreen(),
+      ),
+    ),
     GoRoute(
       path: '/invoices/:id',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -261,17 +312,23 @@ final appRouter = GoRouter(
     ),
 
     // ── Expenses ─────────────────────────────────────────
-    GoRoute(path: '/expenses', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const ExpensesScreen(),
-    )),
+    GoRoute(
+      path: '/expenses',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const ExpensesScreen(),
+      ),
+    ),
 
-    GoRoute(path: '/requests', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const RequestsScreen(),
-    )),
+    GoRoute(
+      path: '/requests',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const RequestsScreen(),
+      ),
+    ),
     GoRoute(
       path: '/requests/pay/:requestNumber',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -283,32 +340,44 @@ final appRouter = GoRouter(
       ),
     ),
 
-    GoRoute(path: '/workflows', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const WorkflowsScreen(),
-    )),
+    GoRoute(
+      path: '/workflows',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const WorkflowsScreen(),
+      ),
+    ),
 
     // ── Organization ─────────────────────────────────────────
-    GoRoute(path: '/organization', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const OrganizationScreen(),
-    )),
+    GoRoute(
+      path: '/organization',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const OrganizationScreen(),
+      ),
+    ),
 
     // ── Business/Billing ─────────────────────────────────────
-    GoRoute(path: '/billing', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const InvoicesScreen(),
-    )),
+    GoRoute(
+      path: '/billing',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const InvoicesScreen(),
+      ),
+    ),
 
     // ── Shop ────────────────────────────────────────────────
-    GoRoute(path: '/shop', pageBuilder: (context, state) => buildFadeTransition(
-      context: context,
-      state: state,
-      child: const MerchantDashboard(),
-    )),
+    GoRoute(
+      path: '/shop',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: const MerchantDashboard(),
+      ),
+    ),
 
     // GoRoute(
     //   path: '/expenses/create',

@@ -12,6 +12,11 @@ class UserState {
   final bool isVerified;
   final bool isLoading;
   final String? error;
+  final String? fullName;
+  final String? businessName;
+  final String? businessCategory;
+  final bool isMerchant;
+  final bool isBackedUp;
 
   const UserState({
     this.id,
@@ -22,6 +27,11 @@ class UserState {
     this.isVerified = false,
     this.isLoading = false,
     this.error,
+    this.fullName,
+    this.businessName,
+    this.businessCategory,
+    this.isMerchant = false,
+    this.isBackedUp = false,
   });
 
   String get displayUsername => dayfiUsername ?? username ?? '';
@@ -36,6 +46,11 @@ class UserState {
     bool? isVerified,
     bool? isLoading,
     String? error,
+    String? fullName,
+    String? businessName,
+    String? businessCategory,
+    bool? isMerchant,
+    bool? isBackedUp,
   }) {
     return UserState(
       id: id ?? this.id,
@@ -46,6 +61,11 @@ class UserState {
       isVerified: isVerified ?? this.isVerified,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      fullName: fullName ?? this.fullName,
+      businessName: businessName ?? this.businessName,
+      businessCategory: businessCategory ?? this.businessCategory,
+      isMerchant: isMerchant ?? this.isMerchant,
+      isBackedUp: isBackedUp ?? this.isBackedUp,
     );
   }
 
@@ -57,6 +77,11 @@ class UserState {
       dayfiUsername: map['dayfiUsername'] as String?,
       stellarPublicKey: map['stellarPublicKey'] as String?,
       isVerified: map['isVerified'] as bool? ?? false,
+      fullName: map['fullName'] as String?,
+      businessName: map['businessName'] as String?,
+      businessCategory: map['businessCategory'] as String?,
+      isMerchant: map['isMerchant'] as bool? ?? false,
+      isBackedUp: map['isBackedUp'] as bool? ?? false,
     );
   }
 }
@@ -65,18 +90,21 @@ class UserState {
 
 class UserNotifier extends StateNotifier<UserState> {
   UserNotifier() : super(const UserState(isLoading: true)) {
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    final token = await apiService.getToken();
+    if (token == null) {
+      state = const UserState();
+      return;
+    }
     load();
   }
 
   Future<void> load() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final token = await apiService.getToken();
-      if (token == null) {
-        state = const UserState();
-        return;
-      }
-
       final data = await apiService.getMe();
       state = UserState.fromMap(data).copyWith(isLoading: false);
     } catch (e) {
@@ -114,4 +142,20 @@ final usernameProvider = Provider<String?>((ref) {
 
 final emailProvider = Provider<String?>((ref) {
   return ref.watch(userNotifierProvider).email;
+});
+
+final fullNameProvider = Provider<String?>((ref) {
+  return ref.watch(userNotifierProvider).fullName;
+});
+
+final businessNameProvider = Provider<String?>((ref) {
+  return ref.watch(userNotifierProvider).businessName;
+});
+
+final isMerchantProvider = Provider<bool>((ref) {
+  return ref.watch(userNotifierProvider).isMerchant;
+});
+
+final isBackedUpProvider = Provider<bool>((ref) {
+  return ref.watch(userNotifierProvider).isBackedUp;
 });

@@ -903,7 +903,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      'Your BVN is used only for account creation and is never stored.',
+                      'Your BVN is used for identity verification and stored securely.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 11.5,
                         color: Theme.of(
