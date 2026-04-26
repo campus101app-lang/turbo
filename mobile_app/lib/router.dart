@@ -9,9 +9,8 @@ import 'package:mobile_app/screens/requests/public_request_pay_screen.dart';
 import 'package:mobile_app/screens/merchant/merchant_dashboard.dart';
 import 'package:mobile_app/screens/merchant/checkout_screen.dart';
 import 'package:mobile_app/screens/expenses/expenses_screen.dart';
-import 'package:mobile_app/screens/billing/enhanced_billing_screen.dart';
-import 'package:mobile_app/screens/shop/enhanced_shop_screen.dart';
 import 'package:mobile_app/screens/auth/business_onboarding_screen.dart';
+import 'package:mobile_app/screens/auth/business_profile_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
 import 'package:mobile_app/screens/security/security_screen.dart';
 import 'package:mobile_app/screens/security/recovery_phrase_screen.dart';
@@ -29,9 +28,6 @@ import 'screens/receive/receive_screen.dart';
 import 'screens/send/send_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'services/api_service.dart';
-import 'screens/merchant/merchant_dashboard.dart';
-import 'screens/merchant/checkout_screen.dart';
-import 'screens/expenses/expenses_screen.dart';
 
 // Custom fade transition
 CustomTransitionPage buildFadeTransition({
@@ -129,6 +125,18 @@ final appRouter = GoRouter(
         state: state,
         child: BusinessOnboardingScreen(
           setupToken: (state.extra as Map<String, dynamic>)['setupToken'] ?? '',
+        ),
+      ),
+    ),
+
+    GoRoute(
+      path: '/auth/business-profile',
+      pageBuilder: (context, state) => buildFadeTransition(
+        context: context,
+        state: state,
+        child: BusinessProfileScreen(
+          setupToken: (state.extra as Map<String, dynamic>)['setupToken'] ?? '',
+          existingProfile: (state.extra as Map<String, dynamic>)['existingProfile'] ?? false,
         ),
       ),
     ),
