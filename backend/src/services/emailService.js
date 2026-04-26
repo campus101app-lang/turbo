@@ -244,3 +244,69 @@ export async function sendSwapCompleteEmail(email, fromAsset, toAsset, sentAmoun
   if (error) throw new Error(error.message);
   console.log(`📧 Swap complete email sent to ${email}`);
 }
+
+// ─── Invoice Email ─────────────────────────────────────────────────────────────
+
+export async function sendInvoiceEmail(to, data) {
+  const {
+    invoiceNumber,
+    paymentLink,
+    businessName,
+    totalAmount,
+    currency,
+    clientName,
+    dueDate,
+    title,
+  } = data;
+
+  const sym = currency === 'USDC' ? '$' : '₦';
+  const formattedAmount = `${sym}${Number(totalAmount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+  const dueLine = dueDate
+    ? `<p style="color:#888888;font-size:12px;font-family:'Inter',sans-serif;margin-top:8px;">Due: <strong style="color:#ffffff;">${new Date(dueDate).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}</strong></p>`
+    : '';
+
+  const content = `
+    <tr>
+      <td style="padding:28px 32px 8px;text-align:center;">
+        <p style="color:#888888;font-size:13px;font-family:'Inter',sans-serif;margin-bottom:6px;">New invoice</p>
+        <h2 style="color:#ffffff;font-size:22px;font-weight:600;font-family:'Inter',sans-serif;letter-spacing:-0.5px;margin-bottom:28px;">
+          You have an invoice
+        </h2>
+        ${card(`
+          <p style="color:#888888;font-size:11px;font-family:'Inter',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">From</p>
+          <p style="color:#ffffff;font-size:20px;font-weight:700;font-family:'Inter',sans-serif;">${businessName}</p>
+          <p style="color:#444444;font-size:12px;font-family:'Inter',sans-serif;margin-top:4px;">${invoiceNumber}</p>
+        `)}
+        ${card(`
+          <p style="color:#888888;font-size:11px;font-family:'Inter',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Amount Due</p>
+          <p style="color:#ffffff;font-size:36px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:-1px;">${formattedAmount}</p>
+          ${dueLine}
+        `)}
+        <p style="color:#666666;font-size:13px;font-family:'Inter',sans-serif;line-height:1.7;margin-bottom:24px;">
+          Hi <strong style="color:#aaaaaa;">${clientName}</strong>, ${businessName} sent you an invoice for <strong style="color:#aaaaaa;">${title}</strong>.
+        </p>
+        <a href="${paymentLink}"
+           style="display:inline-block;background:#ffffff;color:#090909;text-decoration:none;
+                  font-size:14px;font-weight:600;padding:14px 36px;border-radius:10px;
+                  font-family:'Inter',sans-serif;letter-spacing:0.2px;">
+          View &amp; Pay Invoice →
+        </a>
+        <p style="margin-top:20px;color:#444444;font-size:11px;font-family:'Inter',sans-serif;word-break:break-all;">
+          <a href="${paymentLink}" style="color:#666666;">${paymentLink}</a>
+        </p>
+      </td>
+    </tr>`;
+
+  const html = shell(content);
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Invoice ${invoiceNumber} from ${businessName} — ${formattedAmount} due`,
+    html,
+    text: `Hi ${clientName},\n\n${businessName} sent you an invoice for ${title}.\n\nAmount: ${formattedAmount}\nPay here: ${paymentLink}\n\nPowered by DayFi`,
+  });
+
+  if (error) throw new Error(error.message);
+  console.log(`📧 Invoice email sent to ${to}`);
+}
