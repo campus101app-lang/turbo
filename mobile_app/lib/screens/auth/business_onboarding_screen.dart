@@ -1,9 +1,9 @@
 // lib/screens/auth/business_onboarding_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
@@ -240,7 +240,9 @@ class _BusinessOnboardingScreenState extends ConsumerState<BusinessOnboardingScr
         const SizedBox(height: 16),
         _buildTextField(
           controller: _businessDescriptionController,
-          label: 'What do you do? (Business Description)',
+          label: _selectedAccountType == AccountType.individual 
+              ? 'What do you do? (Business Description)' 
+              : 'Describe your business activities',
           icon: Icons.work,
           maxLines: 3,
           validator: (value) => value?.isEmpty == true ? 'Required' : null,
