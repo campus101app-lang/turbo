@@ -71,7 +71,7 @@ class ApiService {
     String? businessEmail,
   }) async {
     final resp = await _dio.post(
-      '/api/auth/setup-profile',
+      '/api/auth/setup-business-profile',
       data: {
         'setupToken': setupToken,
         'fullName': fullName,
