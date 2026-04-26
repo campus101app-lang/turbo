@@ -13,7 +13,8 @@ import '../../services/api_service.dart';
 import '../home/home_screen.dart'; // for userProvider
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  final bool insideShell;
+  const SettingsScreen({super.key, required this.insideShell});
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }

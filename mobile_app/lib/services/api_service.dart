@@ -1,6 +1,7 @@
 // lib/services/api_service.dart
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:io';
 
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
@@ -55,6 +56,23 @@ class ApiService {
         },
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> uploadProductImage(
+    String itemId,
+    File imageFile,
+  ) async {
+    final formData = FormData.fromMap({
+      'image': await MultipartFile.fromFile(
+        imageFile.path,
+        filename: imageFile.path.split('/').last,
+      ),
+    });
+    return (await _dio.post(
+          '/api/shop/products/$itemId/image',
+          data: formData,
+        )).data
+        as Map<String, dynamic>;
   }
 
   // ─── Auth ─────────────────────────────────────────────────────────────────

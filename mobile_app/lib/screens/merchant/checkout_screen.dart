@@ -25,7 +25,8 @@ import '../../theme/app_theme.dart';
 final cartProvider = StateProvider<Map<String, int>>((ref) => {});
 
 class CheckoutScreen extends ConsumerStatefulWidget {
-  const CheckoutScreen({super.key});
+  final bool insideShell;
+  const CheckoutScreen({super.key, this.insideShell = false});
 
   @override
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();

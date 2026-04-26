@@ -302,7 +302,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               await ref.read(walletProvider.notifier).refresh();
             },
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
+              padding: const EdgeInsets.fromLTRB(0, 32.0,  0, 100),
               children: [
                 //    // ── Top movers ────────────────────────────────────────────
                 // _FoldableSectionHeader(
@@ -366,9 +366,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                                     style: GoogleFonts.bricolageGrotesque(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
+                                      // color: Theme.of(
+                                      //   context,
+                                      // ).colorScheme.primary,
                                       letterSpacing: 2,
                                       height: 1,
                                     ),
@@ -380,9 +380,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                                   style: GoogleFonts.bricolageGrotesque(
                                     fontSize: 28,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
+                                    // color: Theme.of(
+                                    //   context,
+                                    // ).colorScheme.primary,
                                     letterSpacing: .4,
                                     height: 1,
                                   ),

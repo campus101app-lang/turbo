@@ -342,7 +342,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   constraints: const BoxConstraints(maxWidth: 500),
                   child: SizedBox(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 118, 16, 100),
+                      padding: const EdgeInsets.fromLTRB(16, 32.0,  16, 100),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,

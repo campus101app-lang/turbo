@@ -113,7 +113,7 @@ function LandingPage() {
         }
         .hero p {
           font-size: clamp(16px, 2vw, 20px);
-          color: var(--muted); max-width: 560px;
+          color: var(--muted); max-width: 720px;
           line-height: 1.6; margin-bottom: 48px; font-weight: 400;
           animation: fadeUp 0.7s 0.1s ease both;
         }

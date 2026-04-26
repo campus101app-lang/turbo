@@ -85,10 +85,9 @@ const FAQSection: React.FC = () => {
   return (
     <section id="faq" className="editorial-section bg-zap-brand-dim">
       <div
-
         className="
-      editorial-container 
-      max-w-2xl
+        editorial-container 
+        max-w-2xl
         rounded-3xl
         bg-white
         px-8 py-10

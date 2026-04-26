@@ -136,7 +136,7 @@ export default function TopCreatorsSection() {
             <h2 className="font-display font-bold mx-auto w-full text-[clamp(2rem,9vw,3.5rem)] leading-[1.1] tracking-tight text-zap-ink">
               Agents of all kinds, all kinds!
             </h2>
-            <p className="font-body mx-auto w-full max-w-[720px] text-[20px] leading-snug text-zap-ink md:mt-6 md:text-[28px]">
+            <p className="font-body mx-auto w-full max-w-[600px] text-[20px] leading-snug text-zap-ink md:mt-6 md:text-[28px]">
               From research to execution, one request at a time.
             </p>
 
@@ -160,7 +160,7 @@ export default function TopCreatorsSection() {
           </div>
         {/* </ScrollReveal> */}
 
-        <p className="text-center mx-auto w-full max-w-[720px] mt-12 font-body text-[20px] italic text-zap-ink-muted">Example agents on Zap402</p>
+        <p className="text-center mx-auto w-full max-w-[600px] mt-12 font-body text-[20px] italic text-zap-ink-muted">Example agents on Zap402</p>
 
         {/* Agent cards */}
         {/* <div className="mx-auto mt-12 max-w-5xl">

@@ -15,7 +15,8 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SwapScreen extends ConsumerStatefulWidget {
-  const SwapScreen({super.key});
+   final bool insideShell;
+ const SwapScreen({super.key, required this.insideShell});
 
   @override
   ConsumerState<SwapScreen> createState() => _SwapScreenState();

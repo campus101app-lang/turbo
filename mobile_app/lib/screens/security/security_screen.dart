@@ -12,7 +12,8 @@ import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
 
 class SecurityScreen extends StatefulWidget {
-  const SecurityScreen({super.key});
+  final bool insideShell;
+  const SecurityScreen({super.key, required this.insideShell  });
   @override
   State<SecurityScreen> createState() => _SecurityScreenState();
 }

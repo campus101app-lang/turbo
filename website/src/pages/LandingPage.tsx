@@ -25,18 +25,14 @@ const LandingPage: React.FC = () => {
       className="relative min-h-screen bg-zap-bg text-zap-ink outline-none"
     >
       <HeroSection />
-      {/* <MainProductSection />
       <CreatorsKindsSection />
-      <ComparisonSection />
-      <TopCreatorsSection />
-      <HowItWorksSection />
-      <MissionSection />
       <PaydaySection />
       <ThreeWaysSection />
       <ProblemSection />
       <OpenRailsSection />
-      <HowToBeginSection /> */}
-      {/* <FAQSection /> */}
+      <HowToBeginSection />
+      <MissionSection />
+      <FAQSection />
       <CTASection />
     </div>
   );

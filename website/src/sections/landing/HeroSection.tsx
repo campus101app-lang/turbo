@@ -146,7 +146,7 @@ const HeroSection: React.FC = () => {
       className="editorial-section overflow-hidden px-0 py-16"
     >
       <div className="editorial-container mx-auto w-full max-w-[1200px] px-4">
-        <div className="flex flex-col md:flex-row items-center gap-10 md:gap-24">
+        <div className="flex flex-col md:flex-row items-center gap-10 md:gap-12">
 
           {/* Text + CTA */}
           <div className="flex flex-col items-center text-center flex-1 min-w-0">
@@ -156,14 +156,14 @@ const HeroSection: React.FC = () => {
               transition={{ duration: 0.45, delay: stagger * 3 }}
               className="font-body w-full mb-5 text-[16px] leading-snug text-zap-ink md:text-[20px]"
             >
-              Grow your business
+              
             </motion.p>
             <motion.h1
               {...fadeUp}
               transition={{ duration: 0.45, delay: stagger * 2 }}
               className="font-display font-bold w-full text-[clamp(3.8rem,7vw,4.5rem)] leading-[.95] tracking-tight text-zap-faint"
             >
-              For fast moving businesses
+              Control your business finances, all in one place
             </motion.h1>
 
             <motion.p
@@ -171,8 +171,7 @@ const HeroSection: React.FC = () => {
               transition={{ duration: 0.45, delay: stagger * 3 }}
               className="font-body mt-5 w-full text-[18px] leading-snug text-zap-ink-muted md:text-[22px]"
             >
-              A wallet built for real business: your wealth, remittances, and everyday transfers. Simple, powerful, yours. </motion.p>
-    
+              Track expenses, reimbursements, and invoices for financial efficiency on Africa’s most loved spend management platform.</motion.p>
             <motion.div
               {...fadeUp}
               transition={{ duration: 0.45, delay: stagger * 4 }}

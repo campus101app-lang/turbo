@@ -288,6 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         width: double.infinity,
         child: SingleChildScrollView(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 960),
@@ -302,7 +303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ListView(
                     physics: const NeverScrollableScrollPhysics(),
                     shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(0, 118, 0, 0),
+                    padding: const EdgeInsets.fromLTRB(0, 32.0, 0, 0),
                     children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

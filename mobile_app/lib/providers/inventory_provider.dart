@@ -59,6 +59,11 @@ class InventoryNotifier extends StateNotifier<InventoryState> {
     }
   }
 
+Future<void> setAbsoluteStock(String itemId, int value) async {
+  final map = await apiService.updateStock(itemId, absolute: value);
+  _replaceItem(InventoryItem.fromMap(map));
+}
+
   Future<void> refresh() async {
     if (state.isRefreshing) return;
     state = state.copyWith(isRefreshing: true, error: null);

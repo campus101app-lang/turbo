@@ -41,7 +41,9 @@ class _VirtualAccount {
 
 class ReceiveScreen extends StatefulWidget {
   final String? initialAsset;
-  const ReceiveScreen({super.key, this.initialAsset});
+    final bool insideShell;
+
+  const ReceiveScreen({super.key, this.initialAsset, required this.insideShell});
 
   @override
   State<ReceiveScreen> createState() => _ReceiveScreenState();

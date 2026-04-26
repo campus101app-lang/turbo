@@ -4,54 +4,79 @@ import { Link } from "react-router-dom";
 // import ScrollReveal from "@/components/feedback/ScrollReveal";
 // import { useCreatorOnboardingCta } from "@/hooks/useCreatorOnboardingCta";
 
-const beginSteps = [
+const stats = [
   {
-    category: "WALLET",
-    title: "Connect Wallet",
-    body: "Use Freighter or xBull to pay and unlock with your own wallet.",
-    number: "01",
-    image: "/img/step-wallet.webp",
+    value: "₦1,252,687.69",
+    label: "saved per employee annually",
+    isGreen: true,
   },
   {
-    category: "AGENT",
-    title: "Select Agent",
-    body: "Start with Claude. More agents (chat, image, research) expand over time.",
-    number: "02",
-    image: "/img/step-agent.webp",
+    value: "89%",
+    label: "expense report errors are autocorrected",
+    isGreen: true,
   },
   {
-    category: "PAYMENT",
-    title: "Pay Request",
-    body: "Pay a small USDC amount per task using x402-style payment flow.",
-    number: "03",
-    image: "/img/step-payment.webp",
+    value: "54%",
+    label: "increase in the productivity",
+    isGreen: true,
   },
   {
-    category: "OUTPUT",
-    title: "Receive Output",
-    body: "Get results instantly after confirmation, with on-chain receipt visibility.",
-    number: "04",
-    image: "/img/step-output.webp",
+    value: "37%",
+    label: "faster employee reimbursement",
+    isGreen: true,
   },
-] as const;
-
+];
 const HowToBeginSection: React.FC = () => {
   // const { connected, isRegistered, openWalletConnect } = useCreatorOnboardingCta();
 
   return (
     <section
       id="how-it-works"
-      className="editorial-section bg-zap-bg-alt"
+      className="editorial-section bg-[#0A0A0A]"
     >
       <div className="editorial-container">
-        {/* <ScrollReveal> */}
-          <h2 className="font-display font-bold w-full text-[clamp(2rem,9vw,3.5rem)] leading-[1.1] text-zap-ink max-w-2xl">
-            Fast, Scalable, and Ready for Any Use Case
+        <div className="mx-auto max-w-4xl text-center mb-16">
+          <p className="font-body text-[14px] text-[#4ADE80] uppercase tracking-widest font-semibold opacity-100 text-green-800">
+            Save and earn more          </p>
+          <h2 className="font-display font-semibold pt-4 mt-8 mx-auto w-full max-w-[600px] text-[clamp(1.75rem,9vw,3rem)] font-normal leading-[1.1] tracking-tight md:mt-0">
+            Businesses save more with Bujeti
           </h2>
-          <p className="font-body mx-auto w-full max-w-[720px] text-[20px] leading-snug text-zap-ink md:mt-6 md:text-[28px]">
-            Connect your wallet, choose Claude, pay once, get results.
-          </p>
-        {/* </ScrollReveal> */}
+          <p className="font-body pt-0 mt-0 mx-auto w-full max-w-[600px] text-[14px] leading-snug text-zap-ink leading-[1] md:mt-4 md:text-[20px]">
+            Positive customer ROI in 5 months, reaching 4.5x within 3 years.</p>
+        </div>
+      </div>
+
+      {/* Globe/Graphic Overlay */}
+      <div className="absolute -right-20 top-1/2 -translate-y-1/2 opacity-40 md:opacity-100 pointer-events-none">
+        {/* You can replace this with your actual Globe image */}
+        <div className="w-[400px] h-[400px] md:w-[600px] md:h-[600px] rounded-full bg-gradient-to-br from-green-900/20 to-transparent blur-3xl absolute inset-0" />
+        <img
+          src="/img/globe-dots.svg"
+          alt="data visualization"
+          className="relative w-[500px] md:w-[700px] object-contain"
+        />
+      </div>
+
+      {/* Stats Grid */}
+      <div className="relative border-t border-white/10">
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {stats.map((stat, index) => (
+            <div
+              key={index}
+              className={`p-10 md:p-16 border-white/10 
+                  ${index % 2 === 0 ? "md:border-r" : ""} 
+                  ${index < 2 ? "border-b" : ""}
+                `}
+            >
+              <h3 className={`font-display text-[48px] md:text-[64px] font-normal leading-none mb-4 ${stat.isGreen ? "text-[#4ADE80]" : "text-white"}`}>
+                {stat.value}
+              </h3>
+              <p className="font-body text-[16px] md:text-[18px] opacity-50 max-w-[240px]">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

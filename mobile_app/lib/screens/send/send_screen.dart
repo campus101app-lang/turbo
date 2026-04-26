@@ -14,7 +14,8 @@ import '../../widgets/app_background.dart';
 
 class SendScreen extends ConsumerStatefulWidget {
   final String? initialAsset;
-  const SendScreen({super.key, this.initialAsset});
+  final bool insideShell;
+  const SendScreen({super.key, this.initialAsset, this.insideShell = false});
 
   @override
   ConsumerState<SendScreen> createState() => _SendScreenState();
@@ -233,10 +234,14 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (_selectedAsset != 'NGNT') {
           throw Exception('Bank transfer is available for NGNT only');
         }
-        if (_selectedBankCode == null || _bankAccountController.text.trim().length != 10) {
-          throw Exception('Select bank and enter a valid 10-digit account number');
+        if (_selectedBankCode == null ||
+            _bankAccountController.text.trim().length != 10) {
+          throw Exception(
+            'Select bank and enter a valid 10-digit account number',
+          );
         }
-        if (_resolvedBankAccountName == null || _resolvedBankAccountName!.isEmpty) {
+        if (_resolvedBankAccountName == null ||
+            _resolvedBankAccountName!.isEmpty) {
           throw Exception('Resolve beneficiary account before sending');
         }
         final idempotencyKey =
@@ -322,7 +327,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       ),
                     ),
                   ),
-                // .animate().fadeIn(delay: 500.ms),
+                  // .animate().fadeIn(delay: 500.ms),
                 ),
 
                 const SizedBox(height: 8),
@@ -354,7 +359,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       ),
                     ),
                   ),
-                // .animate().fadeIn(delay: 500.ms),
+                  // .animate().fadeIn(delay: 500.ms),
                 ),
               ],
             ),
@@ -372,14 +377,18 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     final isPending = isBank && bankStatus == 'pending';
     final isFailed = isBank && bankStatus == 'failed';
     final title = isBank
-        ? (isPending ? 'Transfer Pending' : isFailed ? 'Transfer Failed' : 'Transfer Sent')
+        ? (isPending
+              ? 'Transfer Pending'
+              : isFailed
+              ? 'Transfer Failed'
+              : 'Transfer Sent')
         : 'Sent!';
     final subtitle = isBank
         ? (isPending
-            ? 'Your bank transfer is processing. We will update your transactions shortly.'
-            : isFailed
-                ? 'Bank transfer failed. Please retry with correct beneficiary details.'
-                : '${_amountController.text} $_selectedAsset transfer submitted successfully.')
+              ? 'Your bank transfer is processing. We will update your transactions shortly.'
+              : isFailed
+              ? 'Bank transfer failed. Please retry with correct beneficiary details.'
+              : '${_amountController.text} $_selectedAsset transfer submitted successfully.')
         : '${_amountController.text} $_selectedAsset sent successfully.';
     showDayFiBottomSheet(
       context: context,
@@ -470,7 +479,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                 ),
               ),
             ),
-                // .animate().fadeIn(delay: 500.ms),
+            // .animate().fadeIn(delay: 500.ms),
           ],
         ),
       ),
@@ -670,7 +679,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         style: Theme.of(context).textTheme.headlineMedium,
                         textAlign: TextAlign.center,
                       ),
-                // .animate().fadeIn(),
+                      // .animate().fadeIn(),
                     ),
                     const SizedBox(height: 8),
                     Center(
@@ -683,7 +692,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                // .animate().fadeIn(delay: 15.ms),
+                      // .animate().fadeIn(delay: 15.ms),
                     ),
                     const SizedBox(height: 24),
 
@@ -702,7 +711,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           ),
                         ),
                       ),
-                // .animate().fadeIn(delay: 25.ms),
+                      // .animate().fadeIn(delay: 25.ms),
                     ),
 
                     const SizedBox(height: 20),
@@ -722,7 +731,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                         autocorrect: false,
                         enabled: _sendRail == 'blockchain',
                         onChanged: (v) {
-                          if (_sendRail == 'blockchain' && v.length > 2) _resolveRecipient(v);
+                          if (_sendRail == 'blockchain' && v.length > 2)
+                            _resolveRecipient(v);
                         },
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(
@@ -798,7 +808,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           ),
                         ),
                       ),
-                // .animate().fadeIn(delay: 50.ms),
+                      // .animate().fadeIn(delay: 50.ms),
                     ),
 
                     if (_recipientError != null)
@@ -860,7 +870,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           decoration: InputDecoration(
                             hintText: 'Select bank',
                             filled: true,
-                            fillColor: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
+                            fillColor: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.color?.withOpacity(0.1),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -879,7 +891,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                             hintText: '10-digit account number',
                             counterText: '',
                             filled: true,
-                            fillColor: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
+                            fillColor: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.color?.withOpacity(0.1),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -893,10 +907,16 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                   accountNumber: v,
                                 );
                                 if (mounted) {
-                                  setState(() => _resolvedBankAccountName = r['accountName']?.toString());
+                                  setState(
+                                    () => _resolvedBankAccountName =
+                                        r['accountName']?.toString(),
+                                  );
                                 }
                               } catch (_) {
-                                if (mounted) setState(() => _resolvedBankAccountName = null);
+                                if (mounted)
+                                  setState(
+                                    () => _resolvedBankAccountName = null,
+                                  );
                               }
                             } else {
                               setState(() => _resolvedBankAccountName = null);
@@ -909,10 +929,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           padding: const EdgeInsets.only(top: 2, left: 4),
                           child: Text(
                             '${_resolvedBankAccountName!} • ${_selectedBankName ?? ''}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: DayFiColors.green,
-                              fontSize: 12,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: DayFiColors.green,
+                                  fontSize: 12,
+                                ),
                           ),
                         ),
                       if (_resolvedBankAccountName == null)
@@ -920,10 +941,13 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           padding: const EdgeInsets.only(top: 2, left: 4),
                           child: Text(
                             'Select bank + enter account number to resolve beneficiary',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
-                              fontSize: 12,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.45),
+                                  fontSize: 12,
+                                ),
                           ),
                         ),
                     ],
@@ -990,7 +1014,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           ),
                         ),
                       ),
-                // .animate().fadeIn(delay: 100.ms),
+                      // .animate().fadeIn(delay: 100.ms),
                     ),
 
                     const SizedBox(height: 4),
@@ -1000,9 +1024,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       hoverColor: Colors.transparent,
                       onTap: () {
                         final maxAmount = _availableBalance(_selectedAsset);
-                        _amountController.text = maxAmount.toStringAsFixed(
-                          2,
-                        );
+                        _amountController.text = maxAmount.toStringAsFixed(2);
                       },
                       child: _buildSendBalanceInfo(
                         kAssets[_selectedAsset]!.code,
@@ -1068,7 +1090,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                           counterText: '',
                         ),
                       ),
-                // .animate().fadeIn(delay: 100.ms),
+                      // .animate().fadeIn(delay: 100.ms),
                     ),
 
                     const SizedBox(height: 20),
@@ -1076,7 +1098,10 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                       constraints: const BoxConstraints(maxWidth: 420),
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          minimumSize:  Size(MediaQuery.of(context).size.width, 48),
+                          minimumSize: Size(
+                            MediaQuery.of(context).size.width,
+                            48,
+                          ),
                           side: BorderSide(
                             color:
                                 _loading ||
@@ -1115,8 +1140,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                                         _invalidAmount ||
                                         _amountController.text.isEmpty ||
                                         (_sendRail == 'blockchain' &&
-                                            _toController.text.trim().isEmpty) ||
-                                        (_sendRail == 'bank' && !_canSendBankRail)
+                                            _toController.text
+                                                .trim()
+                                                .isEmpty) ||
+                                        (_sendRail == 'bank' &&
+                                            !_canSendBankRail)
                                     ? Theme.of(
                                         context,
                                       ).colorScheme.onSurface.withOpacity(.45)
@@ -1217,4 +1245,3 @@ class _DropdownBox extends StatelessWidget {
     );
   }
 }
-

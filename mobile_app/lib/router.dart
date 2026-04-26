@@ -1,6 +1,17 @@
 // lib/router.dart
+//
+// On web (all platforms that render MainShell), the routes /send /receive
+// /swap /settings /security are handled INSIDE the shell via shellNavProvider.
+// The GoRouter routes for those paths now redirect to /mainshell and set the
+// provider state before doing so — handled by the redirect below.
+//
+// Routes that are always full-screen (auth flow, merchant checkout, public
+// request pay, recovery phrase) are unchanged.
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app/providers/shell_navigation_provider.dart';
 import 'package:mobile_app/screens/buy/buy_screen.dart';
 import 'package:mobile_app/screens/portfolio/portfolio_screen.dart';
 import 'package:mobile_app/screens/invoices/invoices_screen.dart';
@@ -20,7 +31,6 @@ import 'package:mobile_app/screens/auth/backup_screen.dart';
 import 'package:mobile_app/screens/shell/main_shell.dart';
 import 'package:mobile_app/screens/workflows/workflows_screen.dart';
 import 'screens/auth/email_screen.dart';
-
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/biometric_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
@@ -30,7 +40,13 @@ import 'screens/send/send_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'services/api_service.dart';
 
-// Custom fade transition
+// ── Riverpod container ref (needed to write shellNavProvider from redirects) ──
+// Pass your ProviderContainer / WidgetRef here at app startup.
+// See main.dart usage note at bottom of this file.
+ProviderContainer? shellRouterContainer;
+
+// ── Transition helper ─────────────────────────────────────────────────────────
+
 CustomTransitionPage buildFadeTransition({
   required BuildContext context,
   required GoRouterState state,
@@ -40,11 +56,19 @@ CustomTransitionPage buildFadeTransition({
     key: state.pageKey,
     child: child,
     transitionDuration: const Duration(milliseconds: 300),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FadeTransition(opacity: animation, child: child);
-    },
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(opacity: animation, child: child),
   );
 }
+
+// ── Helper: navigate inside shell then redirect to /mainshell ─────────────────
+
+String _shellRedirect(ShellDest dest) {
+  shellRouterContainer?.read(shellNavProvider.notifier).goTo(dest);
+  return '/mainshell';
+}
+
+// ── Router ────────────────────────────────────────────────────────────────────
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -53,7 +77,6 @@ final appRouter = GoRouter(
     final isAuth = token != null;
     final loc = state.matchedLocation;
 
-    // These are allowed even when authenticated (post-signup flow)
     final isPostSignup = loc == '/auth/biometric' || loc == '/auth/backup';
     final isPublicRequestPay = loc.startsWith('/requests/pay/');
     final isAuthRoute = loc.startsWith('/auth') && !isPostSignup;
@@ -78,6 +101,7 @@ final appRouter = GoRouter(
       },
     ),
 
+    // ── Shell ──────────────────────────────────────────────────────────────
     GoRoute(
       path: '/mainshell',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -86,16 +110,79 @@ final appRouter = GoRouter(
         child: const MainShell(),
       ),
     ),
+    GoRoute(path: '/home', redirect: (_, __) => _shellRedirect(ShellDest.home)),
+
+    // ── Shell sub-screens (redirect into shell instead of full-screen) ──────
     GoRoute(
-      path: '/home',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const HomeScreen(),
-      ),
+      path: '/send',
+      redirect: (context, state) {
+        // On mobile (narrow) allow full-screen; on web redirect into shell.
+        // We always redirect into shell — SendScreen handles insideShell flag.
+        final asset =
+            (state.extra as Map<String, dynamic>?)?['asset'] as String?;
+        shellRouterContainer
+            ?.read(shellNavProvider.notifier)
+            .goTo(ShellDest.send);
+        return '/mainshell';
+      },
+    ),
+    GoRoute(
+      path: '/receive',
+      redirect: (context, state) {
+        shellRouterContainer
+            ?.read(shellNavProvider.notifier)
+            .goTo(ShellDest.receive);
+        return '/mainshell';
+      },
+    ),
+    GoRoute(path: '/swap', redirect: (_, __) => _shellRedirect(ShellDest.swap)),
+    GoRoute(
+      path: '/settings',
+      redirect: (_, __) => _shellRedirect(ShellDest.settings),
+    ),
+    GoRoute(
+      path: '/security',
+      redirect: (_, __) => _shellRedirect(ShellDest.security),
+    ),
+    GoRoute(
+      path: '/fund',
+      redirect: (_, __) => _shellRedirect(ShellDest.receive),
+    ),
+    GoRoute(
+      path: '/transactions',
+      redirect: (_, __) => _shellRedirect(ShellDest.transactions),
+    ),
+    GoRoute(
+      path: '/billing',
+      redirect: (_, __) => _shellRedirect(ShellDest.billing),
+    ),
+    GoRoute(
+      path: '/expenses',
+      redirect: (_, __) => _shellRedirect(ShellDest.expenses),
+    ),
+    GoRoute(path: '/shop', redirect: (_, __) => _shellRedirect(ShellDest.shop)),
+    GoRoute(
+      path: '/workflows',
+      redirect: (_, __) => _shellRedirect(ShellDest.workflows),
+    ),
+    GoRoute(
+      path: '/shop/checkout',
+      redirect: (_, __) => _shellRedirect(ShellDest.checkout),
+    ),
+    GoRoute(
+      path: '/shop/add-product',
+      redirect: (_, __) => _shellRedirect(ShellDest.addProduct),
+    ),
+    GoRoute(
+      path: '/shop/edit-product',
+      redirect: (_, __) => _shellRedirect(ShellDest.editProduct),
+    ),
+    GoRoute(
+      path: '/shop/product',
+      redirect: (_, __) => _shellRedirect(ShellDest.productDetail),
     ),
 
-    // ── Onboarding ──────────────────────────────────────────
+    // ── Onboarding ──────────────────────────────────────────────────────────
     GoRoute(
       path: '/onboarding',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -105,7 +192,7 @@ final appRouter = GoRouter(
       ),
     ),
 
-    // ── Auth ────────────────────────────────────────────────
+    // ── Auth ────────────────────────────────────────────────────────────────
     GoRoute(
       path: '/auth/email',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -132,36 +219,35 @@ final appRouter = GoRouter(
         );
       },
     ),
-
-  GoRoute(
-  path: '/auth/business-profile',
-  pageBuilder: (context, state) {
-    final extra = (state.extra as Map<String, dynamic>?) ?? {};
-    return buildFadeTransition(
-      context: context,
-      state: state,
-      child: BusinessProfileScreen(
-        setupToken: extra['setupToken'] ?? '',
-        isNewUser: extra['isNewUser'] ?? true,
-        existingData: extra['existingData'] as Map<String, dynamic>? ?? {},
-      ),
-    );
-  },
-),
-GoRoute(
-  path: '/auth/business-onboarding',
-  pageBuilder: (context, state) {
-    final extra = (state.extra as Map<String, dynamic>?) ?? {};
-    return buildFadeTransition(
-      context: context,
-      state: state,
-      child: BusinessOnboardingScreen(
-        setupToken: extra['setupToken'] ?? '',
-        isNewUser: extra['isNewUser'] ?? true,
-      ),
-    );
-  },
-),
+    GoRoute(
+      path: '/auth/business-profile',
+      pageBuilder: (context, state) {
+        final extra = (state.extra as Map<String, dynamic>?) ?? {};
+        return buildFadeTransition(
+          context: context,
+          state: state,
+          child: BusinessProfileScreen(
+            setupToken: extra['setupToken'] ?? '',
+            isNewUser: extra['isNewUser'] ?? true,
+            existingData: extra['existingData'] as Map<String, dynamic>? ?? {},
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/auth/business-onboarding',
+      pageBuilder: (context, state) {
+        final extra = (state.extra as Map<String, dynamic>?) ?? {};
+        return buildFadeTransition(
+          context: context,
+          state: state,
+          child: BusinessOnboardingScreen(
+            setupToken: extra['setupToken'] ?? '',
+            isNewUser: extra['isNewUser'] ?? true,
+          ),
+        );
+      },
+    ),
     GoRoute(
       path: '/auth/biometric',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -179,60 +265,13 @@ GoRoute(
       ),
     ),
 
-    // ── Main app ─────────────────────────────────────────────
-    GoRoute(
-      path: '/receive',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: ReceiveScreen(
-          initialAsset:
-              (state.extra as Map<String, dynamic>?)?['asset'] as String?,
-        ),
-      ),
-    ),
-    GoRoute(
-      path: '/send',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: SendScreen(
-          initialAsset:
-              (state.extra as Map<String, dynamic>?)?['asset'] as String?,
-        ),
-      ),
-    ),
-
+    // ── Always full-screen (modal / deep-link / external) ──────────────────
     GoRoute(
       path: '/buy',
       pageBuilder: (context, state) => buildFadeTransition(
         context: context,
         state: state,
         child: const BuyScreen(),
-      ),
-    ),
-    GoRoute(
-      path: '/swap',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const SwapScreen(),
-      ),
-    ),
-    GoRoute(
-      path: '/transactions',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const TransactionsScreen(),
-      ),
-    ),
-    GoRoute(
-      path: '/settings',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const SettingsScreen(),
       ),
     ),
     GoRoute(
@@ -243,27 +282,6 @@ GoRoute(
         child: const PortfolioScreen(),
       ),
     ),
-
-    // ── Fund with NGN shortcut ───────────────────────────────
-    // Navigating to /fund just opens the Receive screen on Tab 2 (NGN)
-    GoRoute(
-      path: '/fund',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const ReceiveScreen(initialAsset: 'NGNT'),
-      ),
-    ),
-
-    // ── Security ─────────────────────────────────────────────
-    GoRoute(
-      path: '/security',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const SecurityScreen(),
-      ),
-    ),
     GoRoute(
       path: '/security/phrase',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -272,8 +290,6 @@ GoRoute(
         child: const RecoveryPhraseScreen(),
       ),
     ),
-
-    // ── Merchant ─────────────────────────────────────────────
     GoRoute(
       path: '/merchant',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -290,7 +306,6 @@ GoRoute(
         child: const CheckoutScreen(),
       ),
     ),
-    // ── Invoices ─────────────────────────────────────────
     GoRoute(
       path: '/invoices',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -310,17 +325,6 @@ GoRoute(
         ),
       ),
     ),
-
-    // ── Expenses ─────────────────────────────────────────
-    GoRoute(
-      path: '/expenses',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const ExpensesScreen(),
-      ),
-    ),
-
     GoRoute(
       path: '/requests',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -339,17 +343,6 @@ GoRoute(
         ),
       ),
     ),
-
-    GoRoute(
-      path: '/workflows',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const WorkflowsScreen(),
-      ),
-    ),
-
-    // ── Organization ─────────────────────────────────────────
     GoRoute(
       path: '/organization',
       pageBuilder: (context, state) => buildFadeTransition(
@@ -358,37 +351,22 @@ GoRoute(
         child: const OrganizationScreen(),
       ),
     ),
-
-    // ── Business/Billing ─────────────────────────────────────
-    GoRoute(
-      path: '/billing',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const InvoicesScreen(),
-      ),
-    ),
-
-    // ── Shop ────────────────────────────────────────────────
-    GoRoute(
-      path: '/shop',
-      pageBuilder: (context, state) => buildFadeTransition(
-        context: context,
-        state: state,
-        child: const MerchantDashboard(),
-      ),
-    ),
-
-    // GoRoute(
-    //   path: '/expenses/create',
-    //   builder: (_, __) => const CreateEditExpenseScreen(),
-    // ),
-    // GoRoute(
-    //   path: '/expenses/:id',
-    //   builder: (_, state) {
-    //     final id = state.pathParameters['id'];
-    //     return CreateEditExpenseScreen(expenseId: id);
-    //   },
-    // ),
   ],
 );
+
+// ── main.dart usage note ───────────────────────────────────────────────────────
+//
+// In your main.dart, after creating your ProviderScope / ProviderContainer,
+// assign it so redirects can write to shellNavProvider:
+//
+//   void main() {
+//     final container = ProviderContainer();
+//     shellRouterContainer = container;
+//     runApp(UncontrolledProviderScope(
+//       container: container,
+//       child: MyApp(),
+//     ));
+//   }
+//
+// If you already use ProviderScope without a container, the simplest approach
+// is to replace it with UncontrolledProviderScope using an explicit container.

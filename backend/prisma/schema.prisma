@@ -66,6 +66,8 @@ model User {
   nin               String?
   idType            String? // NIN, DRIVERS_LICENSE, VOTER_CARD
   idNumber          String?
+
+  orders Order[]
   
   // Legacy fields (for compatibility)
   businessCategory  String?
@@ -438,7 +440,7 @@ model InventoryItem {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  description String?
   name      String
   sku       String?
   priceUsdc Float
@@ -447,6 +449,8 @@ model InventoryItem {
   barcode   String?
   imageUrl  String?
   category  String?
+  isActive    Boolean   @default(true)
+  orders      OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -672,4 +676,53 @@ enum WorkflowAction {
   sendReminder
   notifyUser
   flagExpense
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+
+  orderNumber String     @unique
+  status      OrderStatus @default(pending)
+
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+
+  items         OrderItem[]
+  totalUsdc     Float
+  notes         String?
+
+  stellarTxHash String?
+  paidAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  name      String
+  priceUsdc Float
+  quantity  Int
+
+  @@index([orderId])
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  fulfilled
+  cancelled
+  refunded
 }

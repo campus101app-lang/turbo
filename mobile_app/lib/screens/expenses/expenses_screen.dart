@@ -106,7 +106,7 @@ class ExpensesScreen extends ConsumerWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 960),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 118, 0, 100),
+                padding: const EdgeInsets.fromLTRB(0, 32.0,  0, 100),
                 child: expAsync.when(
                   loading: () => const SizedBox(
                     height: 400,

@@ -80,6 +80,7 @@ app.use(
 );
 app.use(organizationRateLimit());
 
+
 const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -129,6 +130,7 @@ app.use("/api/workflows", workflowsRoutes);
 app.use("/api/requests", requestsRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/shop", shopRoutes);
+app.use("/api/wallet", walletRoutes);
 
 // ─── SEP Routes ───────────────────────────────────────────────────────────────
 

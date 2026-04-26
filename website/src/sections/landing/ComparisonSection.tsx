@@ -45,7 +45,7 @@ const ComparisonSection: React.FC = () => {
         <div className="mt-12">
           <div className="card-editorial overflow-hidden p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] border-collapse text-left font-body text-[14px] leading-relaxed text-zap-ink">
+              <table className="w-full min-w-[600px] border-collapse text-left font-body text-[14px] leading-relaxed text-zap-ink">
                 <thead>
                   <tr className="border-b border-zap-bg-alt">
                     {columns.map((col, i) => (
