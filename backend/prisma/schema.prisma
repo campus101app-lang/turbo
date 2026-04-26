@@ -532,6 +532,10 @@ enum ExpenseCategory {
   office
   utilities
   other
+  meals
+  accommodation
+  equipment
+  salary
 }
 
 enum CardType {
@@ -554,12 +558,15 @@ enum CardStatus {
 enum InvoicePaymentType {
   crypto
   bank
+  bankTransfer
+  both
 }
 
 enum WorkflowStatus {
   active
   paused
   disabled
+  archived
 }
 
 enum WorkflowTriggerType {
