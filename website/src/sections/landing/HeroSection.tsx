@@ -150,7 +150,7 @@ const HeroSection: React.FC = () => {
 
           {/* Text + CTA */}
           <div className="flex flex-col items-center text-center flex-1 min-w-0">
-            <img src="public/img/hero_logo.png" alt="" className="w-44 h-44 object-contain" />
+            <img src="img/hero_logo.png" alt="" className="w-44 h-44 object-contain" />
             <motion.p
               {...fadeUp}
               transition={{ duration: 0.45, delay: stagger * 3 }}

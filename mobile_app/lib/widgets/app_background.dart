@@ -10,26 +10,48 @@ class AppBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(-0.6, -0.8),
-          radius: 1.4,
-          colors: isDark
-              ? [
-                  const Color(0xFF1E1812), // warm dark brown top-left
-                  const Color(0xFF141009), // warm near-black center
-                  const Color(0xFF0D0A06), // deepest warm dark bottom
-                ]
-              : [
-                  const Color(0xFFEDE5D8), // warm parchment top-left
-                  const Color(0xFFF3EDE4), // soft warm center
-                  const Color(0xFFFAF7F4), // lightest warm bottom
-                ],
-          stops: const [0.0, 0.5, 1.0],
-        ),
+    return CustomPaint(
+      painter: _DotGridPainter(isDark: isDark),
+      child: ColoredBox(
+        color: isDark
+            ? const Color(0xFF0D0D0D) // --color-bg dark
+            : const Color(0xFFF9F7F4), // --color-bg light
+        child: child,
       ),
-      child: child,
     );
   }
+}
+
+class _DotGridPainter extends CustomPainter {
+  final bool isDark;
+
+  const _DotGridPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Web CSS: radial-gradient(var(--color-border) 0.75px, transparent 0.75px)
+    // background-size: 22px 22px (light) / 24px 24px (dark)
+    //
+    // --color-border light: rgba(0,0,0, 0.08)
+    // --color-border dark:  rgba(255,255,255, 0.08)
+    final dotColor = isDark
+        ? const Color(0x14FFFFFF) // rgba(255,255,255, 0.08)
+        : const Color(0x14000000); // rgba(0,0,0, 0.08)
+
+    final double spacing = isDark ? 24.0 : 22.0;
+    const double radius = 0.75;
+
+    final paint = Paint()
+      ..color = dotColor
+      ..style = PaintingStyle.fill;
+
+    for (double x = 0; x < size.width + spacing; x += spacing) {
+      for (double y = 0; y < size.height + spacing; y += spacing) {
+        canvas.drawCircle(Offset(x, y), radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotGridPainter old) => old.isDark != isDark;
 }

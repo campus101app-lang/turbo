@@ -232,7 +232,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
     if (saved == 'light') {
       state = ThemeMode.light;
     } else if (saved == 'system') state = ThemeMode.system;
-    else state = ThemeMode.dark; // default
+    else state = ThemeMode.light; // default to light theme
   }
 
   Future<void> setTheme(ThemeMode mode) async {

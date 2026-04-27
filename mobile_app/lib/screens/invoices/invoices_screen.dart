@@ -1,25 +1,23 @@
 // lib/screens/invoices/invoices_screen.dart
 //
-// Changes vs previous version:
-//   1. Status count chips added to _InsightsPanel (Draft/Sent/Viewed/Paid/Overdue/Cancelled)
-//   2. Step 3 now has TWO buttons: [Save as Draft] + [Send Invoice →]
-//      – Send Invoice calls createInvoice then sendInvoice
-//      – Save as Draft calls createInvoice only
-//   3. _InvoiceTile now has a ⋮ button opening a status-aware bottom-sheet menu
-//      (full-card tap no longer the primary action; ⋮ opens actions)
-//   4. apiService & invoiceItemLibraryProvider calls are untouched
+// Redesigned: auth-style forms, AccountMoverCard aesthetic, no dialogs.
+// Create/Detail flow uses ShellDest.createInvoice / ShellDest.invoiceDetail
+// (add these to your ShellDest enum + IndexedStack if you want full sub-screen
+//  routing; alternatively the FAB/detail sheet stays as a bottom sheet since
+//  the form is already auth-styled).
+//
+// For now: create flow is a bottom sheet (matching auth form style exactly),
+// tile tap opens a compact detail bottom sheet. Both use the same glass +
+// Bricolage Grotesque language as auth screens.
 
-import 'dart:ui';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:mobile_app/providers/invoice_item_library_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
@@ -41,1259 +39,217 @@ class InvoicesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final invoicesAsync = ref.watch(invoicesProvider);
+    final async = ref.watch(invoicesProvider);
+    final isWide = MediaQuery.sizeOf(context).width >= 768;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _buildFab(context, ref),
+      floatingActionButton: _Fab(onTap: () => _showCreateSheet(context, ref)),
       body: SizedBox(
         width: double.infinity,
-        child: SingleChildScrollView(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 32.0,  0, 100),
-                child: invoicesAsync.when(
-                  loading: () => const SizedBox(
-                    height: 400,
-                    child: Center(child: CircularProgressIndicator()),
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => _ErrorView(
+            message: apiService.parseError(e),
+            onRetry: () => ref.invalidate(invoicesProvider),
+          ),
+          data: (invoices) {
+            if (invoices.isEmpty) {
+              return _EmptyView(onCreate: () => _showCreateSheet(context, ref));
+            }
+
+            const statusOrder = ['overdue', 'sent', 'viewed', 'draft', 'paid', 'cancelled'];
+            final groups = <String, List<Map<String, dynamic>>>{
+              for (final s in statusOrder) s: [],
+            };
+            for (final inv in invoices) {
+              final s = (inv['status'] as String?) ?? 'draft';
+              (groups[s] ??= []).add(inv);
+            }
+
+            return RefreshIndicator(
+              onRefresh: () async => ref.invalidate(invoicesProvider),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 960),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 28, 16, 100),
+                      child: isWide
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _InsightsPanel(
+                                    invoices: invoices,
+                                    groups: groups,
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  child: _InvoiceList(
+                                    groups: groups,
+                                    order: statusOrder,
+                                    onTap: (inv) => _showDetailSheet(context, ref, inv),
+                                    onMenu: (action, inv) => _handleAction(context, ref, action, inv),
+                                    onNew: () => _showCreateSheet(context, ref),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                _InsightsPanel(invoices: invoices, groups: groups),
+                                const SizedBox(height: 24),
+                                _InvoiceList(
+                                  groups: groups,
+                                  order: statusOrder,
+                                  onTap: (inv) => _showDetailSheet(context, ref, inv),
+                                  onMenu: (action, inv) => _handleAction(context, ref, action, inv),
+                                  onNew: () => _showCreateSheet(context, ref),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
-                  error: (e, _) => _buildError(context, ref, e.toString()),
-                  data: (invoices) => _buildBody(context, ref, invoices),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFab(BuildContext context, WidgetRef ref) {
-    return Container(
-      height: 60,
-      width: 60,
-      decoration: BoxDecoration(
-        color: Theme.of(context).textTheme.bodySmall!.color!.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-        ),
-      ),
-      child: InkWell(
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        onTap: () => _showInvoiceModal(context, ref),
-        child: Center(
-          child: FaIcon(
-            FontAwesomeIcons.plus,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-          ),
-        ),
-      ),
-    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
-  }
-
-  Widget _buildError(BuildContext context, WidgetRef ref, String err) {
-    return SizedBox(
-      height: 300,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Failed to load invoices',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => ref.invalidate(invoicesProvider),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody(
-    BuildContext context,
-    WidgetRef ref,
-    List<Map<String, dynamic>> invoices,
-  ) {
-    if (invoices.isEmpty) {
-      return _EmptyState(onTapCreate: () => _showInvoiceModal(context, ref));
-    }
-
-    const order = ['overdue', 'sent', 'viewed', 'draft', 'paid', 'cancelled'];
-    final groups = <String, List<Map<String, dynamic>>>{
-      for (final s in order) s: [],
-    };
-    for (final inv in invoices) {
-      final status = (inv['status'] as String?) ?? 'draft';
-      (groups[status] ??= []).add(inv);
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _InsightsPanel(invoices: invoices, groups: groups)),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _InvoiceListPanel(
-            groups: groups,
-            order: order,
-            onTapInvoice: (inv) => _showDetailModal(context, ref, inv),
-            onMenuAction: (action, inv) =>
-                _handleMenuAction(context, ref, action, inv),
-            onCreateTap: () => _showInvoiceModal(context, ref),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showInvoiceModal(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      builder: (_) => _GlassModal(
-        child: _CreateInvoiceFlow(
-          onCreated: () {
-            ref.invalidate(invoicesProvider);
-            Navigator.of(context).pop();
+            );
           },
         ),
       ),
     );
   }
 
-  void _showDetailModal(
-    BuildContext context,
-    WidgetRef ref,
-    Map<String, dynamic> inv,
-  ) {
-    showDialog(
+  // ── Sheet launchers ────────────────────────────────────────────────────────
+
+  void _showCreateSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
       context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      builder: (_) => _GlassModal(
-        child: _InvoiceDetailContent(
-          invoice: inv,
-          onRefresh: () {
-            ref.invalidate(invoicesProvider);
-            Navigator.of(context).pop();
-          },
-          onClose: () => Navigator.of(context).pop(),
-        ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CreateSheet(
+        onCreated: () {
+          ref.invalidate(invoicesProvider);
+          Navigator.of(context).pop();
+        },
       ),
     );
   }
 
-  // ── 3-dot menu action dispatcher ──────────────────────────────────────────
+  void _showDetailSheet(BuildContext context, WidgetRef ref, Map<String, dynamic> inv) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DetailSheet(
+        invoice: inv,
+        onRefresh: () {
+          ref.invalidate(invoicesProvider);
+          Navigator.of(context).pop();
+        },
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
 
-  Future<void> _handleMenuAction(
+  // ── Action handler ─────────────────────────────────────────────────────────
+
+  Future<void> _handleAction(
     BuildContext context,
     WidgetRef ref,
     String action,
     Map<String, dynamic> inv,
   ) async {
     final id = inv['id'] as String;
-    final paymentLink = inv['paymentLink'] as String?;
+    final link = inv['paymentLink'] as String?;
+
+    void snack(String msg) {
+      if (context.mounted) ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    }
 
     switch (action) {
       case 'view':
-        _showDetailModal(context, ref, inv);
+        _showDetailSheet(context, ref, inv);
       case 'send':
         try {
           await apiService.sendInvoice(id);
           ref.invalidate(invoicesProvider);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Invoice sent')),
-            );
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(apiService.parseError(e))),
-            );
-          }
-        }
+          snack('Invoice sent');
+        } catch (e) { snack(apiService.parseError(e)); }
       case 'copy_link':
-        if (paymentLink != null) {
-          await Clipboard.setData(ClipboardData(text: paymentLink));
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Payment link copied')),
-            );
-          }
+        if (link != null) {
+          await Clipboard.setData(ClipboardData(text: link));
+          snack('Payment link copied');
         }
       case 'share_whatsapp':
-        if (paymentLink != null) {
-          final clientName = (inv['clientName'] as String?) ?? 'there';
-          final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
-          final currency = (inv['currency'] as String?) ?? 'NGNT';
-          final sym = currency == 'USDC' ? '\$' : '₦';
-          final msg =
-              'Hi $clientName, you have an invoice for $sym${amount.toStringAsFixed(0)}.\nPay here: $paymentLink';
-          final encoded = Uri.encodeComponent(msg);
+        if (link != null) {
+          final name = (inv['clientName'] as String?) ?? 'there';
+          final amt = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+          final sym = (inv['currency'] as String?) == 'USDC' ? '\$' : '₦';
+          final msg = 'Hi $name, invoice for $sym${amt.toStringAsFixed(0)}: $link';
           final phone = (inv['clientPhone'] as String?) ?? '';
           final url = phone.isNotEmpty
-              ? 'https://wa.me/$phone?text=$encoded'
-              : 'https://wa.me/?text=$encoded';
+              ? 'https://wa.me/$phone?text=${Uri.encodeComponent(msg)}'
+              : 'https://wa.me/?text=${Uri.encodeComponent(msg)}';
           await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
         }
       case 'share_email':
-        if (paymentLink != null) {
-          Share.share('Pay my invoice here: $paymentLink');
-        }
+        if (link != null) Share.share('Pay my invoice here: $link');
       case 'reminder':
         try {
-          await apiService.sendInvoice(id); // re-sends
+          await apiService.sendInvoice(id);
           ref.invalidate(invoicesProvider);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Reminder sent')),
-            );
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(apiService.parseError(e))),
-            );
-          }
-        }
+          snack('Reminder sent');
+        } catch (e) { snack(apiService.parseError(e)); }
       case 'mark_paid':
         try {
           await apiService.markInvoicePaid(id);
           ref.invalidate(invoicesProvider);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Marked as paid')),
-            );
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(apiService.parseError(e))),
-            );
-          }
-        }
+          snack('Marked as paid');
+        } catch (e) { snack(apiService.parseError(e)); }
       case 'cancel':
         try {
           await apiService.deleteInvoice(id);
           ref.invalidate(invoicesProvider);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Invoice cancelled')),
-            );
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(apiService.parseError(e))),
-            );
-          }
-        }
+          snack('Invoice cancelled');
+        } catch (e) { snack(apiService.parseError(e)); }
     }
   }
 }
 
-// ─── Glass modal ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// FAB
+// ══════════════════════════════════════════════════════════════════════════════
 
-class _GlassModal extends StatefulWidget {
-  final Widget child;
-  const _GlassModal({required this.child});
-
-  @override
-  State<_GlassModal> createState() => _GlassModalState();
-}
-
-class _GlassModalState extends State<_GlassModal>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _fade;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    )..forward();
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+class _Fab extends StatelessWidget {
+  final VoidCallback onTap;
+  const _Fab({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetFill = isDark
-        ? DayFiColors.surface.withOpacity(0.88)
-        : DayFiColors.lightSurface.withOpacity(0.90);
-    final borderColor = isDark
-        ? DayFiColors.border.withOpacity(0.7)
-        : DayFiColors.lightBorder.withOpacity(0.85);
-    final scrimColor = isDark
-        ? DayFiColors.background.withOpacity(0.55)
-        : DayFiColors.lightBackground.withOpacity(0.45);
-
-    return AnimatedBuilder(
-      animation: _fade,
-      builder: (ctx, _) {
-        final t = _fade.value;
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10 * t, sigmaY: 10 * t),
-                  child: Container(
-                    color: scrimColor.withOpacity(scrimColor.opacity * t),
-                  ),
-                ),
-              ),
-            ),
-            Center(
-              child: Opacity(
-                opacity: t,
-                child: Transform.scale(
-                  scale: 0.96 + 0.04 * t,
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: SizedBox(
-                      width: 520,
-                      height: MediaQuery.of(context).size.height * 0.80,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(28),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: sheetFill,
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: borderColor,
-                                width: 0.75,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(
-                                    isDark ? 0.45 : 0.10,
-                                  ),
-                                  blurRadius: 48,
-                                  offset: const Offset(0, 16),
-                                ),
-                              ],
-                            ),
-                            child: widget.child,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Create invoice flow (3 steps) ───────────────────────────────────────────
-
-class _CreateInvoiceFlow extends ConsumerStatefulWidget {
-  final VoidCallback onCreated;
-  const _CreateInvoiceFlow({required this.onCreated});
-
-  @override
-  ConsumerState<_CreateInvoiceFlow> createState() => _CreateInvoiceFlowState();
-}
-
-class _CreateInvoiceFlowState extends ConsumerState<_CreateInvoiceFlow>
-    with SingleTickerProviderStateMixin {
-  int _step = 0;
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
-
-  final _titleCtrl = TextEditingController();
-  final _clientNameCtrl = TextEditingController();
-  final _clientEmailCtrl = TextEditingController();
-  final _clientPhoneCtrl = TextEditingController();
-  final _formKey1 = GlobalKey<FormState>();
-
-  late List<_ModalLineItem> _lineItems;
-  bool _vatEnabled = false;
-  static const _vatRate = 7.5;
-
-  String _currency = 'NGNT';
-  String _paymentType = 'crypto';
-  DateTime? _dueDate;
-  bool _isRecurring = false;
-  String _recurringInterval = 'monthly';
-  final _descCtrl = TextEditingController();
-
-  // ── Loading states
-  bool _submittingDraft = false;
-  bool _submittingAndSending = false;
-
-  bool get _anySubmitting => _submittingDraft || _submittingAndSending;
-
-  List<Map<String, dynamic>> _suggestions = [];
-  static const _pastClients = [
-    {'name': 'Acme Corp', 'email': 'billing@acme.com'},
-    {'name': 'Lagos Ventures', 'email': 'pay@lagosventures.ng'},
-    {'name': 'Kemi Adeola', 'email': 'kemi@adeola.co'},
-    {'name': 'Skyline Media', 'email': 'accounts@skylinemedia.ng'},
-  ];
-
-  double get _subtotal => _lineItems.fold(0, (s, i) => s + i.total);
-  double get _vatAmount => _vatEnabled ? _subtotal * (_vatRate / 100) : 0;
-  double get _total => _subtotal + _vatAmount;
-
-  @override
-  void initState() {
-    super.initState();
-    _lineItems = [_ModalLineItem()];
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-      value: 1.0,
-    );
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _clientNameCtrl.dispose();
-    _clientEmailCtrl.dispose();
-    _clientPhoneCtrl.dispose();
-    _descCtrl.dispose();
-    for (final item in _lineItems) item.dispose();
-    _fadeCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _goTo(int step) async {
-    await _fadeCtrl.reverse();
-    setState(() => _step = step);
-    await _fadeCtrl.forward();
-  }
-
-  void _nextStep1() {
-    if (!_formKey1.currentState!.validate()) return;
-    _goTo(1);
-  }
-
-  void _nextStep2() {
-    if (_lineItems.isEmpty || _lineItems.every((i) => i.total == 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add at least one line item with an amount'),
-          behavior: SnackBarBehavior.floating,
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(40),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: cs.onSurface,
+          borderRadius: BorderRadius.circular(40),
         ),
-      );
-      return;
-    }
-    _goTo(2);
-  }
-
-  Map<String, dynamic> _buildPayload() => {
-        'title': _titleCtrl.text.trim(),
-        'clientName': _clientNameCtrl.text.trim(),
-        if (_clientEmailCtrl.text.trim().isNotEmpty)
-          'clientEmail': _clientEmailCtrl.text.trim(),
-        if (_clientPhoneCtrl.text.trim().isNotEmpty)
-          'clientPhone': _clientPhoneCtrl.text.trim(),
-        if (_descCtrl.text.trim().isNotEmpty)
-          'description': _descCtrl.text.trim(),
-        'lineItems': _lineItems
-            .map(
-              (i) => {
-                'description': i.descCtrl.text.trim(),
-                'quantity': i.qty,
-                'unitPrice': i.price,
-                'total': i.total,
-              },
-            )
-            .toList(),
-        'subtotal': _subtotal,
-        'vatAmount': _vatAmount,
-        'totalAmount': _total,
-        'currency': _currency,
-        'paymentType': _paymentType,
-        'vatEnabled': _vatEnabled,
-        'vatRate': _vatRate,
-        'isRecurring': _isRecurring,
-        if (_isRecurring) 'recurringInterval': _recurringInterval,
-        if (_dueDate != null) 'dueDate': _dueDate!.toIso8601String(),
-      };
-
-  // ── Save as Draft only ────────────────────────────────────────────────────
-
-  Future<void> _saveAsDraft() async {
-    setState(() => _submittingDraft = true);
-    try {
-      await apiService.createInvoice(_buildPayload());
-      if (mounted) {
-        widget.onCreated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Draft saved'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _submittingDraft = false);
-    }
-  }
-
-  // ── Create + immediately send ─────────────────────────────────────────────
-
-  Future<void> _createAndSend() async {
-    setState(() => _submittingAndSending = true);
-    try {
-      final result = await apiService.createInvoice(_buildPayload());
-      final invoiceId = result['invoice']['id'] as String;
-      await apiService.sendInvoice(invoiceId);
-      if (mounted) {
-        widget.onCreated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Invoice created & sent!'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _submittingAndSending = false);
-    }
-  }
-
-  void _onClientChanged(String val) {
-    setState(() {
-      _suggestions = val.length < 2
-          ? []
-          : _pastClients
-                .where(
-                  (c) => (c['name'] as String).toLowerCase().contains(
-                    val.toLowerCase(),
-                  ),
-                )
-                .toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ModalHeader(
-          step: _step,
-          onBack: _step > 0 ? () => _goTo(_step - 1) : null,
-          onClose: () => Navigator.of(context).pop(),
-        ),
-        _StepIndicator(current: _step, total: 3),
-        Expanded(
-          child: FadeTransition(opacity: _fadeAnim, child: _buildStep()),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep() {
-    switch (_step) {
-      case 0:
-        return _buildStep1();
-      case 1:
-        return _buildStep2();
-      case 2:
-        return _buildStep3();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  // ── Step 1: Who & What ────────────────────────────────────────────────────
-
-  Widget _buildStep1() {
-    return Form(
-      key: _formKey1,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
-        children: [
-          _FieldLabel('Invoice title'),
-          TextFormField(
-            controller: _titleCtrl,
-            textCapitalization: TextCapitalization.words,
-            decoration: _modalField(
-              context,
-              'e.g. Website Redesign – May 2025',
-            ),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-          ),
-          const SizedBox(height: 20),
-          _FieldLabel('Client name'),
-          TextFormField(
-            controller: _clientNameCtrl,
-            textCapitalization: TextCapitalization.words,
-            onChanged: _onClientChanged,
-            decoration: _modalField(context, 'Client or company name').copyWith(
-              prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
-            ),
-            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-          ),
-          if (_suggestions.isNotEmpty)
-            _AutocompleteDropdown(
-              suggestions: _suggestions,
-              onSelect: (c) {
-                _clientNameCtrl.text = c['name'] as String;
-                _clientEmailCtrl.text = c['email'] as String;
-                setState(() => _suggestions = []);
-              },
-            ),
-          const SizedBox(height: 12),
-          _FieldLabel('Client email (optional)'),
-          TextFormField(
-            controller: _clientEmailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: _modalField(context, 'client@email.com').copyWith(
-              prefixIcon: const Icon(Icons.mail_outline_rounded, size: 18),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _FieldLabel('Client phone (optional — for WhatsApp delivery)'),
-          TextFormField(
-            controller: _clientPhoneCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: _modalField(context, '+234 800 000 0000').copyWith(
-              prefixIcon: const Icon(Icons.phone_outlined, size: 18),
-            ),
-          ),
-          const SizedBox(height: 32),
-          _ModalPrimaryButton(label: 'Continue →', onTap: _nextStep1),
-        ],
+        child: Icon(Icons.add_rounded, color: cs.surface, size: 22),
       ),
-    );
-  }
-
-  // ── Step 2: Line Items ────────────────────────────────────────────────────
-
-  Widget _buildStep2() {
-    final symbol = _currency == 'USDC' ? '\$' : '₦';
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ActionChip(
-                icon: Icons.library_books_outlined,
-                label: 'Item library',
-                onTap: () => _showItemLibrary(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        _FieldLabel('Line items'),
-        ..._lineItems.asMap().entries.map((e) {
-          final idx = e.key;
-          final item = e.value;
-          return _ModalLineItemCard(
-            item: item,
-            symbol: symbol,
-            onChanged: () => setState(() {}),
-            onRemove: _lineItems.length > 1
-                ? () => setState(() => _lineItems.removeAt(idx))
-                : null,
-          );
-        }),
-        TextButton.icon(
-          onPressed: () => setState(() => _lineItems.add(_ModalLineItem())),
-          icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-          label: const Text('Add line item'),
-        ),
-        const SizedBox(height: 8),
-        _SwitchRow(
-          label: 'Apply VAT (7.5%)',
-          value: _vatEnabled,
-          onChanged: (v) => setState(() => _vatEnabled = v),
-        ),
-        const Divider(height: 32),
-        _TotalsBlock(
-          subtotal: _subtotal,
-          vatAmount: _vatAmount,
-          total: _total,
-          vatEnabled: _vatEnabled,
-          symbol: symbol,
-        ),
-        const SizedBox(height: 24),
-        _ModalPrimaryButton(label: 'Continue →', onTap: _nextStep2),
-      ],
-    );
-  }
-
-  // ── Step 3: Payment & Schedule ────────────────────────────────────────────
-  // Now has TWO action buttons: Save as Draft | Send Invoice →
-
-  Widget _buildStep3() {
-    final suggestUsdc =
-        _clientEmailCtrl.text.isNotEmpty &&
-        !_clientEmailCtrl.text.endsWith('.ng');
-    final symbol = _currency == 'USDC' ? '\$' : '₦';
-    final hasPhone = _clientPhoneCtrl.text.trim().isNotEmpty;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
-      children: [
-        if (suggestUsdc)
-          _SuggestionBanner(
-            message: 'International client — consider invoicing in USDC.',
-            actionLabel: 'Switch',
-            onAction: () => setState(() => _currency = 'USDC'),
-          ),
-
-        _FieldLabel('Currency'),
-        Row(
-          children: [
-            _SegmentButton(
-              label: 'NGN (NGNT)',
-              selected: _currency == 'NGNT',
-              onTap: () => setState(() => _currency = 'NGNT'),
-            ),
-            const SizedBox(width: 8),
-            _SegmentButton(
-              label: 'USD (USDC)',
-              selected: _currency == 'USDC',
-              onTap: () => setState(() => _currency = 'USDC'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        _FieldLabel('Payment method'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _SegmentButton(
-              label: 'On-chain',
-              icon: Icons.link_rounded,
-              selected: _paymentType == 'crypto',
-              onTap: () => setState(() => _paymentType = 'crypto'),
-            ),
-            _SegmentButton(
-              label: 'Bank transfer',
-              icon: Icons.account_balance_outlined,
-              selected: _paymentType == 'bankTransfer',
-              onTap: () => setState(() => _paymentType = 'bankTransfer'),
-            ),
-            _SegmentButton(
-              label: 'Both',
-              icon: Icons.swap_horiz_rounded,
-              selected: _paymentType == 'both',
-              onTap: () => setState(() => _paymentType = 'both'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        _FieldLabel('Due date'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [7, 14, 30, 60].map((days) {
-            final expected = DateTime.now().add(Duration(days: days));
-            final selected =
-                _dueDate != null &&
-                _dueDate!.year == expected.year &&
-                _dueDate!.month == expected.month &&
-                _dueDate!.day == expected.day;
-            return _SegmentButton(
-              label: 'Net $days',
-              selected: selected,
-              onTap: () => setState(
-                () => _dueDate = DateTime.now().add(Duration(days: days)),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 10),
-        _DatePickerRow(
-          dueDate: _dueDate,
-          onPick: () async {
-            final d = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now().add(const Duration(days: 14)),
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-            );
-            if (d != null) setState(() => _dueDate = d);
-          },
-          onClear: () => setState(() => _dueDate = null),
-        ),
-        const SizedBox(height: 20),
-
-        _SwitchRow(
-          label: 'Recurring invoice',
-          sublabel: 'Auto-generate on a schedule',
-          value: _isRecurring,
-          onChanged: (v) => setState(() => _isRecurring = v),
-        ),
-        if (_isRecurring) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: ['weekly', 'monthly', 'quarterly', 'annually']
-                .map(
-                  (iv) => _SegmentButton(
-                    label: iv[0].toUpperCase() + iv.substring(1),
-                    selected: _recurringInterval == iv,
-                    onTap: () => setState(() => _recurringInterval = iv),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-        const SizedBox(height: 20),
-
-        _FieldLabel('Notes (optional)'),
-        TextFormField(
-          controller: _descCtrl,
-          maxLines: 3,
-          decoration: _modalField(
-            context,
-            'Payment terms, bank details, thank-you message…',
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        _InvoiceSummaryCard(
-          title: _titleCtrl.text.trim(),
-          clientName: _clientNameCtrl.text.trim(),
-          itemCount: _lineItems.length,
-          total: _total,
-          symbol: symbol,
-          dueDate: _dueDate,
-        ),
-        const SizedBox(height: 16),
-
-        // ── WhatsApp nudge if phone missing ──────────────────────────────
-        if (!hasPhone)
-          _SuggestionBanner(
-            message: 'Add client phone on step 1 to enable WhatsApp delivery.',
-            actionLabel: 'Go back',
-            onAction: () => _goTo(0),
-          ),
-
-        const SizedBox(height: 8),
-
-        // ── DUAL ACTION BUTTONS ──────────────────────────────────────────
-        Row(
-          children: [
-            // Save as Draft
-            Expanded(
-              child: SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.2),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: _anySubmitting ? null : _saveAsDraft,
-                  child: _submittingDraft
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        )
-                      : Text(
-                          'Save Draft',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.7),
-                          ),
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Send Invoice
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.onSurface,
-                    foregroundColor:
-                        Theme.of(context).colorScheme.surface,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: _anySubmitting ? null : _createAndSend,
-                  child: _submittingAndSending
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color:
-                                Theme.of(context).colorScheme.surface,
-                          ),
-                        )
-                      : const Text(
-                          'Send Invoice →',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _showItemLibrary(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (_) => _GlassModal(
-        child: _ItemLibraryContent(
-          onSelectItem: (desc, price) {
-            final item = _ModalLineItem();
-            item.descCtrl.text = desc;
-            item.qtyCtrl.text = '1';
-            item.priceCtrl.text = price.toStringAsFixed(0);
-            setState(() => _lineItems.add(item));
-            Navigator.of(context).pop();
-          },
-        ),
-      ),
-    );
+    ).animate().fadeIn(delay: 10.ms).slideY(begin: 0.1, end: 0);
   }
 }
 
-// ─── Item library modal content ───────────────────────────────────────────────
-
-class _ItemLibraryContent extends ConsumerWidget {
-  final void Function(String desc, double price) onSelectItem;
-  const _ItemLibraryContent({required this.onSelectItem});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final library = ref.watch(invoiceItemLibraryProvider);
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Row(
-            children: [
-              Text(
-                'Item Library',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const Spacer(),
-              _SmallIconButton(
-                icon: Icons.close_rounded,
-                onTap: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: library.items.isEmpty
-              ? Center(
-                  child: Text(
-                    'No saved items yet.',
-                    style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.4),
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-                  itemCount: library.items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final item = library.items[i];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(item.description),
-                      trailing: Text(
-                        '₦${item.price.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      onTap: () => onSelectItem(item.description, item.price),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Invoice detail content ────────────────────────────────────────────────────
-
-class _InvoiceDetailContent extends StatefulWidget {
-  final Map<String, dynamic> invoice;
-  final VoidCallback onRefresh;
-  final VoidCallback onClose;
-
-  const _InvoiceDetailContent({
-    required this.invoice,
-    required this.onRefresh,
-    required this.onClose,
-  });
-
-  @override
-  State<_InvoiceDetailContent> createState() => _InvoiceDetailContentState();
-}
-
-class _InvoiceDetailContentState extends State<_InvoiceDetailContent> {
-  bool _sending = false;
-  bool _markingPaid = false;
-
-  Future<void> _sendInvoice() async {
-    setState(() => _sending = true);
-    try {
-      await apiService.sendInvoice(widget.invoice['id'] as String);
-      widget.onRefresh();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
-      }
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  Future<void> _markPaid() async {
-    setState(() => _markingPaid = true);
-    try {
-      await apiService.markInvoicePaid(widget.invoice['id'] as String);
-      widget.onRefresh();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
-      }
-    } finally {
-      if (mounted) setState(() => _markingPaid = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final inv = widget.invoice;
-    final status = (inv['status'] as String?) ?? 'draft';
-    final paymentLink = inv['paymentLink'] as String?;
-    final currency = (inv['currency'] as String?) ?? 'NGNT';
-    final total = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
-    final sym = currency == 'USDC' ? '\$' : '₦';
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
-          child: Row(
-            children: [
-              Text(
-                'Invoice Detail',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                ),
-              ),
-              const Spacer(),
-              _SmallIconButton(
-                icon: Icons.close_rounded,
-                onTap: widget.onClose,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
-            children: [
-              Center(
-                child: Column(
-                  children: [
-                    Text(
-                      '$sym${total.toStringAsFixed(2)}',
-                      style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 44,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: -2,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _StatusPill(status: status),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              _DetailRow(label: 'Invoice #', value: inv['invoiceNumber'] ?? ''),
-              _DetailRow(label: 'Client', value: inv['clientName'] ?? ''),
-              _DetailRow(label: 'Currency', value: currency),
-              if (inv['dueDate'] != null)
-                _DetailRow(
-                  label: 'Due date',
-                  value: DateFormat(
-                    'MMM d, yyyy',
-                  ).format(DateTime.parse(inv['dueDate'] as String)),
-                ),
-              if (inv['title'] != null)
-                _DetailRow(label: 'Title', value: inv['title'] as String),
-
-              if (paymentLink != null) ...[
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          paymentLink,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(fontSize: 11),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _SmallIconButton(
-                        icon: Icons.copy_rounded,
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: paymentLink));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Payment link copied'),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      _SmallIconButton(
-                        icon: Icons.share_rounded,
-                        onTap: () =>
-                            Share.share('Pay my invoice here: $paymentLink'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 28),
-              if (status == 'draft') ...[
-                _ModalPrimaryButton(
-                  label: 'Send Invoice',
-                  onTap: _sending ? null : _sendInvoice,
-                  loading: _sending,
-                ),
-              ] else if (status == 'sent' ||
-                  status == 'viewed' ||
-                  status == 'overdue') ...[
-                _ModalPrimaryButton(
-                  label: 'Mark as Paid',
-                  onTap: _markingPaid ? null : _markPaid,
-                  loading: _markingPaid,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Insights panel ────────────────────────────────────────────────────────────
-// CHANGE: now accepts `groups` and renders status count chips at the top.
+// ══════════════════════════════════════════════════════════════════════════════
+// INSIGHTS PANEL
+// ══════════════════════════════════════════════════════════════════════════════
 
 class _InsightsPanel extends StatefulWidget {
   final List<Map<String, dynamic>> invoices;
@@ -1305,215 +261,89 @@ class _InsightsPanel extends StatefulWidget {
 }
 
 class _InsightsPanelState extends State<_InsightsPanel> {
-  int _periodIndex = 1;
-  static const _periodLabels = ['1W', '1M', 'YTD', '3M', '1Y'];
+  int _period = 1;
+  static const _periods = ['1W', '1M', 'YTD', '3M', '1Y'];
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final now = DateTime.now();
-    final start = _periodStart(now, _periodIndex);
+    final start = _periodStart(now, _period);
+
     final inPeriod = widget.invoices.where((inv) {
-      final createdAt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
-      return createdAt == null || !createdAt.isBefore(start);
+      final dt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
+      return dt == null || !dt.isBefore(start);
     }).toList();
 
-    double paidAmount = 0;
-    double pendingAmount = 0;
-    double overdueAmount = 0;
+    double paid = 0, pending = 0, overdue = 0;
     for (final inv in inPeriod) {
-      final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
-      final status = (inv['status'] as String?) ?? '';
-      if (status == 'paid') paidAmount += amount;
-      if (status == 'sent' || status == 'viewed') pendingAmount += amount;
-      if (status == 'overdue') overdueAmount += amount;
+      final amt = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+      final s = (inv['status'] as String?) ?? '';
+      if (s == 'paid') paid += amt;
+      if (s == 'sent' || s == 'viewed') pending += amt;
+      if (s == 'overdue') overdue += amt;
     }
-
-    final dueAmount = pendingAmount + overdueAmount;
-    final totalRevenue = paidAmount + dueAmount;
-    final paidPct = totalRevenue > 0 ? (paidAmount / totalRevenue) * 100 : 0.0;
-    final duePct = totalRevenue > 0 ? (dueAmount / totalRevenue) * 100 : 0.0;
-
-    final paidSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'paid');
-    final dueSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'due');
-    final overdueSpots = _buildSeriesSpots(inPeriod, _periodIndex, 'overdue');
+    final total = paid + pending + overdue;
+    final paidPct = total > 0 ? paid / total * 100 : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header ─────────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
-          child: Text(
-            'INSIGHTS',
-            style: GoogleFonts.bricolageGrotesque(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-            ),
-          ),
-        ),
+        // ── Section label ──────────────────────────────────────────────────
+        const _SectionLabel('INSIGHTS'),
+        const SizedBox(height: 12),
 
-        // ── STATUS COUNT CHIPS (new) ─────────────────────────────────────
-        _StatusCountChips(groups: widget.groups),
+        // ── Status chips — AccountMoverCard style ──────────────────────────
+        _StatusChips(groups: widget.groups),
         const SizedBox(height: 16),
 
-        // ── Metrics card ────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-            ),
-            color: Theme.of(
-              context,
-            ).textTheme.bodySmall?.color?.withOpacity(0.06),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricTile(
-                      dotColor: const Color(0xFF598FE0),
-                      label: 'Collected',
-                      value: '₦${_fmt(paidAmount)}',
-                      percent: paidPct,
-                      accentColor: DayFiColors.green,
-                    ),
-                  ),
-                  Expanded(
-                    child: _MetricTile(
-                      dotColor: const Color(0xFFFFA726),
-                      label: 'Pending',
-                      value: '₦${_fmt(dueAmount)}',
-                      percent: duePct,
-                      accentColor: const Color(0xFFE57745),
-                    ),
-                  ),
-                  Expanded(
-                    child: _MetricTile(
-                      dotColor: DayFiColors.red,
-                      label: 'Overdue',
-                      value: '₦${_fmt(overdueAmount)}',
-                      percent: totalRevenue > 0
-                          ? (overdueAmount / totalRevenue) * 100
-                          : 0,
-                      accentColor: DayFiColors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 60,
-                child: LineChart(
-                  _summaryLineChartData(
-                    paidSpots: paidSpots,
-                    dueSpots: dueSpots,
-                    overdueSpots: overdueSpots,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: _periodLabels.asMap().entries.map((e) {
-                  final selected = _periodIndex == e.key;
-                  return GestureDetector(
-                    onTap: () => setState(() => _periodIndex = e.key),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.10)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        e.value,
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 12,
-                          letterSpacing: 0.6,
-                          fontWeight: FontWeight.w700,
-                          color: selected
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.4),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
+        // ── Metric cards row — same pattern as AccountMoverCard ────────────
+        Row(
+          children: [
+            Expanded(child: _MetricCard(
+              label: 'Collected',
+              value: _fmt(paid),
+              symbol: '₦',
+              accent: DayFiColors.green,
+              pct: paidPct,
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _MetricCard(
+              label: 'Pending',
+              value: _fmt(pending),
+              symbol: '₦',
+              accent: const Color(0xFFE57745),
+              pct: total > 0 ? pending / total * 100 : 0,
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _MetricCard(
+              label: 'Overdue',
+              value: _fmt(overdue),
+              symbol: '₦',
+              accent: DayFiColors.red,
+              pct: total > 0 ? overdue / total * 100 : 0,
+            )),
+          ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // ── Quick stats ─────────────────────────────────────────────────────
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-            ),
-            color: Theme.of(
-              context,
-            ).textTheme.bodySmall?.color?.withOpacity(0.04),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'BREAKDOWN',
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.35),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _StatRow(
-                label: 'Total invoiced',
-                value: '₦${_fmt(totalRevenue)}',
-              ),
-              _StatRow(
-                label: 'Invoices sent',
-                value:
-                    '${inPeriod.where((i) => i['status'] != 'draft').length}',
-              ),
-              _StatRow(
-                label: 'Avg. invoice',
-                value: inPeriod.isEmpty
-                    ? '—'
-                    : '₦${_fmt(totalRevenue / inPeriod.length)}',
-              ),
-              _StatRow(
-                label: 'Collection rate',
-                value: totalRevenue > 0
-                    ? '${paidPct.toStringAsFixed(0)}%'
-                    : '—',
-                accent: paidPct > 70
-                    ? DayFiColors.green
-                    : paidPct > 40
-                    ? const Color(0xFFFFA726)
-                    : DayFiColors.red,
-              ),
-            ],
-          ),
+        // ── Sparkline card ─────────────────────────────────────────────────
+        _SparkCard(
+          invoices: inPeriod,
+          period: _period,
+          periods: _periods,
+          onPeriod: (i) => setState(() => _period = i),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Breakdown card ─────────────────────────────────────────────────
+        _BreakdownCard(
+          total: total,
+          paid: paid,
+          pending: pending,
+          overdue: overdue,
+          count: inPeriod.length,
+          paidPct: paidPct,
         ),
       ],
     );
@@ -1526,75 +356,288 @@ class _InsightsPanelState extends State<_InsightsPanel> {
   }
 }
 
-// ─── Status count chips (new widget) ─────────────────────────────────────────
-// Shows [Draft: 3] [Sent: 5] [Viewed: 2] [Paid: 12] [Overdue: 1] [Cancelled: 0]
+// ── Metric card (matches AccountMoverCard proportions) ────────────────────────
 
-class _StatusCountChips extends StatelessWidget {
+class _MetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String symbol;
+  final Color accent;
+  final double pct;
+  const _MetricCard({
+    required this.label, required this.value, required this.symbol,
+    required this.accent, required this.pct,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: cs.onSurface.withOpacity(0.4),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: symbol,
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withOpacity(0.55),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              TextSpan(
+                text: value,
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: cs.primary,
+                  height: 1,
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${pct.toStringAsFixed(0)}%',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sparkline card ─────────────────────────────────────────────────────────────
+
+class _SparkCard extends StatelessWidget {
+  final List<Map<String, dynamic>> invoices;
+  final int period;
+  final List<String> periods;
+  final void Function(int) onPeriod;
+  const _SparkCard({
+    required this.invoices, required this.period,
+    required this.periods, required this.onPeriod,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final paidSpots = _buildSpots(invoices, period, 'paid');
+    final dueSpots = _buildSpots(invoices, period, 'due');
+    final overdueSpots = _buildSpots(invoices, period, 'overdue');
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05), width: 0.5),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 56,
+            child: LineChart(LineChartData(
+              minY: 0, maxY: 1,
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              titlesData: const FlTitlesData(show: false),
+              lineTouchData: const LineTouchData(enabled: false),
+              lineBarsData: [
+                _bar(paidSpots, DayFiColors.green),
+                _bar(dueSpots, const Color(0xFFE57745)),
+                _bar(overdueSpots, DayFiColors.red),
+              ],
+            )),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: periods.asMap().entries.map((e) {
+              final sel = period == e.key;
+              return GestureDetector(
+                onTap: () => onPeriod(e.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: sel ? cs.onSurface.withOpacity(0.08) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    e.value,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: sel ? cs.onSurface : cs.onSurface.withOpacity(0.35),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  LineChartBarData _bar(List<FlSpot> spots, Color color) => LineChartBarData(
+    spots: spots, isCurved: true, color: color, barWidth: 1.5,
+    dotData: const FlDotData(show: false),
+    belowBarData: BarAreaData(show: false),
+  );
+}
+
+// ── Breakdown card ─────────────────────────────────────────────────────────────
+
+class _BreakdownCard extends StatelessWidget {
+  final double total, paid, pending, overdue, paidPct;
+  final int count;
+  const _BreakdownCard({
+    required this.total, required this.paid, required this.pending,
+    required this.overdue, required this.count, required this.paidPct,
+  });
+
+  String _fmt(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}k';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'BREAKDOWN',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 10, fontWeight: FontWeight.w700,
+              letterSpacing: 1.2, color: cs.onSurface.withOpacity(0.35),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Row('Total invoiced', '₦${_fmt(total)}'),
+          _Row('Invoices', '$count'),
+          _Row('Avg. invoice', count > 0 ? '₦${_fmt(total / count)}' : '—'),
+          _Row(
+            'Collection rate',
+            total > 0 ? '${paidPct.toStringAsFixed(0)}%' : '—',
+            accent: paidPct > 70 ? DayFiColors.green
+                : paidPct > 40 ? const Color(0xFFFFA726) : DayFiColors.red,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  final String label, value;
+  final Color? accent;
+  const _Row(this.label, this.value, {this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(
+            fontSize: 13, color: cs.onSurface.withOpacity(0.5))),
+          const Spacer(),
+          Text(value, style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w700, color: accent)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Status chips ───────────────────────────────────────────────────────────────
+
+class _StatusChips extends StatelessWidget {
   final Map<String, List<Map<String, dynamic>>> groups;
+  const _StatusChips({required this.groups});
 
-  const _StatusCountChips({required this.groups});
+  static const _order = ['overdue', 'sent', 'viewed', 'draft', 'paid', 'cancelled'];
 
-  static const _statusOrder = [
-    'overdue',
-    'sent',
-    'viewed',
-    'draft',
-    'paid',
-    'cancelled',
-  ];
-
-  Color _colorFor(String status, BuildContext context) {
-    switch (status) {
-      case 'paid':
-        return DayFiColors.green;
-      case 'sent':
-        return const Color(0xFF2775CA);
-      case 'viewed':
-        return const Color(0xFF9C27B0);
-      case 'overdue':
-        return DayFiColors.red;
-      case 'cancelled':
-        return Theme.of(context).colorScheme.onSurface.withOpacity(0.3);
-      default:
-        return Theme.of(context).colorScheme.onSurface.withOpacity(0.45);
+  Color _color(String s, BuildContext ctx) {
+    switch (s) {
+      case 'paid':      return DayFiColors.green;
+      case 'sent':      return const Color(0xFF2775CA);
+      case 'viewed':    return const Color(0xFF9C27B0);
+      case 'overdue':   return DayFiColors.red;
+      case 'cancelled': return Theme.of(ctx).colorScheme.onSurface.withOpacity(0.3);
+      default:          return Theme.of(ctx).colorScheme.onSurface.withOpacity(0.4);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: _statusOrder.map((status) {
-        final count = (groups[status] ?? []).length;
-        final color = _colorFor(status, context);
-        final label = status[0].toUpperCase() + status.substring(1);
+      spacing: 6, runSpacing: 6,
+      children: _order.map((s) {
+        final count = (groups[s] ?? []).length;
+        final color = _color(s, context);
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
+            color: color.withOpacity(0.08),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.20)),
+            border: Border.all(color: color.withOpacity(0.15)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
+              Container(width: 5, height: 5,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 5),
               Text(
-                '$label: $count',
+                '${s[0].toUpperCase()}${s.substring(1)}: $count',
                 style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                  letterSpacing: 0.2,
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: color, letterSpacing: 0.1,
                 ),
               ),
             ],
@@ -1605,305 +648,1038 @@ class _StatusCountChips extends StatelessWidget {
   }
 }
 
-// ─── Invoice list panel ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// INVOICE LIST PANEL
+// ══════════════════════════════════════════════════════════════════════════════
 
-class _InvoiceListPanel extends StatelessWidget {
+class _InvoiceList extends StatelessWidget {
   final Map<String, List<Map<String, dynamic>>> groups;
   final List<String> order;
-  final void Function(Map<String, dynamic>) onTapInvoice;
-  final void Function(String action, Map<String, dynamic> inv) onMenuAction;
-  final VoidCallback onCreateTap;
+  final void Function(Map<String, dynamic>) onTap;
+  final void Function(String, Map<String, dynamic>) onMenu;
+  final VoidCallback onNew;
 
-  const _InvoiceListPanel({
-    required this.groups,
-    required this.order,
-    required this.onTapInvoice,
-    required this.onMenuAction,
-    required this.onCreateTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
-          child: Row(
-            children: [
-              Text(
-                'INVOICES',
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.4),
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onCreateTap,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.add_rounded,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'New',
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        for (final status in order) ...[
-          if ((groups[status] ?? []).isNotEmpty) ...[
-            _ListSectionHeader(status: status, count: groups[status]!.length),
-            const SizedBox(height: 6),
-            ...groups[status]!.map(
-              (inv) => _InvoiceTile(
-                invoice: inv,
-                onTap: () => onTapInvoice(inv),
-                onMenuAction: (action) => onMenuAction(action, inv),
-              ).animate().fadeIn(duration: 300.ms),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ],
-      ],
-    );
-  }
-}
-
-// ─── Supporting widgets ────────────────────────────────────────────────────────
-
-class _ModalHeader extends StatelessWidget {
-  final int step;
-  final VoidCallback? onBack;
-  final VoidCallback onClose;
-
-  const _ModalHeader({
-    required this.step,
-    required this.onBack,
-    required this.onClose,
-  });
-
-  static const _titles = ['Who & What', 'Line Items', 'Payment & Schedule'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: Row(
-        children: [
-          if (onBack != null)
-            _SmallIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
-              onTap: onBack!,
-            )
-          else
-            const SizedBox(width: 36),
-          Expanded(
-            child: Text(
-              _titles[step],
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          _SmallIconButton(icon: Icons.close_rounded, onTap: onClose),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepIndicator extends StatelessWidget {
-  final int current;
-  final int total;
-  const _StepIndicator({required this.current, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(total, (i) {
-          final active = i <= current;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: i == current ? 24 : 8,
-            height: 6,
-            decoration: BoxDecoration(
-              color: active
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _ModalPrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback? onTap;
-  final bool loading;
-
-  const _ModalPrimaryButton({
-    required this.label,
-    this.onTap,
-    this.loading = false,
+  const _InvoiceList({
+    required this.groups, required this.order, required this.onTap,
+    required this.onMenu, required this.onNew,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: cs.onSurface,
-          foregroundColor: cs.surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        onPressed: loading ? null : onTap,
-        child: loading
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: cs.surface,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SectionLabel('INVOICES'),
+            const Spacer(),
+            GestureDetector(
+              onTap: onNew,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: cs.onSurface,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, size: 13, color: cs.surface),
+                    const SizedBox(width: 4),
+                    Text('New', style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 12, fontWeight: FontWeight.w700, color: cs.surface)),
+                  ],
                 ),
               ),
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        for (final status in order)
+          if ((groups[status] ?? []).isNotEmpty) ...[
+            _StatusHeader(status: status, count: groups[status]!.length),
+            const SizedBox(height: 6),
+            ...groups[status]!.asMap().entries.map((e) =>
+              _InvoiceTile(
+                invoice: e.value,
+                onTap: () => onTap(e.value),
+                onMenu: (action) => onMenu(action, e.value),
+              ).animate().fadeIn(delay: (e.key * 30).ms),
+            ),
+            const SizedBox(height: 18),
+          ],
+      ],
     );
   }
 }
 
-class _SmallIconButton extends StatelessWidget {
-  final IconData icon;
+// ── Invoice tile ───────────────────────────────────────────────────────────────
+
+class _InvoiceTile extends StatelessWidget {
+  final Map<String, dynamic> invoice;
   final VoidCallback onTap;
-  const _SmallIconButton({required this.icon, required this.onTap});
+  final void Function(String) onMenu;
+  const _InvoiceTile({required this.invoice, required this.onTap, required this.onMenu});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final status = (invoice['status'] as String?) ?? 'draft';
+    final total = (invoice['totalAmount'] as num?)?.toDouble() ?? 0;
+    final currency = (invoice['currency'] as String?) ?? 'NGNT';
+    final title = (invoice['title'] as String?) ?? 'Invoice';
+    final client = (invoice['clientName'] as String?) ?? '—';
+    final invoiceNumber = (invoice['invoiceNumber'] as String?) ?? '';
+    final due = invoice['dueDate'] != null
+        ? DateTime.tryParse(invoice['dueDate'] as String) : null;
+    final hasLink = invoice['paymentLink'] != null;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(.07),
-          borderRadius: BorderRadius.circular(10),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.onSurface.withOpacity(0.05), width: 0.5),
         ),
-        child: Icon(icon, size: 17),
+        child: Row(
+          children: [
+            // Left: info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (invoiceNumber.isNotEmpty)
+                    Text(invoiceNumber, style: TextStyle(
+                      fontSize: 10, color: cs.onSurface.withOpacity(0.35),
+                      letterSpacing: 0.3)),
+                  const SizedBox(height: 1),
+                  Text(title, style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2, color: cs.onSurface.withOpacity(0.9)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(client, style: TextStyle(
+                    fontSize: 12, color: cs.onSurface.withOpacity(0.45))),
+                  if (due != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      'Due ${DateFormat('MMM d, yyyy').format(due)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: status == 'overdue'
+                            ? DayFiColors.red : cs.onSurface.withOpacity(0.35),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // Right: amount + pill
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  currency == 'USDC'
+                      ? '\$${total.toStringAsFixed(2)}'
+                      : '₦${total.toStringAsFixed(0)}',
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 15, fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2, color: cs.onSurface.withOpacity(0.9)),
+                ),
+                const SizedBox(height: 5),
+                _StatusPill(status: status),
+              ],
+            ),
+            const SizedBox(width: 4),
+            // ⋮ menu
+            GestureDetector(
+              onTap: () => _showMenu(context, status, hasLink),
+              child: Container(
+                width: 30, height: 30,
+                margin: const EdgeInsets.only(left: 2),
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.more_vert_rounded, size: 15,
+                    color: cs.onSurface.withOpacity(0.4)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMenu(BuildContext context, String status, bool hasLink) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ActionSheet(
+        title: (invoice['title'] as String?) ?? 'Invoice',
+        number: (invoice['invoiceNumber'] as String?) ?? '',
+        entries: _entries(status, hasLink),
+        onAction: onMenu,
+      ),
+    );
+  }
+
+  List<_MenuEntry> _entries(String status, bool hasLink) {
+    switch (status) {
+      case 'draft': return [
+        const _MenuEntry('view',   Icons.open_in_new_rounded,          'View details'),
+        const _MenuEntry('send',   Icons.send_rounded,                  'Send'),
+        const _MenuEntry('cancel', Icons.cancel_outlined,               'Cancel', danger: true),
+      ];
+      case 'sent':
+      case 'viewed': return [
+        const _MenuEntry('view',           Icons.open_in_new_rounded,          'View details'),
+        if (hasLink) const _MenuEntry('copy_link', Icons.link_rounded,         'Copy payment link'),
+        const _MenuEntry('share_whatsapp', Icons.chat_rounded,                 'Share via WhatsApp'),
+        const _MenuEntry('share_email',    Icons.mail_outline_rounded,         'Share via Email'),
+        const _MenuEntry('mark_paid',      Icons.check_circle_outline_rounded, 'Mark as Paid'),
+        const _MenuEntry('cancel',         Icons.cancel_outlined,              'Cancel', danger: true),
+      ];
+      case 'overdue': return [
+        const _MenuEntry('view',      Icons.open_in_new_rounded,          'View details'),
+        if (hasLink) const _MenuEntry('copy_link', Icons.link_rounded,    'Copy payment link'),
+        const _MenuEntry('reminder',  Icons.notifications_outlined,        'Send reminder'),
+        const _MenuEntry('mark_paid', Icons.check_circle_outline_rounded, 'Mark as Paid'),
+        const _MenuEntry('cancel',    Icons.cancel_outlined,              'Cancel', danger: true),
+      ];
+      default: return [
+        const _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
+      ];
+    }
+  }
+}
+
+// ── Status header ──────────────────────────────────────────────────────────────
+
+class _StatusHeader extends StatelessWidget {
+  final String status;
+  final int count;
+  const _StatusHeader({required this.status, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      _StatusPill(status: status),
+      const SizedBox(width: 6),
+      Text('$count', style: TextStyle(
+        fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35))),
+    ]);
+  }
+}
+
+// ── Status pill ────────────────────────────────────────────────────────────────
+
+class _StatusPill extends StatelessWidget {
+  final String status;
+  const _StatusPill({required this.status});
+
+  Color _color(BuildContext ctx) {
+    switch (status) {
+      case 'paid':      return DayFiColors.green;
+      case 'sent':      return const Color(0xFF2775CA);
+      case 'viewed':    return const Color(0xFF9C27B0);
+      case 'overdue':   return DayFiColors.red;
+      case 'cancelled': return Theme.of(ctx).colorScheme.onSurface.withOpacity(0.3);
+      default:          return Theme.of(ctx).colorScheme.onSurface.withOpacity(0.4);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _color(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${status[0].toUpperCase()}${status.substring(1)}',
+        style: GoogleFonts.bricolageGrotesque(
+          fontSize: 10, fontWeight: FontWeight.w700, color: c),
       ),
     );
   }
 }
 
-class _FieldLabel extends StatelessWidget {
+// ══════════════════════════════════════════════════════════════════════════════
+// CREATE SHEET — auth-form aesthetic
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _CreateSheet extends ConsumerStatefulWidget {
+  final VoidCallback onCreated;
+  const _CreateSheet({required this.onCreated});
+
+  @override
+  ConsumerState<_CreateSheet> createState() => _CreateSheetState();
+}
+
+class _CreateSheetState extends ConsumerState<_CreateSheet>
+    with SingleTickerProviderStateMixin {
+  int _step = 0;
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  final _titleCtrl       = TextEditingController();
+  final _clientCtrl      = TextEditingController();
+  final _emailCtrl       = TextEditingController();
+  final _phoneCtrl       = TextEditingController();
+  final _notesCtrl       = TextEditingController();
+  final _formKey         = GlobalKey<FormState>();
+  late List<_LineItem> _items;
+
+  bool   _vat            = false;
+  String _currency       = 'NGNT';
+  String _payType        = 'crypto';
+  DateTime? _due;
+  bool   _recurring      = false;
+  String _interval       = 'monthly';
+
+  bool _savingDraft      = false;
+  bool _sending          = false;
+  bool get _busy         => _savingDraft || _sending;
+
+  double get _subtotal   => _items.fold(0, (s, i) => s + i.total);
+  double get _vatAmt     => _vat ? _subtotal * 0.075 : 0;
+  double get _total      => _subtotal + _vatAmt;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = [_LineItem()];
+    _fadeCtrl = AnimationController(vsync: this,
+        duration: const Duration(milliseconds: 200), value: 1.0);
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose(); _clientCtrl.dispose(); _emailCtrl.dispose();
+    _phoneCtrl.dispose(); _notesCtrl.dispose();
+    for (final i in _items) i.dispose();
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _go(int step) async {
+    await _fadeCtrl.reverse();
+    setState(() => _step = step);
+    await _fadeCtrl.forward();
+  }
+
+  Map<String, dynamic> _payload() => {
+    'title': _titleCtrl.text.trim(),
+    'clientName': _clientCtrl.text.trim(),
+    if (_emailCtrl.text.trim().isNotEmpty) 'clientEmail': _emailCtrl.text.trim(),
+    if (_phoneCtrl.text.trim().isNotEmpty) 'clientPhone': _phoneCtrl.text.trim(),
+    if (_notesCtrl.text.trim().isNotEmpty) 'description': _notesCtrl.text.trim(),
+    'lineItems': _items.map((i) => {
+      'description': i.desc.text.trim(),
+      'quantity': i.qty, 'unitPrice': i.price, 'total': i.total,
+    }).toList(),
+    'subtotal': _subtotal, 'vatAmount': _vatAmt,
+    'totalAmount': _total, 'currency': _currency,
+    'paymentType': _payType, 'vatEnabled': _vat, 'vatRate': 7.5,
+    'isRecurring': _recurring,
+    if (_recurring) 'recurringInterval': _interval,
+    if (_due != null) 'dueDate': _due!.toIso8601String(),
+  };
+
+  Future<void> _draft() async {
+    setState(() => _savingDraft = true);
+    try {
+      await apiService.createInvoice(_payload());
+      widget.onCreated();
+    } catch (e) {
+      if (mounted) _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _savingDraft = false);
+    }
+  }
+
+  Future<void> _send() async {
+    setState(() => _sending = true);
+    try {
+      final res = await apiService.createInvoice(_payload());
+      await apiService.sendInvoice(res['invoice']['id'] as String);
+      widget.onCreated();
+    } catch (e) {
+      if (mounted) _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _snack(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg)));
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final maxH = MediaQuery.sizeOf(context).height * 0.92;
+
+    return Container(
+      height: maxH,
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: cs.onSurface.withOpacity(0.07))),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 32, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              children: [
+                if (_step > 0)
+                  _IconBtn(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => _go(_step - 1),
+                  )
+                else
+                  const SizedBox(width: 36),
+                Expanded(
+                  child: Text(
+                    ['Who & What', 'Line Items', 'Payment & Schedule'][_step],
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3, color: cs.onSurface),
+                  ),
+                ),
+                _IconBtn(
+                  icon: Icons.close_rounded,
+                  onTap: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          // Step dots
+          _StepDots(current: _step, total: 3),
+          // Content
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: _step == 0 ? _step1()
+                   : _step == 1 ? _step2()
+                   : _step3(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 1 ─────────────────────────────────────────────────────────────────
+
+  Widget _step1() {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          const _Label('Invoice title'),
+          _Field(_titleCtrl, 'e.g. Website Redesign — May 2025',
+            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
+          const SizedBox(height: 16),
+          const _Label('Client name'),
+          _Field(_clientCtrl, 'Client or company name',
+            prefix: Icons.person_outline_rounded,
+            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null),
+          const SizedBox(height: 12),
+          const _Label('Client email (optional)'),
+          _Field(_emailCtrl, 'client@email.com',
+            keyboard: TextInputType.emailAddress,
+            prefix: Icons.mail_outline_rounded),
+          const SizedBox(height: 12),
+          const _Label('Client phone (optional — for WhatsApp)'),
+          _Field(_phoneCtrl, '+234 800 000 0000',
+            keyboard: TextInputType.phone,
+            prefix: Icons.phone_outlined),
+          const SizedBox(height: 32),
+          _PrimaryBtn(
+            label: 'Continue',
+            onTap: () { if (_formKey.currentState!.validate()) _go(1); },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 2 ─────────────────────────────────────────────────────────────────
+
+  Widget _step2() {
+    final sym = _currency == 'USDC' ? '\$' : '₦';
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: [
+        const _Label('Line items'),
+        ..._items.asMap().entries.map((e) => _LineItemCard(
+          item: e.value, symbol: sym,
+          onChanged: () => setState(() {}),
+          onRemove: _items.length > 1
+              ? () => setState(() => _items.removeAt(e.key)) : null,
+        )),
+        TextButton.icon(
+          onPressed: () => setState(() => _items.add(_LineItem())),
+          icon: const Icon(Icons.add_circle_outline_rounded, size: 15),
+          label: const Text('Add line item'),
+        ),
+        const SizedBox(height: 8),
+        // VAT toggle
+        _SwitchRow(label: 'Apply VAT (7.5%)', value: _vat,
+            onChanged: (v) => setState(() => _vat = v)),
+        const Divider(height: 28),
+        // Totals
+        _TotalsBlock(subtotal: _subtotal, vat: _vatAmt, total: _total,
+            vatEnabled: _vat, symbol: sym),
+        const SizedBox(height: 24),
+        _PrimaryBtn(
+          label: 'Continue',
+          onTap: () {
+            if (_items.isEmpty || _items.every((i) => i.total == 0)) {
+              _snack('Add at least one line item with an amount');
+            } else {
+              _go(2);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  // ── Step 3 ─────────────────────────────────────────────────────────────────
+
+  Widget _step3() {
+    final sym = _currency == 'USDC' ? '\$' : '₦';
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: [
+        const _Label('Currency'),
+        Row(children: [
+          _Chip(label: 'NGN (NGNT)', sel: _currency == 'NGNT',
+              onTap: () => setState(() => _currency = 'NGNT')),
+          const SizedBox(width: 8),
+          _Chip(label: 'USD (USDC)', sel: _currency == 'USDC',
+              onTap: () => setState(() => _currency = 'USDC')),
+        ]),
+        const SizedBox(height: 16),
+        const _Label('Payment method'),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          _Chip(label: 'On-chain',     icon: Icons.link_rounded,              sel: _payType == 'crypto',       onTap: () => setState(() => _payType = 'crypto')),
+          _Chip(label: 'Bank transfer',icon: Icons.account_balance_outlined,  sel: _payType == 'bankTransfer', onTap: () => setState(() => _payType = 'bankTransfer')),
+          _Chip(label: 'Both',         icon: Icons.swap_horiz_rounded,        sel: _payType == 'both',         onTap: () => setState(() => _payType = 'both')),
+        ]),
+        const SizedBox(height: 16),
+        const _Label('Due date'),
+        Wrap(spacing: 8, runSpacing: 6, children: [7, 14, 30, 60].map((d) {
+          final exp = DateTime.now().add(Duration(days: d));
+          final sel = _due != null && _due!.day == exp.day
+              && _due!.month == exp.month && _due!.year == exp.year;
+          return _Chip(
+            label: 'Net $d', sel: sel,
+            onTap: () => setState(() => _due = DateTime.now().add(Duration(days: d))));
+        }).toList()),
+        const SizedBox(height: 8),
+        _DateRow(due: _due,
+          onPick: () async {
+            final d = await showDatePicker(context: context,
+              initialDate: DateTime.now().add(const Duration(days: 14)),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 730)));
+            if (d != null) setState(() => _due = d);
+          },
+          onClear: () => setState(() => _due = null),
+        ),
+        const SizedBox(height: 16),
+        _SwitchRow(label: 'Recurring invoice', sublabel: 'Auto-generate on a schedule',
+            value: _recurring, onChanged: (v) => setState(() => _recurring = v)),
+        if (_recurring) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 6,
+            children: ['weekly','monthly','quarterly','annually'].map((iv) =>
+              _Chip(label: '${iv[0].toUpperCase()}${iv.substring(1)}',
+                sel: _interval == iv, onTap: () => setState(() => _interval = iv)),
+            ).toList(),
+          ),
+        ],
+        const SizedBox(height: 16),
+        const _Label('Notes (optional)'),
+        _MultiField(_notesCtrl, 'Payment terms, bank details, message…'),
+        const SizedBox(height: 16),
+        // Summary
+        _SummaryCard(
+          title: _titleCtrl.text.trim(),
+          client: _clientCtrl.text.trim(),
+          count: _items.length,
+          total: _total, symbol: sym, due: _due,
+        ),
+        const SizedBox(height: 20),
+        // Dual buttons
+        Row(children: [
+          Expanded(
+            child: _OutlineBtn(
+              label: 'Save Draft',
+              loading: _savingDraft,
+              onTap: _busy ? null : _draft,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: _PrimaryBtn(
+              label: 'Send Invoice →',
+              loading: _sending,
+              onTap: _busy ? null : _send,
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DETAIL SHEET
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _DetailSheet extends StatefulWidget {
+  final Map<String, dynamic> invoice;
+  final VoidCallback onRefresh;
+  final VoidCallback onClose;
+  const _DetailSheet({required this.invoice, required this.onRefresh, required this.onClose});
+
+  @override
+  State<_DetailSheet> createState() => _DetailSheetState();
+}
+
+class _DetailSheetState extends State<_DetailSheet> {
+  bool _sending = false, _marking = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final inv = widget.invoice;
+    final status   = (inv['status'] as String?) ?? 'draft';
+    final currency = (inv['currency'] as String?) ?? 'NGNT';
+    final total    = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+    final link     = inv['paymentLink'] as String?;
+    final sym      = currency == 'USDC' ? '\$' : '₦';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: cs.onSurface.withOpacity(0.07))),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                width: 32, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  Text('Invoice Detail', style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                  const Spacer(),
+                  _IconBtn(icon: Icons.close_rounded, onTap: widget.onClose),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Amount hero — matches balance row aesthetic
+            Text(
+              '$sym${total.toStringAsFixed(2)}',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 40, fontWeight: FontWeight.w500,
+                letterSpacing: -1.5, color: cs.primary, height: 1),
+            ),
+            const SizedBox(height: 6),
+            _StatusPill(status: status),
+            const SizedBox(height: 20),
+            // Details
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  _DetailRow('Invoice #', inv['invoiceNumber'] ?? ''),
+                  _DetailRow('Client', inv['clientName'] ?? '—'),
+                  _DetailRow('Currency', currency),
+                  if (inv['dueDate'] != null)
+                    _DetailRow('Due date',
+                      DateFormat('MMM d, yyyy').format(
+                        DateTime.parse(inv['dueDate'] as String))),
+                  if (inv['title'] != null)
+                    _DetailRow('Title', inv['title'] as String),
+                ],
+              ),
+            ),
+            // Payment link
+            if (link != null) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(link,
+                        style: TextStyle(fontSize: 11,
+                            color: cs.onSurface.withOpacity(0.5)),
+                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      const SizedBox(width: 8),
+                      _IconBtn(icon: Icons.copy_rounded, onTap: () {
+                        Clipboard.setData(ClipboardData(text: link));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Link copied')));
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            // Actions
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  if (status == 'draft')
+                    _PrimaryBtn(
+                      label: 'Send Invoice',
+                      loading: _sending,
+                      onTap: _sending ? null : () async {
+                        setState(() => _sending = true);
+                        try {
+                          await apiService.sendInvoice(inv['id'] as String);
+                          widget.onRefresh();
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(apiService.parseError(e))));
+                        } finally {
+                          if (mounted) setState(() => _sending = false);
+                        }
+                      },
+                    ),
+                  if (status == 'sent' || status == 'viewed' || status == 'overdue')
+                    _PrimaryBtn(
+                      label: 'Mark as Paid',
+                      loading: _marking,
+                      onTap: _marking ? null : () async {
+                        setState(() => _marking = true);
+                        try {
+                          await apiService.markInvoicePaid(inv['id'] as String);
+                          widget.onRefresh();
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(apiService.parseError(e))));
+                        } finally {
+                          if (mounted) setState(() => _marking = false);
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Detail row ─────────────────────────────────────────────────────────────────
+
+class _DetailRow extends StatelessWidget {
+  final String label, value;
+  const _DetailRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(
+            fontSize: 13, color: cs.onSurface.withOpacity(0.45))),
+          const Spacer(),
+          Text(value, style: const TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ACTION SHEET
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _MenuEntry {
+  final String action;
+  final IconData icon;
+  final String label;
+  final bool danger;
+  const _MenuEntry(this.action, this.icon, this.label, {this.danger = false});
+}
+
+class _ActionSheet extends StatelessWidget {
+  final String title, number;
+  final List<_MenuEntry> entries;
+  final void Function(String) onAction;
+  const _ActionSheet({
+    required this.title, required this.number,
+    required this.entries, required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: cs.onSurface.withOpacity(0.07))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              width: 32, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(2)),
+            )),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (number.isNotEmpty)
+                    Text(number, style: TextStyle(
+                      fontSize: 12, color: cs.onSurface.withOpacity(0.4))),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: cs.onSurface.withOpacity(0.06)),
+            ...entries.map((e) => ListTile(
+              leading: Icon(e.icon, size: 19,
+                color: e.danger ? DayFiColors.red : cs.onSurface.withOpacity(0.6)),
+              title: Text(e.label, style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w500,
+                color: e.danger ? DayFiColors.red : null)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 1),
+              onTap: () {
+                Navigator.of(context).pop();
+                onAction(e.action);
+              },
+            )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHARED FORM WIDGETS — auth-screen aesthetic
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _Label extends StatelessWidget {
   final String text;
-  const _FieldLabel(this.text);
+  const _Label(this.text);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          letterSpacing: .3,
-        ),
+      child: Text(text, style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w600, letterSpacing: 0.2, fontSize: 12)),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String hint;
+  final TextInputType keyboard;
+  final IconData? prefix;
+  final String? Function(String?)? validator;
+  const _Field(this.ctrl, this.hint, {
+    this.keyboard = TextInputType.text, this.prefix, this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: keyboard,
+      style: TextStyle(
+        fontSize: 15, letterSpacing: -0.1,
+        color: cs.onSurface.withOpacity(0.85)),
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          fontSize: 15, color: cs.onSurface.withOpacity(0.3), letterSpacing: -0.1),
+        prefixIcon: prefix != null
+            ? Icon(prefix, size: 17, color: cs.onSurface.withOpacity(0.35)) : null,
+        filled: true,
+        fillColor: cs.onSurface.withOpacity(0.07),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.primary, width: 1.5)),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.error)),
+        isDense: true,
       ),
     );
   }
 }
 
-InputDecoration _modalField(BuildContext context, String hint) {
-  final cs = Theme.of(context).colorScheme;
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(color: cs.onSurface.withOpacity(.35), fontSize: 14),
-    filled: true,
-    fillColor: cs.onSurface.withOpacity(.07),
-    hoverColor: Colors.transparent,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: cs.primary, width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: cs.error),
-    ),
-    isDense: true,
-  );
+class _MultiField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String hint;
+  const _MultiField(this.ctrl, this.hint);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return TextField(
+      controller: ctrl,
+      maxLines: 3,
+      style: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.85)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.3)),
+        filled: true,
+        fillColor: cs.onSurface.withOpacity(0.07),
+        contentPadding: const EdgeInsets.all(14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: cs.primary, width: 1.5)),
+        isDense: true,
+      ),
+    );
+  }
 }
 
-class _SegmentButton extends StatelessWidget {
+class _PrimaryBtn extends StatelessWidget {
   final String label;
-  final bool selected;
+  final VoidCallback? onTap;
+  final bool loading;
+  const _PrimaryBtn({required this.label, this.onTap, this.loading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity, height: 52,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cs.onSurface, foregroundColor: cs.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: loading ? null : onTap,
+        child: loading
+            ? SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.surface))
+            : Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+}
+
+class _OutlineBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final bool loading;
+  const _OutlineBtn({required this.label, this.onTap, this.loading = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity, height: 52,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: cs.onSurface.withOpacity(0.2)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: loading ? null : onTap,
+        child: loading
+            ? SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: cs.onSurface))
+            : Text(label, style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600,
+                color: cs.onSurface.withOpacity(0.65))),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final bool sel;
   final VoidCallback onTap;
   final IconData? icon;
-
-  const _SegmentButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
+  const _Chip({required this.label, required this.sel, required this.onTap, this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -1911,33 +1687,22 @@ class _SegmentButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? cs.primary : cs.onSurface.withOpacity(.07),
+          color: sel ? cs.onSurface : cs.onSurface.withOpacity(0.07),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 14,
-                color: selected ? cs.onPrimary : cs.onSurface.withOpacity(.7),
-              ),
-              const SizedBox(width: 5),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? cs.onPrimary : cs.onSurface.withOpacity(.7),
-              ),
-            ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13,
+                color: sel ? cs.surface : cs.onSurface.withOpacity(0.6)),
+            const SizedBox(width: 5),
           ],
-        ),
+          Text(label, style: GoogleFonts.bricolageGrotesque(
+            fontSize: 12, fontWeight: FontWeight.w600,
+            color: sel ? cs.surface : cs.onSurface.withOpacity(0.65))),
+        ]),
       ),
     );
   }
@@ -1948,285 +1713,29 @@ class _SwitchRow extends StatelessWidget {
   final String? sublabel;
   final bool value;
   final ValueChanged<bool> onChanged;
-
-  const _SwitchRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.sublabel,
-  });
+  const _SwitchRow({required this.label, required this.value,
+      required this.onChanged, this.sublabel});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                ),
-              ),
-              if (sublabel != null)
-                Text(
-                  sublabel!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(.5),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Switch(value: value, onChanged: onChanged),
-      ],
-    );
-  }
-}
-
-class _TotalsBlock extends StatelessWidget {
-  final double subtotal;
-  final double vatAmount;
-  final double total;
-  final bool vatEnabled;
-  final String symbol;
-
-  const _TotalsBlock({
-    required this.subtotal,
-    required this.vatAmount,
-    required this.total,
-    required this.vatEnabled,
-    required this.symbol,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurface.withOpacity(.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
+    return Row(children: [
+      Expanded(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _TotalLine('Subtotal', subtotal, symbol),
-          if (vatEnabled) _TotalLine('VAT (7.5%)', vatAmount, symbol),
-          const Divider(height: 16),
-          _TotalLine('Total', total, symbol, bold: true),
+          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          if (sublabel != null) Text(sublabel!, style: TextStyle(
+            fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45))),
         ],
-      ),
-    );
+      )),
+      Switch(value: value, onChanged: onChanged),
+    ]);
   }
 }
 
-class _TotalLine extends StatelessWidget {
-  final String label;
-  final double amount;
-  final String symbol;
-  final bool bold;
-  const _TotalLine(this.label, this.amount, this.symbol, {this.bold = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: bold ? 15 : 13,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-              color: bold
-                  ? null
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(.55),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '$symbol${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: bold ? 17 : 14,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AutocompleteDropdown extends StatelessWidget {
-  final List<Map<String, dynamic>> suggestions;
-  final void Function(Map<String, dynamic>) onSelect;
-
-  const _AutocompleteDropdown({
-    required this.suggestions,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 4, bottom: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(.10),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: suggestions
-            .map(
-              (c) => ListTile(
-                dense: true,
-                leading: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withOpacity(.12),
-                  child: Text(
-                    (c['name'] as String)[0],
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-                title: Text(
-                  c['name'] as String,
-                  style: const TextStyle(fontSize: 13),
-                ),
-                subtitle: Text(
-                  c['email'] as String,
-                  style: const TextStyle(fontSize: 11),
-                ),
-                onTap: () => onSelect(c),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _ActionChip({required this.icon, required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: cs.onSurface.withOpacity(.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cs.onSurface.withOpacity(.09)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: cs.onSurface.withOpacity(.7)),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurface.withOpacity(.75),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SuggestionBanner extends StatelessWidget {
-  final String message;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  const _SuggestionBanner({
-    required this.message,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cs.primary.withOpacity(.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.primary.withOpacity(.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.lightbulb_outline_rounded, size: 15, color: cs.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: 13,
-                color: cs.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: onAction,
-            child: Text(
-              actionLabel,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DatePickerRow extends StatelessWidget {
-  final DateTime? dueDate;
-  final VoidCallback onPick;
-  final VoidCallback onClear;
-
-  const _DatePickerRow({
-    required this.dueDate,
-    required this.onPick,
-    required this.onClear,
-  });
+class _DateRow extends StatelessWidget {
+  final DateTime? due;
+  final VoidCallback onPick, onClear;
+  const _DateRow({required this.due, required this.onPick, required this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -2236,824 +1745,190 @@ class _DatePickerRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: cs.onSurface.withOpacity(.07),
+          color: cs.onSurface.withOpacity(0.07),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.calendar_today_rounded,
-              size: 15,
-              color: cs.onSurface.withOpacity(.5),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              dueDate != null
-                  ? DateFormat('MMM d, yyyy').format(dueDate!)
-                  : 'Custom date',
-              style: TextStyle(
-                fontSize: 14,
-                color: dueDate != null
-                    ? cs.onSurface
-                    : cs.onSurface.withOpacity(.4),
-              ),
-            ),
-            const Spacer(),
-            if (dueDate != null)
-              GestureDetector(
-                onTap: onClear,
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 15,
-                  color: cs.onSurface.withOpacity(.5),
-                ),
-              ),
-          ],
-        ),
+        child: Row(children: [
+          Icon(Icons.calendar_today_rounded, size: 14,
+              color: cs.onSurface.withOpacity(0.4)),
+          const SizedBox(width: 10),
+          Text(
+            due != null ? DateFormat('MMM d, yyyy').format(due!) : 'Custom date',
+            style: TextStyle(fontSize: 14,
+                color: due != null ? cs.onSurface : cs.onSurface.withOpacity(0.4))),
+          const Spacer(),
+          if (due != null) GestureDetector(
+            onTap: onClear,
+            child: Icon(Icons.close_rounded, size: 14,
+                color: cs.onSurface.withOpacity(0.4)),
+          ),
+        ]),
       ),
     );
   }
 }
 
-class _InvoiceSummaryCard extends StatelessWidget {
-  final String title;
-  final String clientName;
-  final int itemCount;
-  final double total;
+class _TotalsBlock extends StatelessWidget {
+  final double subtotal, vat, total;
+  final bool vatEnabled;
   final String symbol;
-  final DateTime? dueDate;
-
-  const _InvoiceSummaryCard({
-    required this.title,
-    required this.clientName,
-    required this.itemCount,
-    required this.total,
-    required this.symbol,
-    required this.dueDate,
-  });
+  const _TotalsBlock({required this.subtotal, required this.vat,
+      required this.total, required this.vatEnabled, required this.symbol});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.primary.withOpacity(.07),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.primary.withOpacity(.14)),
+        color: cs.onSurface.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Invoice summary',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface.withOpacity(.45),
-              letterSpacing: .5,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title.isNotEmpty ? title : '—',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            clientName.isNotEmpty ? clientName : '—',
-            style: TextStyle(
-              color: cs.onSurface.withOpacity(.55),
-              fontSize: 13,
-            ),
-          ),
-          const Divider(height: 20),
-          Row(
-            children: [
-              Text(
-                '$itemCount item(s)',
-                style: TextStyle(
-                  color: cs.onSurface.withOpacity(.55),
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$symbol${total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          if (dueDate != null) ...[
-            const SizedBox(height: 5),
-            Text(
-              'Due ${DateFormat('MMM d, yyyy').format(dueDate!)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withOpacity(.45),
-              ),
-            ),
-          ],
-        ],
-      ),
+      child: Column(children: [
+        _TLine('Subtotal', subtotal, symbol),
+        if (vatEnabled) _TLine('VAT (7.5%)', vat, symbol),
+        Divider(height: 16, color: cs.onSurface.withOpacity(0.08)),
+        _TLine('Total', total, symbol, bold: true),
+      ]),
     );
   }
 }
 
-// ─── Invoice list widgets ─────────────────────────────────────────────────────
+class _TLine extends StatelessWidget {
+  final String label, symbol;
+  final double amount;
+  final bool bold;
+  const _TLine(this.label, this.amount, this.symbol, {this.bold = false});
 
-class _ListSectionHeader extends StatelessWidget {
-  final String status;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Text(label, style: TextStyle(
+          fontSize: bold ? 14 : 12, fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+          color: bold ? null : Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        const Spacer(),
+        Text('$symbol${amount.toStringAsFixed(2)}', style: TextStyle(
+          fontSize: bold ? 16 : 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
+      ]),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String title, client, symbol;
   final int count;
-  const _ListSectionHeader({required this.status, required this.count});
+  final double total;
+  final DateTime? due;
+  const _SummaryCard({required this.title, required this.client,
+      required this.count, required this.total,
+      required this.symbol, required this.due});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatusPill(status: status),
-        const SizedBox(width: 8),
-        Text(
-          '$count',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-            fontSize: 12,
-          ),
-        ),
-      ],
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withOpacity(0.12)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Summary', style: TextStyle(
+          fontSize: 10, fontWeight: FontWeight.w600,
+          color: cs.onSurface.withOpacity(0.4), letterSpacing: 0.4)),
+        const SizedBox(height: 8),
+        Text(title.isNotEmpty ? title : '—',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        Text(client.isNotEmpty ? client : '—',
+            style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.5))),
+        Divider(height: 16, color: cs.onSurface.withOpacity(0.08)),
+        Row(children: [
+          Text('$count item${count == 1 ? '' : 's'}',
+              style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.5))),
+          const Spacer(),
+          Text('$symbol${total.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        ]),
+        if (due != null) ...[
+          const SizedBox(height: 4),
+          Text('Due ${DateFormat('MMM d, yyyy').format(due!)}',
+              style: TextStyle(fontSize: 11, color: cs.onSurface.withOpacity(0.4))),
+        ],
+      ]),
     );
   }
 }
 
-// ─── Invoice tile with ⋮ menu (CHANGED) ───────────────────────────────────────
-
-class _InvoiceTile extends StatelessWidget {
-  final Map<String, dynamic> invoice;
-  final VoidCallback onTap;
-  final void Function(String action) onMenuAction;
-
-  const _InvoiceTile({
-    required this.invoice,
-    required this.onTap,
-    required this.onMenuAction,
-  });
-
-  // Returns context-aware menu items based on status
-  List<_MenuEntry> _menuEntries(String status, bool hasPaymentLink) {
-    switch (status) {
-      case 'draft':
-        return [
-          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
-          _MenuEntry('send', Icons.send_rounded, 'Send'),
-          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
-        ];
-      case 'sent':
-      case 'viewed':
-        return [
-          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
-          if (hasPaymentLink)
-            _MenuEntry('copy_link', Icons.link_rounded, 'Copy payment link'),
-          _MenuEntry('share_whatsapp', Icons.chat_rounded, 'Share via WhatsApp'),
-          _MenuEntry('share_email', Icons.mail_outline_rounded, 'Share via Email'),
-          _MenuEntry('mark_paid', Icons.check_circle_outline_rounded, 'Mark as Paid'),
-          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
-        ];
-      case 'overdue':
-        return [
-          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
-          if (hasPaymentLink)
-            _MenuEntry('copy_link', Icons.link_rounded, 'Copy payment link'),
-          _MenuEntry('reminder', Icons.notifications_outlined, 'Send reminder'),
-          _MenuEntry('mark_paid', Icons.check_circle_outline_rounded, 'Mark as Paid'),
-          _MenuEntry('cancel', Icons.cancel_outlined, 'Cancel', danger: true),
-        ];
-      case 'paid':
-        return [
-          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
-        ];
-      default:
-        return [
-          _MenuEntry('view', Icons.open_in_new_rounded, 'View details'),
-        ];
-    }
-  }
-
-  void _showMenu(BuildContext context, String status, bool hasPaymentLink) {
-    final entries = _menuEntries(status, hasPaymentLink);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _InvoiceActionSheet(
-        entries: entries,
-        invoiceTitle: (invoice['title'] as String?) ?? 'Invoice',
-        invoiceNumber: (invoice['invoiceNumber'] as String?) ?? '',
-        onAction: onMenuAction,
-      ),
-    );
-  }
+class _StepDots extends StatelessWidget {
+  final int current, total;
+  const _StepDots({required this.current, required this.total});
 
   @override
   Widget build(BuildContext context) {
-    final status = (invoice['status'] as String?) ?? 'draft';
-    final total = (invoice['totalAmount'] as num?)?.toDouble() ?? 0;
-    final currency = (invoice['currency'] as String?) ?? 'NGNT';
-    final clientName = (invoice['clientName'] as String?) ?? '—';
-    final invoiceNum = (invoice['invoiceNumber'] as String?) ?? '';
-    final title = (invoice['title'] as String?) ?? 'Invoice';
-    final dueDate = invoice['dueDate'] != null
-        ? DateTime.tryParse(invoice['dueDate'])
-        : null;
-    final hasPaymentLink = (invoice['paymentLink'] as String?) != null;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(total, (i) => AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: i == current ? 22 : 7, height: 6,
+          decoration: BoxDecoration(
+            color: i <= current
+                ? cs.onSurface : cs.onSurface.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(3)),
+        )),
+      ),
+    );
+  }
+}
 
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8, top: 2),
-        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        width: 36, height: 36,
         decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).textTheme.bodySmall?.color?.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-          ),
-        ),
-        child: Row(
-          children: [
-            // ── Invoice info ───────────────────────────────────────────────
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    invoiceNum,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.4),
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    clientName,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.5),
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (dueDate != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      'Due ${DateFormat('MMM d, yyyy').format(dueDate)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color: status == 'overdue'
-                            ? DayFiColors.red
-                            : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.4),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // ── Amount + status ────────────────────────────────────────────
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  currency == 'USDC'
-                      ? '\$${total.toStringAsFixed(2)}'
-                      : '₦${total.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _StatusPill(status: status),
-              ],
-            ),
-            // ── ⋮ button ───────────────────────────────────────────────────
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => _showMenu(context, status, hasPaymentLink),
-              child: Container(
-                width: 32,
-                height: 32,
-                margin: const EdgeInsets.only(left: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.more_vert_rounded,
-                  size: 16,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
+          color: cs.onSurface.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 16),
       ),
     );
   }
 }
 
-// ─── Menu entry model ─────────────────────────────────────────────────────────
+// ── Line item model ────────────────────────────────────────────────────────────
 
-class _MenuEntry {
-  final String action;
-  final IconData icon;
-  final String label;
-  final bool danger;
+class _LineItem {
+  final desc  = TextEditingController();
+  final qty   = TextEditingController(text: '1');
+  final price = TextEditingController();
 
-  const _MenuEntry(this.action, this.icon, this.label, {this.danger = false});
+  double get qtyVal   => double.tryParse(qty.text) ?? 0;
+  double get priceVal => double.tryParse(price.text) ?? 0;
+  double get total    => qtyVal * priceVal;
+
+  void dispose() { desc.dispose(); qty.dispose(); price.dispose(); }
 }
 
-// ─── Bottom sheet action sheet ────────────────────────────────────────────────
-
-class _InvoiceActionSheet extends StatelessWidget {
-  final List<_MenuEntry> entries;
-  final String invoiceTitle;
-  final String invoiceNumber;
-  final void Function(String action) onAction;
-
-  const _InvoiceActionSheet({
-    required this.entries,
-    required this.invoiceTitle,
-    required this.invoiceNumber,
-    required this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? DayFiColors.surface.withOpacity(0.92)
-                : DayFiColors.lightSurface.withOpacity(0.95),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border(
-              top: BorderSide(
-                color: isDark
-                    ? DayFiColors.border.withOpacity(0.5)
-                    : DayFiColors.lightBorder.withOpacity(0.7),
-                width: 0.75,
-              ),
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Drag handle
-                Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Invoice header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              invoiceTitle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (invoiceNumber.isNotEmpty)
-                              Text(
-                                invoiceNumber,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.45),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 20, indent: 20, endIndent: 20),
-                // Action rows
-                ...entries.map(
-                  (e) => ListTile(
-                    leading: Icon(
-                      e.icon,
-                      size: 20,
-                      color: e.danger
-                          ? DayFiColors.red
-                          : Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                    title: Text(
-                      e.label,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: e.danger ? DayFiColors.red : null,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      onAction(e.action);
-                    },
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final String status;
-  const _StatusPill({required this.status});
-
-  Color _color(BuildContext context) {
-    switch (status) {
-      case 'paid':
-        return DayFiColors.green;
-      case 'sent':
-        return const Color(0xFF2775CA);
-      case 'viewed':
-        return const Color(0xFF9C27B0);
-      case 'overdue':
-        return DayFiColors.red;
-      case 'cancelled':
-        return Theme.of(context).colorScheme.onSurface.withOpacity(0.35);
-      case 'draft':
-        return Theme.of(context).colorScheme.onSurface.withOpacity(0.4);
-      default:
-        return Theme.of(context).colorScheme.primary;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = _color(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: c.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status[0].toUpperCase() + status.substring(1),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: c,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _DetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Insights sub-widgets ─────────────────────────────────────────────────────
-
-class _MetricTile extends StatelessWidget {
-  final Color dotColor;
-  final String label;
-  final String value;
-  final double percent;
-  final Color accentColor;
-
-  const _MetricTile({
-    required this.dotColor,
-    required this.label,
-    required this.value,
-    required this.percent,
-    required this.accentColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: GoogleFonts.bricolageGrotesque(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.bricolageGrotesque(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: .5,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(40),
-            color: accentColor.withOpacity(0.14),
-          ),
-          child: Text(
-            '${percent.toStringAsFixed(0)}%',
-            style: GoogleFonts.bricolageGrotesque(
-              fontSize: 11,
-              color: accentColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? accent;
-
-  const _StatRow({required this.label, required this.value, this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              fontSize: 13,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: accent,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  final VoidCallback onTapCreate;
-  const _EmptyState({required this.onTapCreate});
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-    return Center(
-      child: SizedBox(
-        width: 480,
-        child: Container(
-          margin: const EdgeInsets.only(top: 40),
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06),
-            ),
-            color: Theme.of(context).colorScheme.surface,
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No invoices yet',
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Create your first invoice to start getting paid.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.5),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(.7),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                      ),
-                      onPressed: onTapCreate,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        child: Text(
-                          'NEW INVOICE',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .2,
-                            color: ext.sectionHeader,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).textTheme.bodySmall!.color!.withOpacity(0.1),
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(.7),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                      ),
-                      onPressed: () => launchUrl(
-                        Uri.parse('https://dayfi.co'),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        child: Text(
-                          'LEARN MORE',
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .2,
-                            color: ext.sectionHeader,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Modal line item model ────────────────────────────────────────────────────
-
-class _ModalLineItem {
-  final descCtrl = TextEditingController();
-  final qtyCtrl = TextEditingController(text: '1');
-  final priceCtrl = TextEditingController();
-
-  double get qty => double.tryParse(qtyCtrl.text) ?? 0;
-  double get price => double.tryParse(priceCtrl.text) ?? 0;
-  double get total => qty * price;
-
-  void dispose() {
-    descCtrl.dispose();
-    qtyCtrl.dispose();
-    priceCtrl.dispose();
-  }
-}
-
-class _ModalLineItemCard extends StatelessWidget {
-  final _ModalLineItem item;
+class _LineItemCard extends StatelessWidget {
+  final _LineItem item;
   final String symbol;
   final VoidCallback onChanged;
   final VoidCallback? onRemove;
-
-  const _ModalLineItemCard({
-    required this.item,
-    required this.symbol,
-    required this.onChanged,
-    this.onRemove,
-  });
+  const _LineItemCard({required this.item, required this.symbol,
+      required this.onChanged, this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -3062,223 +1937,160 @@ class _ModalLineItemCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.onSurface.withOpacity(.05),
+        color: cs.onSurface.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: item.descCtrl,
-                  onChanged: (_) => onChanged(),
-                  decoration: InputDecoration(
-                    hintText: 'Item description',
-                    hintStyle: TextStyle(
-                      color: cs.onSurface.withOpacity(.35),
-                      fontSize: 14,
-                    ),
-                    border: InputBorder.none,
-                    hoverColor: Colors.transparent,
-                    isDense: true,
-                  ),
-                ),
-              ),
-              if (onRemove != null)
-                GestureDetector(
-                  onTap: onRemove,
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: cs.onSurface.withOpacity(.4),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              SizedBox(
-                width: 60,
-                child: TextField(
-                  controller: item.qtyCtrl,
-                  onChanged: (_) => onChanged(),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d+\.?\d{0,2}'),
-                    ),
-                  ],
-                  decoration: InputDecoration(
-                    hintText: 'Qty',
-                    hintStyle: TextStyle(
-                      color: cs.onSurface.withOpacity(.35),
-                      fontSize: 12,
-                    ),
-                    border: InputBorder.none,
-                    hoverColor: Colors.transparent,
-                    isDense: true,
-                    prefix: Text(
-                      '×',
-                      style: TextStyle(color: cs.onSurface.withOpacity(.4)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: item.priceCtrl,
-                  onChanged: (_) => onChanged(),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d+\.?\d{0,2}'),
-                    ),
-                  ],
-                  decoration: InputDecoration(
-                    hintText: 'Unit price',
-                    hintStyle: TextStyle(
-                      color: cs.onSurface.withOpacity(.35),
-                      fontSize: 12,
-                    ),
-                    border: InputBorder.none,
-                    hoverColor: Colors.transparent,
-                    isDense: true,
-                    prefix: Text(
-                      '$symbol ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface.withOpacity(.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Text(
-                '$symbol${item.total.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ],
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: TextField(
+            controller: item.desc,
+            onChanged: (_) => onChanged(),
+            style: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.85)),
+            decoration: InputDecoration(
+              hintText: 'Item description',
+              hintStyle: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.3)),
+              border: InputBorder.none, isDense: true),
+          )),
+          if (onRemove != null) GestureDetector(
+            onTap: onRemove,
+            child: Icon(Icons.close_rounded, size: 15,
+                color: cs.onSurface.withOpacity(0.35))),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          SizedBox(width: 60, child: TextField(
+            controller: item.qty,
+            onChanged: (_) => onChanged(),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+            style: TextStyle(fontSize: 13, color: cs.onSurface.withOpacity(0.85)),
+            decoration: InputDecoration(
+              hintText: 'Qty',
+              prefix: Text('×', style: TextStyle(color: cs.onSurface.withOpacity(0.35))),
+              border: InputBorder.none, isDense: true),
+          )),
+          const SizedBox(width: 8),
+          Expanded(child: TextField(
+            controller: item.price,
+            onChanged: (_) => onChanged(),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+            style: TextStyle(fontSize: 13, color: cs.onSurface.withOpacity(0.85)),
+            decoration: InputDecoration(
+              hintText: 'Unit price',
+              prefix: Text('$symbol ', style: TextStyle(
+                fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.4))),
+              border: InputBorder.none, isDense: true),
+          )),
+          Text('$symbol${item.total.toStringAsFixed(0)}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ── Empty / Error views ────────────────────────────────────────────────────────
+
+class _EmptyView extends StatelessWidget {
+  final VoidCallback onCreate;
+  const _EmptyView({required this.onCreate});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long_outlined, size: 44,
+                color: cs.onSurface.withOpacity(0.18)),
+            const SizedBox(height: 16),
+            Text('No invoices yet', style: GoogleFonts.bricolageGrotesque(
+              fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+            const SizedBox(height: 6),
+            Text('Create your first invoice to start getting paid.',
+              style: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.45)),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 28),
+            _PrimaryBtn(label: 'Create Invoice', onTap: onCreate),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── Chart helpers (unchanged) ────────────────────────────────────────────────
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorView({required this.message, required this.onRetry});
 
-DateTime _periodStart(DateTime now, int periodIndex) {
-  switch (periodIndex) {
-    case 0:
-      return now.subtract(const Duration(days: 7));
-    case 1:
-      return now.subtract(const Duration(days: 30));
-    case 2:
-      return DateTime(now.year, 1, 1);
-    case 3:
-      return now.subtract(const Duration(days: 90));
-    case 4:
-      return now.subtract(const Duration(days: 365));
-    default:
-      return now.subtract(const Duration(days: 30));
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Failed to load', style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ],
+    ));
   }
 }
 
-List<FlSpot> _buildSeriesSpots(
-  List<Map<String, dynamic>> invoices,
-  int periodIndex,
-  String kind,
-) {
+// ── Section label ──────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: GoogleFonts.bricolageGrotesque(
+      fontSize: 11, fontWeight: FontWeight.w700,
+      letterSpacing: 1.2, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35)));
+  }
+}
+
+// ── Chart helpers ──────────────────────────────────────────────────────────────
+
+DateTime _periodStart(DateTime now, int p) {
+  switch (p) {
+    case 0: return now.subtract(const Duration(days: 7));
+    case 1: return now.subtract(const Duration(days: 30));
+    case 2: return DateTime(now.year, 1, 1);
+    case 3: return now.subtract(const Duration(days: 90));
+    case 4: return now.subtract(const Duration(days: 365));
+    default: return now.subtract(const Duration(days: 30));
+  }
+}
+
+List<FlSpot> _buildSpots(List<Map<String, dynamic>> invoices, int period, String kind) {
   final now = DateTime.now();
-  final start = _periodStart(now, periodIndex);
-  final bucketCount = periodIndex == 2
-      ? now.month
-      : [7, 30, 30, 90, 30][periodIndex];
-  final values = List<double>.filled(bucketCount, 0);
-  final daysSpan = now.difference(start).inDays.clamp(1, 366);
+  final start = _periodStart(now, period);
+  final buckets = period == 2 ? now.month : [7, 30, 30, 90, 30][period];
+  final vals = List<double>.filled(buckets, 0);
+  final span = now.difference(start).inDays.clamp(1, 366);
 
   for (final inv in invoices) {
-    final createdAt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
-    if (createdAt == null || createdAt.isBefore(start)) continue;
-    final status = (inv['status'] as String?) ?? '';
-    final amount = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
-
-    if (kind == 'paid' && status != 'paid') continue;
-    if (kind == 'due' && status != 'sent' && status != 'viewed') continue;
-    if (kind == 'overdue' && status != 'overdue') continue;
-
-    int idx;
-    if (periodIndex == 2) {
-      idx = (createdAt.month - 1).clamp(0, bucketCount - 1);
-    } else {
-      final dayOffset = createdAt.difference(start).inDays.clamp(0, daysSpan);
-      idx = ((dayOffset / daysSpan) * (bucketCount - 1)).round().clamp(
-        0,
-        bucketCount - 1,
-      );
-    }
-    values[idx] += amount;
+    final dt = DateTime.tryParse((inv['createdAt'] ?? '').toString());
+    if (dt == null || dt.isBefore(start)) continue;
+    final s = (inv['status'] as String?) ?? '';
+    final amt = (inv['totalAmount'] as num?)?.toDouble() ?? 0;
+    if (kind == 'paid' && s != 'paid') continue;
+    if (kind == 'due' && s != 'sent' && s != 'viewed') continue;
+    if (kind == 'overdue' && s != 'overdue') continue;
+    final idx = period == 2
+        ? (dt.month - 1).clamp(0, buckets - 1)
+        : ((dt.difference(start).inDays / span * (buckets - 1)).round()).clamp(0, buckets - 1);
+    vals[idx] += amt;
   }
 
-  if (values.every((v) => v == 0)) {
-    return [const FlSpot(0, 0.5), const FlSpot(1, 0.5)];
-  }
-  final maxVal = values.reduce((a, b) => a > b ? a : b);
-  return List.generate(values.length, (i) {
-    final y = maxVal == 0 ? 0.5 : (values[i] / maxVal).clamp(0.05, 1.0);
-    return FlSpot(i.toDouble(), y);
-  });
-}
-
-LineChartData _summaryLineChartData({
-  required List<FlSpot> paidSpots,
-  required List<FlSpot> dueSpots,
-  required List<FlSpot> overdueSpots,
-}) {
-  return LineChartData(
-    minX: 0,
-    maxX: (paidSpots.length - 1).toDouble(),
-    minY: 0,
-    maxY: 1,
-    gridData: const FlGridData(show: false),
-    borderData: FlBorderData(show: false),
-    titlesData: const FlTitlesData(show: false),
-    lineTouchData: const LineTouchData(enabled: false),
-    lineBarsData: [
-      LineChartBarData(
-        spots: paidSpots,
-        isCurved: true,
-        color: const Color(0xFF598FE0),
-        barWidth: 2,
-        dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-      ),
-      LineChartBarData(
-        spots: dueSpots,
-        isCurved: true,
-        color: const Color(0xFFE57745),
-        barWidth: 2,
-        dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-      ),
-      LineChartBarData(
-        spots: overdueSpots,
-        isCurved: true,
-        color: DayFiColors.red,
-        barWidth: 2,
-        dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-      ),
-    ],
-  );
+  if (vals.every((v) => v == 0)) return [const FlSpot(0, 0.5), const FlSpot(1, 0.5)];
+  final maxVal = vals.reduce((a, b) => a > b ? a : b);
+  return List.generate(vals.length, (i) =>
+      FlSpot(i.toDouble(), maxVal == 0 ? 0.5 : (vals[i] / maxVal).clamp(0.05, 1.0)));
 }

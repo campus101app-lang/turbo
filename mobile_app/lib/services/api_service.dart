@@ -278,16 +278,13 @@ class ApiService {
   // ─── Virtual Account (NGN) ────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getVirtualAccount() async =>
-      (await _dio.get('/api/payments/virtual-account')).data
+      (await _dio.get('/api/wallet/virtual-account')).data
           as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> createVirtualAccount({
     required String bvn,
   }) async =>
-      (await _dio.post(
-            '/api/payments/virtual-account',
-            data: {'bvn': bvn},
-          )).data
+      (await _dio.post('/api/wallet/virtual-account', data: {'bvn': bvn})).data
           as Map<String, dynamic>;
 
   Future<Map<String, dynamic>> initFlutterwaveDeposit({

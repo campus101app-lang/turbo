@@ -52,16 +52,6 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
 
   String? _selectedCategory;
   bool _loading = false;
-  int  _currentStep = 0;
-
-  final List<String> _steps = [
-    'Saving profile...',
-    'Creating wallet...',
-    'Funding account...',
-    'Adding USDC trustline...',
-    'Adding NGNT trustline...',
-    'Almost done...',
-  ];
 @override
 void initState() {
   super.initState();
@@ -159,10 +149,6 @@ Future<void> _continue() async {
   setState(() => _loading = true);
 
   try {
-    setState(() => _currentStep = 0);
-    await Future.delayed(const Duration(milliseconds: 400));
-    setState(() => _currentStep = 1);
-
     final result = await apiService.setupBusinessProfile(
       setupToken: widget.setupToken,
       fullName: _fullNameController.text.trim(),
@@ -173,22 +159,11 @@ Future<void> _continue() async {
           : _businessEmailController.text.trim(),
     );
 
-    setState(() => _currentStep = 2);
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() => _currentStep = 3);
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() => _currentStep = 4);
-    await Future.delayed(const Duration(milliseconds: 700));
-    setState(() => _currentStep = 5);
-    await Future.delayed(const Duration(milliseconds: 400));
-
-    await apiService.saveToken(result['token']);
-
     if (!mounted) return;
 
-    // Always go to business onboarding next — new or existing user
+    // Route to business onboarding (token saved after wallet creation)
     context.pushReplacement('/auth/business-onboarding', extra: {
-      'setupToken': result['setupToken'] ?? '',  // backend needs to return this
+      'setupToken': result['setupToken'] ?? '',
       'isNewUser': widget.isNewUser,
     });
   } catch (e) {
@@ -421,10 +396,9 @@ Future<void> _continue() async {
                   const Spacer(),
 
                   AuthButton(
-              label: 'Continue',
+                    label: 'Continue',
                     onPressed: canSubmit && !_loading ? _continue : null,
                     isLoading: _loading,
-                    loadingText: _steps[_currentStep],
                     isValid: canSubmit,
                   ),
 

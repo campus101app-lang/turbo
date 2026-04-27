@@ -4,56 +4,80 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DayFiColors {
-  // ── Light theme (default) ── Claude AI Web Theme Inspired ──────────────
-  static const lightBackground    = Color(0xFFFAFAFA); // clean white background
-  static const lightSurface       = Color(0xFFFFFFFF); // pure white surface
-  static const lightCard          = Color(0xFFFFFFFF); // pure white cards
-  static const lightBorder        = Color(0xFFE5E7EB); // subtle gray border
-  static const lightTextPrimary   = Color(0xFF111827); // dark gray text
-  static const lightTextSecondary = Color(0xFF6B7280); // medium gray text
-  static const lightTextMuted     = Color(0xFF9CA3AF); // muted gray text
+  // ── Light theme ─────────────────────────────────────────────────────────
+  static const lightBackground    = Color(0xFFF9F7F4); // matches web --color-bg
+  static const lightSurface       = Color(0xFFFFFFFF); // --color-bg-raised
+  static const lightCard          = Color(0xFFFFFFFF); // --color-bg-raised
+  static const lightBorder        = Color(0x14000000); // --color-border rgba(0,0,0,0.08)
+  static const lightBorderBright  = Color(0x24000000); // --color-border-bright rgba(0,0,0,0.14)
+  static const lightTextPrimary   = Color(0xFF111111); // --color-ink
+  static const lightTextSecondary = Color(0xFF52504D); // --color-ink-muted
+  static const lightTextMuted     = Color(0xFF8E8B85); // --color-ink-faint
 
-  // ── Dark theme ── Claude AI Dark Mode ─────────────────────────────────────
-  static const background    = Color(0xFF0F0F0F); // deep black
-  static const surface       = Color(0xFF1A1A1A); // dark surface
-  static const card          = Color(0xFF262626); // dark card
-  static const border        = Color(0xFF404040); // dark border
-  static const textPrimary   = Color(0xFFFAFAFA); // light primary text
-  static const textSecondary = Color(0xFFA1A1AA); // light secondary text
-  static const textMuted     = Color(0xFF71717A); // light muted text
+  // ── Dark theme ──────────────────────────────────────────────────────────
+  static const background    = Color(0xFF0D0D0D); // --color-bg dark
+  static const surface       = Color(0xFF1A1A1A); // --color-bg-raised dark
+  static const card          = Color(0xFF1A1A1A); // --color-bg-raised dark
+  static const border        = Color(0x14FFFFFF); // --color-border rgba(255,255,255,0.08)
+  static const borderBright  = Color(0x21FFFFFF); // --color-border-bright rgba(255,255,255,0.13)
+  static const textPrimary   = Color(0xFFF0EFED); // --color-ink dark
+  static const textSecondary = Color(0xFF9B9995); // --color-ink-muted dark
+  static const textMuted     = Color(0xFF6B6966); // --color-ink-faint dark
 
-  // ── Claude AI Brand Colors ───────────────────────────────────────────────────
-  static const primary        = Color(0xFFD97706); // warm amber (Claude orange)
-  static const primaryDim     = Color(0xFF92400E); // dark: dim primary bg
-  static const primaryDimLight = Color(0xFFFEF3C7); // light: dim primary bg
+  // ── PRIMARY: Green — web --color-teal / --color-success ─────────────────
+  // Light: #0a9480  Dark: #2dc9b0  (direct from your web CSS)
+  static const primary          = Color(0xFF0A9480); // --color-teal light
+  static const primaryDark      = Color(0xFF2DC9B0); // --color-teal dark
+  static const primaryDim       = Color(0xFF0A948014); // --color-teal-dim light (~8% alpha)
+  static const primaryDimLight  = Color(0xFFE4F4F1); // --color-success-dim light
+  static const primaryDimDark   = Color(0xFF0D3630); // --color-success-dim dark
 
-  static const secondary      = Color(0xFF0EA5E9); // bright blue (Claude blue)
-  static const secondaryDim   = Color(0xFF075985); // dark: dim secondary bg
-  static const secondaryDimLight = Color(0xFFE0F2FE); // light: dim secondary bg
+  // Full green ramp (mirrors Tailwind green-800 family + web tokens)
+  static const green50   = Color(0xFFE4F4F1); // success-dim light
+  static const green100  = Color(0xFFB3E4DC);
+  static const green200  = Color(0xFF7ECFC4);
+  static const green400  = Color(0xFF0A9480); // primary / --color-teal
+  static const green600  = Color(0xFF077A69);
+  static const green800  = Color(0xFF166534); // Tailwind green-800
+  static const green900  = Color(0xFF0D3630); // success-dim dark
 
-  static const accent         = Color(0xFF10B981); // emerald green
-  static const accentDim      = Color(0xFF047857); // dark: dim accent bg
-  static const accentDimLight = Color(0xFFD1FAE5); // light: dim accent bg
+  // ── Secondary: Brand blue ────────────────────────────────────────────────
+  static const secondary          = Color(0xFF5B8EF0); // --color-brand light
+  static const secondaryDark      = Color(0xFF7AA9F7); // --color-brand dark
+  static const secondaryDim       = Color(0xFF5B8EF018); // --color-brand-dim
+  static const secondaryDimLight  = Color(0xFFDDE9FB); // --color-brand-light
+  static const secondaryDimDark   = Color(0xFF7AA9F720);
 
-  static const error          = Color(0xFFEF4444); // red
-  static const errorDim       = Color(0xFF991B1B); // dark: dim error bg
-  static const errorDimLight  = Color(0xFFFEE2E2); // light: dim error bg
+  // ── Accent: kept for success/confirmed states (alias of primary) ─────────
+  static const accent         = primary;
+  static const accentDim      = primaryDimDark;
+  static const accentDimLight = primaryDimLight;
 
-  static const warning        = Color(0xFFF59E0B); // amber
-  static const warningDim     = Color(0xFF92400E); // dark: dim warning bg
-  static const warningDimLight = Color(0xFFFEF3C7); // light: dim warning bg
+  // ── Semantic ─────────────────────────────────────────────────────────────
+  static const error          = Color(0xFFD32F2F); // --color-error light
+  static const errorDark      = Color(0xFFF06060); // --color-error dark
+  static const errorDim       = Color(0xFF991B1B);
+  static const errorDimLight  = Color(0xFFFDE8E8); // --color-error-dim light
+  static const errorDimDark   = Color(0xFF2D0E0E); // --color-error-dim dark
 
-  static const success        = Color(0xFF10B981); // emerald
-  static const successDim     = Color(0xFF047857); // dark: dim success bg
-  static const successDimLight = Color(0xFFD1FAE5); // light: dim success bg
+  static const warning        = Color(0xFFD08700); // --color-warning light
+  static const warningDark    = Color(0xFFF5A623); // --color-warning dark
+  static const warningDim     = Color(0xFF92400E);
+  static const warningDimLight = Color(0xFFFFF3CD); // --color-warning-dim light
+  static const warningDimDark  = Color(0xFF2E2000); // --color-warning-dim dark
 
-  // Legacy color names for compatibility
-  static const green         = success;
-  static const greenDim      = successDim;
-  static const greenDimLight = successDimLight;
+  static const success          = primary;
+  static const successDark      = primaryDark;
+  static const successDim       = primaryDimDark;
+  static const successDimLight  = primaryDimLight;
+
+  // ── Legacy aliases ───────────────────────────────────────────────────────
+  static const green         = primary;
+  static const greenDim      = primaryDimDark;
+  static const greenDimLight = primaryDimLight;
 
   static const blue          = secondary;
-  static const blueDim       = secondaryDim;
+  static const blueDim       = secondaryDimDark;
   static const blueDimLight  = secondaryDimLight;
 
   static const red           = error;
@@ -122,7 +146,7 @@ class AppTheme {
     );
   }
 
-  // ── LIGHT (default) ──────────────────────────────────────────────────────
+  // ── LIGHT ────────────────────────────────────────────────────────────────
   static ThemeData light() {
     return ThemeData(
       brightness: Brightness.light,
@@ -130,12 +154,14 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         background: DayFiColors.lightBackground,
         surface: DayFiColors.lightSurface,
-        primary: DayFiColors.primary,
-        secondary: DayFiColors.secondary,
+        primary: DayFiColors.primary,         // green
+        onPrimary: Colors.white,
+        secondary: DayFiColors.secondary,     // brand blue
+        onSecondary: Colors.white,
         error: DayFiColors.error,
         onBackground: DayFiColors.lightTextPrimary,
         onSurface: DayFiColors.lightTextPrimary,
-        onError: DayFiColors.lightTextPrimary,
+        onError: Colors.white,
       ),
       textTheme: _buildTextTheme(
         DayFiColors.lightTextPrimary,
@@ -167,18 +193,15 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(
-            color: DayFiColors.lightTextPrimary,
+            color: DayFiColors.primary, // green focus ring
             width: 1.5,
           ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: DayFiColors.red),
+          borderSide: const BorderSide(color: DayFiColors.error),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 18,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         hintStyle: GoogleFonts.bricolageGrotesque(
           color: DayFiColors.lightTextMuted,
           fontSize: 16,
@@ -189,11 +212,11 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: DayFiColors.lightTextPrimary,
-          foregroundColor: DayFiColors.lightBackground,
+          backgroundColor: DayFiColors.primary, // green CTA
+          foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100), // Ko-fi pill buttons
+            borderRadius: BorderRadius.circular(100),
           ),
           textStyle: GoogleFonts.bricolageGrotesque(
             fontSize: 16,
@@ -204,9 +227,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: DayFiColors.lightTextPrimary,
+          foregroundColor: DayFiColors.primary, // green text + border
           minimumSize: const Size(double.infinity, 56),
-          side: const BorderSide(color: DayFiColors.lightBorder, width: 1.5),
+          side: const BorderSide(color: DayFiColors.primary, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(100),
           ),
@@ -218,7 +241,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: DayFiColors.lightTextSecondary,
+          foregroundColor: DayFiColors.primary, // green text buttons
           textStyle: GoogleFonts.bricolageGrotesque(
             fontSize: 14,
             fontWeight: FontWeight.w400,
@@ -248,12 +271,14 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         background: DayFiColors.background,
         surface: DayFiColors.surface,
-        primary: DayFiColors.primary,
-        secondary: DayFiColors.secondary,
-        error: DayFiColors.error,
+        primary: DayFiColors.primaryDark,     // brighter green for dark mode
+        onPrimary: Colors.black,
+        secondary: DayFiColors.secondaryDark, // brighter blue for dark mode
+        onSecondary: Colors.black,
+        error: DayFiColors.errorDark,
         onBackground: DayFiColors.textPrimary,
         onSurface: DayFiColors.textPrimary,
-        onError: DayFiColors.textPrimary,
+        onError: Colors.black,
       ),
       textTheme: _buildTextTheme(
         DayFiColors.textPrimary,
@@ -285,18 +310,15 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(
-            color: DayFiColors.textPrimary,
+            color: DayFiColors.primaryDark, // bright green focus ring
             width: 1.5,
           ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: DayFiColors.red),
+          borderSide: const BorderSide(color: DayFiColors.errorDark),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 18,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
         hintStyle: GoogleFonts.bricolageGrotesque(
           color: DayFiColors.textMuted,
           fontSize: 16,
@@ -307,8 +329,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: DayFiColors.textPrimary,
-          foregroundColor: DayFiColors.background,
+          backgroundColor: DayFiColors.primaryDark, // bright green CTA
+          foregroundColor: Colors.black,
           minimumSize: const Size(double.infinity, 56),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(100),
@@ -322,9 +344,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: DayFiColors.textPrimary,
+          foregroundColor: DayFiColors.primaryDark,
           minimumSize: const Size(double.infinity, 56),
-          side: const BorderSide(color: DayFiColors.border, width: 1.5),
+          side: const BorderSide(color: DayFiColors.primaryDark, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(100),
           ),
@@ -336,7 +358,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: DayFiColors.textSecondary,
+          foregroundColor: DayFiColors.primaryDark,
           textStyle: GoogleFonts.bricolageGrotesque(
             fontSize: 14,
             fontWeight: FontWeight.w400,
@@ -404,48 +426,48 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color accentBlue;
   final Color accentBlueDim;
 
-  static AppThemeExtension get light => AppThemeExtension(
+  static AppThemeExtension get light => const AppThemeExtension(
         surfaceBackground:  DayFiColors.lightBackground,
         cardSurface:        DayFiColors.lightCard,
         sheetSurface:       DayFiColors.lightSurface,
         cardBorder:         DayFiColors.lightBorder,
         primaryText:        DayFiColors.lightTextPrimary,
         secondaryText:      DayFiColors.lightTextSecondary,
-        sectionHeader:      const Color(0xFF3D3026),
+        sectionHeader:      Color(0xFF0A4A3F), // deep green tint
         hintText:           DayFiColors.lightTextMuted,
-        chartUnfilled:      const Color(0xFFE4DDD5),
+        chartUnfilled:      Color(0xFFD4EDE9), // green-tinted unfilled
         gradientOverlay:    DayFiColors.lightBackground,
         monthlyCardSurface: DayFiColors.lightCard,
         contentBackground:  DayFiColors.lightSurface,
         headerIconColor:    DayFiColors.lightTextSecondary,
-        tabIndicatorColor:  DayFiColors.blue,
-        tabSelectedColor:   DayFiColors.lightTextPrimary,
+        tabIndicatorColor:  DayFiColors.primary,     // green tab indicator
+        tabSelectedColor:   DayFiColors.primary,     // green selected tab
         tabUnselectedColor: DayFiColors.lightTextSecondary,
         errorColor:         DayFiColors.error,
         accentBlue:         DayFiColors.secondary,
         accentBlueDim:      DayFiColors.secondaryDimLight,
       );
 
-  static AppThemeExtension get dark => AppThemeExtension(
+  static AppThemeExtension get dark => const AppThemeExtension(
         surfaceBackground:  DayFiColors.background,
         cardSurface:        DayFiColors.card,
         sheetSurface:       DayFiColors.surface,
         cardBorder:         DayFiColors.border,
         primaryText:        DayFiColors.textPrimary,
         secondaryText:      DayFiColors.textSecondary,
-        sectionHeader:      const Color(0xFFB8AFA6),
+        sectionHeader:      Color(0xFF7ECFC4), // bright green-teal tint
         hintText:           DayFiColors.textMuted,
-        chartUnfilled:      const Color(0xFF2A2218),
+        chartUnfilled:      Color(0xFF0D3630), // dark green unfilled
         gradientOverlay:    DayFiColors.background,
         monthlyCardSurface: DayFiColors.card,
         contentBackground:  DayFiColors.surface,
         headerIconColor:    DayFiColors.textSecondary,
-        tabIndicatorColor:  DayFiColors.blue,
-        tabSelectedColor:   DayFiColors.textPrimary,
+        tabIndicatorColor:  DayFiColors.primaryDark, // bright green tab
+        tabSelectedColor:   DayFiColors.primaryDark,
         tabUnselectedColor: DayFiColors.textSecondary,
-        errorColor:         DayFiColors.error,
-        accentBlue:         DayFiColors.secondary,
-        accentBlueDim:      DayFiColors.secondaryDim,
+        errorColor:         DayFiColors.errorDark,
+        accentBlue:         DayFiColors.secondaryDark,
+        accentBlueDim:      DayFiColors.secondaryDimDark,
       );
 
   @override

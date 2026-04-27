@@ -14,6 +14,8 @@ import {
   SUPPORTED_ASSETS,
 } from '../services/walletService.js';
 import StellarSdk from "@stellar/stellar-sdk";
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 const router = express.Router();
 
@@ -397,6 +399,66 @@ router.post('/sync-transactions', authenticate, async (req, res) => {
     });
   } catch (err) {
     sendError(res, 400, 'SYNC_FAILED', err.message);
+  }
+});
+
+// GET /api/wallet/virtual-account
+router.get('/virtual-account', authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    // Already have it saved on the user record
+    if (user.virtualAccountNumber) {
+      return res.json({
+        exists: true,
+        hasBvn: !!user.bvn,
+        accountNumber: user.virtualAccountNumber,
+        bankName: user.virtualAccountBank,
+        accountName: user.virtualAccountName,
+      });
+    }
+
+    // Has BVN but no virtual account — auto-attempt creation/recovery
+    if (user.bvn) {
+      try {
+        console.log(`🔄 Auto-creating virtual account for ${user.email}...`);
+        const { createVirtualAccount } = await import('../services/flutterwaveService.js');
+        const result = await createVirtualAccount({ userId: user.id, bvn: user.bvn });
+        return res.json({ exists: true, hasBvn: true, ...result });
+      } catch (err) {
+        console.warn('Auto-creation failed:', err.message);
+        // Return hasBvn:true so Flutter shows pending state, NOT the BVN form
+        return res.json({ exists: false, hasBvn: true });
+      }
+    }
+
+    // No BVN at all — Flutter will show the BVN collection form
+    res.json({ exists: false, hasBvn: false });
+  } catch (err) {
+    sendError(res, 500, 'INTERNAL_ERROR', err.message);
+  }
+});
+
+// POST /api/wallet/virtual-account
+// For users who genuinely never provided a BVN (edge case)
+router.post('/virtual-account', authenticate, [
+  body('bvn').isLength({ min: 11, max: 11 }).isNumeric().withMessage('BVN must be 11 digits'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return sendValidationError(res, errors.array());
+
+  try {
+    // Save BVN to user first
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { bvn: req.body.bvn },
+    });
+
+    const { createVirtualAccount } = await import('../services/flutterwaveService.js');
+    const result = await createVirtualAccount({ userId: req.user.id, bvn: req.body.bvn });
+    res.json({ exists: true, ...result });
+  } catch (err) {
+    sendError(res, 400, 'VIRTUAL_ACCOUNT_FAILED', err.message);
   }
 });
 

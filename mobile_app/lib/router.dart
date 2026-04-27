@@ -19,25 +19,16 @@ import 'package:mobile_app/screens/organization/organization_screen.dart';
 import 'package:mobile_app/screens/requests/public_request_pay_screen.dart';
 import 'package:mobile_app/screens/merchant/merchant_dashboard.dart';
 import 'package:mobile_app/screens/merchant/checkout_screen.dart';
-import 'package:mobile_app/screens/expenses/expenses_screen.dart';
 import 'package:mobile_app/screens/auth/business_onboarding_screen.dart';
 import 'package:mobile_app/screens/auth/business_profile_screen.dart';
 import 'package:mobile_app/screens/requests/requests_screen.dart';
-import 'package:mobile_app/screens/security/security_screen.dart';
 import 'package:mobile_app/screens/security/recovery_phrase_screen.dart';
-import 'package:mobile_app/screens/transactions/transactions_screen.dart';
-import 'package:mobile_app/screens/swap/swap_screen.dart';
 import 'package:mobile_app/screens/auth/backup_screen.dart';
 import 'package:mobile_app/screens/shell/main_shell.dart';
-import 'package:mobile_app/screens/workflows/workflows_screen.dart';
 import 'screens/auth/email_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/biometric_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
-import 'screens/home/home_screen.dart';
-import 'screens/receive/receive_screen.dart';
-import 'screens/send/send_screen.dart';
-import 'screens/settings/settings_screen.dart';
 import 'services/api_service.dart';
 
 // ── Riverpod container ref (needed to write shellNavProvider from redirects) ──
@@ -80,7 +71,7 @@ final appRouter = GoRouter(
     final isPostSignup = loc == '/auth/biometric' || loc == '/auth/backup';
     final isPublicRequestPay = loc.startsWith('/requests/pay/');
     final isAuthRoute = loc.startsWith('/auth') && !isPostSignup;
-    final isOnboarding = loc == '/onboarding';
+    final isOnboarding = loc == '/auth/email';
 
     if (isAuth && (isAuthRoute || isOnboarding)) return '/mainshell';
     if (!isAuth &&
@@ -88,7 +79,7 @@ final appRouter = GoRouter(
         !isOnboarding &&
         !isPostSignup &&
         !isPublicRequestPay) {
-      return '/onboarding';
+      return '/auth/email';
     }
     return null;
   },
@@ -97,7 +88,7 @@ final appRouter = GoRouter(
       path: '/',
       redirect: (_, __) async {
         final token = await apiService.getToken();
-        return token != null ? '/mainshell' : '/onboarding';
+        return token != null ? '/mainshell' : '/auth/email';
       },
     ),
 

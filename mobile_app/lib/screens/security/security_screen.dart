@@ -182,7 +182,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
     if (confirm == true && mounted) {
       await apiService.clearToken();
-      context.go('/onboarding');
+      context.go('/auth/email');
     }
   }
 

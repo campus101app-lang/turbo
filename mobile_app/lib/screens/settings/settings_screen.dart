@@ -50,7 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _logout() async {
     await apiService.clearToken();
-    context.go('/onboarding');
+    context.go('/auth/email');
   }
 
   String _getThemeLabel(ThemeMode mode) {

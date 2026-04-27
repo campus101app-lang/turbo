@@ -58,7 +58,7 @@ const PaydaySection: React.FC = () => {
         </div>
 
         {/* Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {CUSTOMER_STORIES.map((story, index) => (
             <VideoCard key={index} story={story} />
           ))}

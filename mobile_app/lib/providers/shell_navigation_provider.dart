@@ -21,7 +21,7 @@ enum ShellDest {
   checkout,      // 13
   addProduct,    // 14
   editProduct,   // 15
-  productDetail, // 16
+  productDetail, invoices, merchant, // 16
 }
 
 class ShellNavNotifier extends Notifier<ShellDest> {
