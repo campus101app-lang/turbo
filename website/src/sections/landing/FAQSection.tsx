@@ -1,79 +1,64 @@
 import React, { useState } from "react";
-// import ScrollReveal from "@/components/feedback/ScrollReveal";
-// import { docsUrl } from "@/config/site";
 
 type FaqItem = { q: string; a: React.ReactNode };
 
 const FAQS: FaqItem[] = [
   {
-    q: "What is Zap402?",
+    q: "What is DayFi?",
     a: (
       <>
-        Zap402 is a pay-per-request AI agent marketplace built on USDC and Stellar. Whether you're a
-        developer, researcher, or business — you can access Claude, Codex, Midjourney, and more AI agents
-        instantly. No subscriptions. No monthly bills. Just pay for what you use, when you use it.
+        DayFi is a business finance app built for Nigerian SMEs, freelancers, and merchants.
+        You can send and receive money, create invoices, run a merchant store with QR and NFC
+        checkout, and track all your expenses — in one app.
       </>
     ),
   },
   {
-    q: "How does Zap402 work?",
+    q: "What currencies does DayFi support?",
     a: (
       <>
-        Connect your Stellar wallet, pick an agent, and send a request. Your USDC payment is processed
-        on-chain in seconds. The agent completes your task — whether that's writing, coding, image
-        generation, or analysis — and you receive a cryptographically signed receipt confirming delivery.
-        Every request is verifiable, every payment is on-chain.
+        DayFi supports both <span className="font-semibold text-zap-ink">Naira (NGN)</span> and{" "}
+        <span className="font-semibold text-zap-ink">USDC</span>. You can invoice clients in
+        dollars, collect payments in naira, and swap between both — all inside the app.
       </>
     ),
   },
   {
-    q: "How much does it cost to use an agent?",
+    q: "How does the merchant checkout work?",
     a: (
       <>
-        Pricing starts as low as <span className="font-semibold text-zap-ink">$0.02 per request</span> for
-        chat agents and scales based on the agent's capability. Research agents run around $0.05–$0.08,
-        code agents $0.09–$0.12, and image or video agents $0.15–$0.30. You only pay when you send a
-        request — there are no setup fees, no minimums, and no hidden charges.
+        Add your products, set prices in USDC or Naira, and generate a QR code or enable NFC
+        tap-to-pay. Your customer scans or taps, payment settles instantly. No POS terminal,
+        no third-party app required.
       </>
     ),
   },
   {
-    q: "Can I use Zap402 if I'm just getting started with AI?",
+    q: "How does invoicing work?",
     a: (
       <>
-        Absolutely. Start with Claude — it's the most capable general-purpose agent on the platform and
-        handles everything from writing and research to summarization and Q&A. You don't need to know
-        how blockchain works to get started. Connect a wallet, fund it with a few dollars of USDC, and
-        you're ready to go in under two minutes.
+        Create a professional invoice in under two minutes — add line items, set a due date,
+        and choose Naira or USDC. Share the payment link directly on WhatsApp or email.
+        DayFi notifies you the moment your client pays.
       </>
     ),
   },
   {
-    q: "How do payments and settlement work?",
+    q: "How does DayFi track my expenses?",
     a: (
       <>
-        All payments are made in <span className="font-semibold text-zap-ink">USDC on Stellar</span> —
-        one of the fastest and lowest-fee settlement networks available. Transactions confirm in
-        seconds. Every completed request generates a wallet-signed receipt stored on-chain, so you
-        always have proof of delivery. No chargebacks, no delays, no middlemen taking a cut between
-        you and the agent.
+        DayFi automatically classifies every transaction using Nigerian-specific intelligence.
+        It recognises OPay, Kuda, PalmPay, and other local wallets — and correctly identifies
+        wallet-to-wallet transfers so they don't inflate your spending numbers.
       </>
     ),
   },
   {
-    q: "How is Zap402 different from ChatGPT Plus or Claude Pro?",
+    q: "Is DayFi secure?",
     a: (
       <>
-        Subscriptions lock you into a monthly fee whether you use the service or not. Zap402 is
-        request-native — you pay only for what you actually run. You also get access to{" "}
-        <span className="font-semibold text-zap-ink">multiple AI providers in one place</span>: Claude,
-        GPT, Gemini, Midjourney, and more — all under a single wallet. Every transaction is
-        on-chain and verifiable, making Zap402 the first AI marketplace built for programmable,
-        auditable AI commerce. See{" "}
-        {/* <a href={docsUrl} className="font-semibold text-zap-brand underline underline-offset-2" target="_blank" rel="noreferrer">
-          docs
-        </a>{" "} */}
-        for the full technical scope.
+        Yes. DayFi uses end-to-end encryption, biometric authentication, and is compliant with
+        NDPR. Your financial data and wallet are protected at every layer.
       </>
     ),
   },
@@ -83,59 +68,91 @@ const FAQSection: React.FC = () => {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="editorial-section bg-zap-brand-dim">
-      <div
-        className="
-        editorial-container 
-        max-w-2xl
-        rounded-3xl
-        bg-white
-        px-8 py-10
-        shadow-sm
-        backdrop-blur-sm
-        dark:border-white/10
-        dark:bg-neutral-900/70
-        sm:px-8 sm:py-8
-      ">
+    <section id="faq" className="editorial-section bg-[#F9FAFB]">
+      <div className="editorial-container max-w-3xl">
 
-        {/* <ScrollReveal>
-          <h2 className="text-center font-display font-bold text-[clamp(2rem,5vw,3rem)] leading-tight text-zap-ink">
-            Questions
-          </h2>
-          <p className="mt-3 text-center font-body text-base text-zap-ink-muted">
-            Clear answers first. Technical detail is available in docs.
+        <div className="text-center mb-12">
+          <p className="font-body text-[14px] uppercase tracking-widest text-green-600 font-semibold mb-4">
+            FAQ
           </p>
-        </ScrollReveal> */}
+          <h2 className="font-display text-[clamp(1.75rem,5vw,2.5rem)] font-bold leading-tight tracking-tight text-zinc-900">
+            Common questions
+          </h2>
+        </div>
 
-        <ul className="mt-10 space-y-3">
+        <ul className="space-y-2">
           {FAQS.map((item, i) => {
             const isOpen = open === i;
             return (
-              <li key={item.q}>
+              <li
+                key={item.q}
+                className={`rounded-2xl border transition-colors duration-300 overflow-hidden ${
+                  isOpen
+                    ? "border-zinc-200 bg-white"
+                    : "border-zinc-100 bg-white hover:border-zinc-200"
+                }`}
+              >
                 <button
                   type="button"
-                  className={`flex w-full items-center justify-between gap-3 rounded-full px-6 py-1 text-left font-body text-[28px] font-semibold transition-colors duration-150 ${isOpen
-                    ? "bg-zap-brand/20 hover:bg-zap-brand/25"
-                    : "bg-zap-brand/10 hover:bg-zap-brand/15"
-                    }`}
+                  className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
                   onClick={() => setOpen(isOpen ? null : i)}
                   aria-expanded={isOpen}
-
                 >
-                  {item.q}
-                  <span className="shrink-0 font-body text-[20px] font-semibold" aria-hidden>
-                    {isOpen ? "−" : "+"}
+                  <span
+                    className={`font-body text-[16px] font-semibold transition-colors duration-200 ${
+                      isOpen ? "text-zinc-900" : "text-zinc-700"
+                    }`}
+                  >
+                    {item.q}
+                  </span>
+
+                  {/* Animated +/− pill */}
+                  <span
+                    className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      isOpen
+                        ? "bg-zinc-900 text-white rotate-45"
+                        : "bg-zinc-100 text-zinc-500"
+                    }`}
+                    aria-hidden
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M6 1V11M1 6H11"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   </span>
                 </button>
-                {isOpen ? (
-                  <div className="mt-8 mb-8 block rounded-full px-6 py-1 font-body text-[26px] transition-colors duration-150">
-                    {item.a}
+
+                {/* Smooth animated reveal */}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <p
+                      className={`px-6 pb-5 font-body text-[15px] leading-relaxed text-zinc-500 transition-opacity duration-300 ${
+                        isOpen ? "opacity-100" : "opacity-0"
+                      }`}
+                    >
+                      {item.a}
+                    </p>
                   </div>
-                ) : null}
+                </div>
               </li>
             );
           })}
         </ul>
+
       </div>
     </section>
   );

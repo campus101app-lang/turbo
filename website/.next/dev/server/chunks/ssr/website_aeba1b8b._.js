@@ -39,7 +39,7 @@ const FaqQuestions = [
     },
     {
         ques: "How do I contact DayFi support?",
-        ans: "You can reach our support team through the in-app chat, email us at support@dayfi.co, or visit our Help Center. We're here to help 24/7!"
+        ans: "You can reach our support team through the in-app chat, email us at support@DayFi.co, or visit our Help Center. We're here to help 24/7!"
     }
 ];
 const FaqQuestionsWithGroup = [
@@ -145,7 +145,7 @@ const FaqQuestionsWithGroup = [
     },
     {
         ques: "How do I contact DayFi support?",
-        ans: "You can reach our support team through the in-app chat, email us at support@dayfi.co, or visit our Help Center. We're here to help 24/7!",
+        ans: "You can reach our support team through the in-app chat, email us at support@DayFi.co, or visit our Help Center. We're here to help 24/7!",
         group: "Troubleshooting"
     }
 ];
@@ -512,7 +512,7 @@ function HomeHero() {
                                                 lineNumber: 69,
                                                 columnNumber: 65
                                             }, this),
-                                            "Send, receive, and manage money across Africa and beyond with Dayfi's secure platform."
+                                            "Send, receive, and manage money across Africa and beyond with DayFi's secure platform."
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/website/app/(website)/(landing)/hero.tsx",
@@ -599,7 +599,7 @@ function HomeHero() {
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                        href: "https://app.dayfi.co",
+                                        href: "https://app.DayFi.co",
                                         target: "_blank",
                                         rel: "noopener noreferrer",
                                         className: "jsx-50dfa19f37f28187",

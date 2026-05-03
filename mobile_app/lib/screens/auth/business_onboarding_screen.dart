@@ -1,13 +1,9 @@
 // lib/screens/auth/business_onboarding_screen.dart
-//
-// Step 2 of 2 in onboarding.
-// Collects KYC / compliance data based on account type chosen.
-// Design matches email_screen / otp_screen / business_profile_screen.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/widgets/app_background.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -79,6 +75,10 @@ class _BusinessOnboardingScreenState
   bool _isLoading = false;
   bool _agreeToTerms = false;
 
+  // Overlay state for business-type dropdowns
+  OverlayEntry? _businessTypeOverlay;
+  final _businessTypeKey = GlobalKey();
+
   List<_PageDef>? _pages;
   final _formKeys = <int, GlobalKey<FormState>>{};
 
@@ -96,21 +96,170 @@ class _BusinessOnboardingScreenState
 
   @override
   void dispose() {
+    _businessTypeOverlay?.remove();
     _pageController.dispose();
     for (final c in [
-      _firstNameController, _lastNameController, _phoneController,
-      _addressController, _bvnController, _businessDescriptionController,
-      _businessNameController, _businessAddressController, _cacNumberController,
-      _tinController, _directorNameController, _directorBvnController,
-      _businessPhoneController, _businessEmailController,
-      _organizationNameController, _registrationNumberController,
-      _organizationAddressController, _signatoryNameController,
-      _signatoryBvnController, _organizationPhoneController,
+      _firstNameController,
+      _lastNameController,
+      _phoneController,
+      _addressController,
+      _bvnController,
+      _businessDescriptionController,
+      _businessNameController,
+      _businessAddressController,
+      _cacNumberController,
+      _tinController,
+      _directorNameController,
+      _directorBvnController,
+      _businessPhoneController,
+      _businessEmailController,
+      _organizationNameController,
+      _registrationNumberController,
+      _organizationAddressController,
+      _signatoryNameController,
+      _signatoryBvnController,
+      _organizationPhoneController,
       _organizationEmailController,
     ]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  // ─── Overlay dropdown for business type ───────────────────────────────────
+
+  void _showBusinessTypeDropdown(
+    List<(BusinessType, String, String)> options,
+  ) {
+    if (_businessTypeOverlay != null) {
+      _businessTypeOverlay!.remove();
+      _businessTypeOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    final box =
+        _businessTypeKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    _businessTypeOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                _businessTypeOverlay?.remove();
+                _businessTypeOverlay = null;
+                setState(() {});
+              },
+            ),
+          ),
+          Positioned(
+            left: offset.dx,
+            top: offset.dy + size.height + 4,
+            width: size.width,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.surface,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.06),
+                    ),
+                    itemBuilder: (ctx, i) {
+                      final (type, label, sub) = options[i];
+                      final selected = _selectedBusinessType == type;
+                      return InkWell(
+                        onTap: () {
+                          setState(() => _selectedBusinessType = type);
+                          _businessTypeOverlay?.remove();
+                          _businessTypeOverlay = null;
+                          setState(() {});
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontSize: 14,
+                                            fontWeight: selected
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
+                                            color: selected
+                                                ? Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      sub,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontSize: 12,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withOpacity(0.85),
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (selected)
+                                Icon(
+                                  Icons.check_rounded,
+                                  size: 16,
+                                  color:
+                                      Theme.of(context).colorScheme.primary,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_businessTypeOverlay!);
+    setState(() {});
   }
 
   // ─── Page definitions ──────────────────────────────────────────────────────
@@ -126,14 +275,15 @@ class _BusinessOnboardingScreenState
       case AccountType.registeredBusiness:
         return [
           _PageDef(title: 'Account type', widget: _buildAccountTypeSelection()),
-          _PageDef(title: 'Business type', widget: _buildBusinessTypeSelection()),
-          _PageDef(title: 'Business details', widget: _buildRegisteredBusinessInfo()),
+          _PageDef(
+            title: 'Business details',
+            widget: _buildRegisteredBusinessInfo(),
+          ),
           _PageDef(title: 'Review & agree', widget: _buildTermsPage()),
         ];
       case AccountType.otherEntity:
         return [
           _PageDef(title: 'Account type', widget: _buildAccountTypeSelection()),
-          _PageDef(title: 'Entity type', widget: _buildOtherEntityTypeSelection()),
           _PageDef(title: 'Entity details', widget: _buildOtherEntityInfo()),
           _PageDef(title: 'Review & agree', widget: _buildTermsPage()),
         ];
@@ -142,9 +292,6 @@ class _BusinessOnboardingScreenState
 
   int get _totalPages => _pages?.length ?? 1;
   bool get _isLastPage => _currentPage == _totalPages - 1;
-  bool get _isTypePage =>
-      _currentPage == 1 &&
-      _selectedAccountType != AccountType.individual; // business-type step
 
   // ─── Navigation ────────────────────────────────────────────────────────────
 
@@ -153,7 +300,6 @@ class _BusinessOnboardingScreenState
       _submitOnboarding();
       return;
     }
-    // Validate current form if it has one
     final key = _formKeys[_currentPage];
     if (key != null && !(key.currentState?.validate() ?? true)) return;
 
@@ -173,7 +319,7 @@ class _BusinessOnboardingScreenState
     setState(() => _currentPage--);
   }
 
-  // ─── "Next" button label / enabled ────────────────────────────────────────
+  // ─── Button label / enabled ────────────────────────────────────────────────
 
   String get _nextLabel {
     if (_isLastPage) return _isLoading ? 'Setting up…' : 'Complete Setup';
@@ -183,8 +329,7 @@ class _BusinessOnboardingScreenState
   bool get _nextEnabled {
     if (_isLoading) return false;
     if (_isLastPage) return _agreeToTerms;
-    if (_currentPage == 0) return true; // account type always chosen
-    if (_isTypePage) return _selectedBusinessType != null;
+    // Page 0 — account type must be selected (always true since default exists)
     return true;
   }
 
@@ -202,7 +347,6 @@ class _BusinessOnboardingScreenState
           onTap: () {
             setState(() => _selectedAccountType = AccountType.individual);
             _rebuildPages();
-            Future.delayed(const Duration(milliseconds: 120), _nextPage);
           },
         ),
         const SizedBox(height: 12),
@@ -213,9 +357,9 @@ class _BusinessOnboardingScreenState
               'For CAC-registered companies officially incorporated with the Corporate Affairs Commission.',
           isSelected: _selectedAccountType == AccountType.registeredBusiness,
           onTap: () {
-            setState(() => _selectedAccountType = AccountType.registeredBusiness);
+            setState(
+                () => _selectedAccountType = AccountType.registeredBusiness);
             _rebuildPages();
-            Future.delayed(const Duration(milliseconds: 120), _nextPage);
           },
         ),
         const SizedBox(height: 12),
@@ -228,12 +372,13 @@ class _BusinessOnboardingScreenState
           onTap: () {
             setState(() => _selectedAccountType = AccountType.otherEntity);
             _rebuildPages();
-            Future.delayed(const Duration(milliseconds: 120), _nextPage);
           },
         ),
       ],
     );
   }
+
+  // ── Individual ─────────────────────────────────────────────────────────────
 
   Widget _buildIndividualInfo() {
     final key = _formKeys.putIfAbsent(1, () => GlobalKey<FormState>());
@@ -241,8 +386,7 @@ class _BusinessOnboardingScreenState
       key: key,
       child: _ScrollPage(
         children: [
-          // Subtle info banner
-          _InfoBanner(
+          const _InfoBanner(
             'This information is for your personal profile and is used for identity verification (KYC).',
           ),
           const SizedBox(height: 20),
@@ -296,47 +440,61 @@ class _BusinessOnboardingScreenState
     );
   }
 
-  Widget _buildBusinessTypeSelection() {
-    return _ScrollPage(
-      children: [
-        _InfoBanner('Select how your business is registered with the CAC.'),
-        const SizedBox(height: 20),
-        for (final entry in [
-          (BusinessType.soleProprietorship, 'Sole Proprietorship',
-              'Business name registered under one individual owner.'),
-          (BusinessType.limitedLiability, 'Limited Liability Company (LLC)',
-              'Private company with limited liability — most common for SMEs.'),
-          (BusinessType.publicLimited, 'Public Limited Company (PLC)',
-              'Publicly listed company with shares traded on the market.'),
-          (BusinessType.partnership, 'Partnership',
-              'Two or more persons running a business together.'),
-        ]) ...[
-          _TypeCard(
-            title: entry.$2,
-            subtitle: entry.$3,
-            isSelected: _selectedBusinessType == entry.$1,
-            onTap: () => setState(() => _selectedBusinessType = entry.$1),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
+  // ── Registered Business ────────────────────────────────────────────────────
+
+  static const _registeredBusinessTypes = [
+    (
+      BusinessType.soleProprietorship,
+      'Sole Proprietorship',
+      'Business name registered under one individual owner.',
+    ),
+    (
+      BusinessType.limitedLiability,
+      'Limited Liability Company (LLC)',
+      'Private company with limited liability — most common for SMEs.',
+    ),
+    (
+      BusinessType.publicLimited,
+      'Public Limited Company (PLC)',
+      'Publicly listed company with shares traded on the market.',
+    ),
+    (
+      BusinessType.partnership,
+      'Partnership',
+      'Two or more persons running a business together.',
+    ),
+  ];
 
   Widget _buildRegisteredBusinessInfo() {
-    final key = _formKeys.putIfAbsent(2, () => GlobalKey<FormState>());
+    final key = _formKeys.putIfAbsent(1, () => GlobalKey<FormState>());
     return Form(
       key: key,
       child: _ScrollPage(
         children: [
-          _InfoBanner(
+          const _InfoBanner(
             'We need your director\'s details for regulatory compliance. '
             'This is separate from your business profile.',
           ),
           const SizedBox(height: 20),
 
-          _SectionLabel('Business Details'),
+          const _SectionLabel('Business Details'),
           const SizedBox(height: 10),
+
+          // Business type inline dropdown
+          _DropdownField(
+            fieldKey: _businessTypeKey,
+            hint: 'Business registration type',
+            selectedLabel: _selectedBusinessType != null
+                ? _registeredBusinessTypes
+                    .firstWhere((e) => e.$1 == _selectedBusinessType)
+                    .$2
+                : null,
+            isOpen: _businessTypeOverlay != null,
+            onTap: () =>
+                _showBusinessTypeDropdown(_registeredBusinessTypes),
+          ),
+
+          const SizedBox(height: 12),
           _Field(
             controller: _businessNameController,
             hint: 'Business name (as on CAC certificate)',
@@ -378,15 +536,15 @@ class _BusinessOnboardingScreenState
           ),
 
           const SizedBox(height: 28),
-          _SectionLabel('Director / Owner Details'),
+          const _SectionLabel('Director / Owner Details'),
           const SizedBox(height: 4),
           Text(
             'Required for KYC. This person must be listed on the CAC documents.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withOpacity(0.45),
-              height: 1.4,
-            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+                ),
           ),
           const SizedBox(height: 14),
           _Field(
@@ -411,47 +569,60 @@ class _BusinessOnboardingScreenState
     );
   }
 
-  Widget _buildOtherEntityTypeSelection() {
-    return _ScrollPage(
-      children: [
-        _InfoBanner('Select the type that best describes your organisation.'),
-        const SizedBox(height: 20),
-        for (final entry in [
-          (BusinessType.ngo, 'NGO / Non-Profit',
-              'Registered not-for-profit pursuing a social mission.'),
-          (BusinessType.religiousOrg, 'Religious Organisation',
-              'Church, mosque, or other registered faith-based body.'),
-          (BusinessType.trust, 'Trust',
-              'Legal arrangement where assets are held for beneficiaries.'),
-          (BusinessType.other, 'Other Entity',
-              'Any other registered entity not listed above.'),
-        ]) ...[
-          _TypeCard(
-            title: entry.$2,
-            subtitle: entry.$3,
-            isSelected: _selectedBusinessType == entry.$1,
-            onTap: () => setState(() => _selectedBusinessType = entry.$1),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
+  // ── Other Entity ───────────────────────────────────────────────────────────
+
+  static const _otherEntityTypes = [
+    (
+      BusinessType.ngo,
+      'NGO / Non-Profit',
+      'Registered not-for-profit pursuing a social mission.',
+    ),
+    (
+      BusinessType.religiousOrg,
+      'Religious Organisation',
+      'Church, mosque, or other registered faith-based body.',
+    ),
+    (
+      BusinessType.trust,
+      'Trust',
+      'Legal arrangement where assets are held for beneficiaries.',
+    ),
+    (
+      BusinessType.other,
+      'Other Entity',
+      'Any other registered entity not listed above.',
+    ),
+  ];
 
   Widget _buildOtherEntityInfo() {
-    final key = _formKeys.putIfAbsent(2, () => GlobalKey<FormState>());
+    final key = _formKeys.putIfAbsent(1, () => GlobalKey<FormState>());
     return Form(
       key: key,
       child: _ScrollPage(
         children: [
-          _InfoBanner(
+          const _InfoBanner(
             'Provide details of your authorised signatory — the person legally '
             'empowered to operate this account on behalf of the organisation.',
           ),
           const SizedBox(height: 20),
 
-          _SectionLabel('Organisation Details'),
+          const _SectionLabel('Organisation Details'),
           const SizedBox(height: 10),
+
+          // Entity type inline dropdown
+          _DropdownField(
+            fieldKey: _businessTypeKey,
+            hint: 'Organisation type',
+            selectedLabel: _selectedBusinessType != null
+                ? _otherEntityTypes
+                    .firstWhere((e) => e.$1 == _selectedBusinessType)
+                    .$2
+                : null,
+            isOpen: _businessTypeOverlay != null,
+            onTap: () => _showBusinessTypeDropdown(_otherEntityTypes),
+          ),
+
+          const SizedBox(height: 12),
           _Field(
             controller: _organizationNameController,
             hint: 'Organisation name',
@@ -485,15 +656,15 @@ class _BusinessOnboardingScreenState
           ),
 
           const SizedBox(height: 28),
-          _SectionLabel('Authorised Signatory'),
+          const _SectionLabel('Authorised Signatory'),
           const SizedBox(height: 4),
           Text(
             'This person acts on behalf of the organisation and is accountable for this account.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withOpacity(0.45),
-              height: 1.4,
-            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+                ),
           ),
           const SizedBox(height: 14),
           _Field(
@@ -518,37 +689,38 @@ class _BusinessOnboardingScreenState
     );
   }
 
+  // ── Terms ──────────────────────────────────────────────────────────────────
+
   Widget _buildTermsPage() {
     return _ScrollPage(
       children: [
-        // Summary card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'By completing setup, you confirm that:',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withOpacity(0.85),
-                  height: 1.4,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
               ),
               const SizedBox(height: 16),
               for (final item in [
-                ('✦', 'All information provided is true and accurate'),
-                ('✦', 'You agree to our Terms of Service & Privacy Policy'),
-                ('✦', 'You consent to BVN verification for identity checks'),
-                ('✦', 'You will comply with CBN and Nigerian AML regulations'),
-                ('✦',
-                    'You understand DayFi may request additional documents for compliance'),
+                'All information provided is true and accurate',
+                'You agree to our Terms of Service & Privacy Policy',
+                'You consent to BVN verification for identity checks',
+                'You will comply with CBN and Nigerian AML regulations',
+                'You understand DayFi may request additional documents for compliance',
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -556,7 +728,7 @@ class _BusinessOnboardingScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.$1,
+                        '✦',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontSize: 10,
@@ -566,12 +738,15 @@ class _BusinessOnboardingScreenState
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          item.$2,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white.withOpacity(0.65),
-                            height: 1.5,
-                          ),
+                          item,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 13,
+                                height: 1.5,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(1)
+                              ),
                         ),
                       ),
                     ],
@@ -581,8 +756,6 @@ class _BusinessOnboardingScreenState
           ),
         ),
         const SizedBox(height: 24),
-
-        // Agree checkbox
         GestureDetector(
           onTap: () => setState(() => _agreeToTerms = !_agreeToTerms),
           behavior: HitTestBehavior.opaque,
@@ -600,24 +773,26 @@ class _BusinessOnboardingScreenState
                   border: Border.all(
                     color: _agreeToTerms
                         ? Theme.of(context).colorScheme.primary
-                        : Colors.white.withOpacity(0.3),
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
                     width: 1.5,
                   ),
                 ),
                 child: _agreeToTerms
-                    ? const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 14)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      )
                     : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'I have read and I agree to all the above',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                    height: 1.4,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
                 ),
               ),
             ],
@@ -688,7 +863,9 @@ class _BusinessOnboardingScreenState
       }
 
       if (!mounted) return;
-      widget.isNewUser ? context.go('/auth/biometric') : context.go('/mainshell');
+      widget.isNewUser
+          ? context.go('/auth/biometric')
+          : context.go('/mainshell');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -711,179 +888,190 @@ class _BusinessOnboardingScreenState
     final pages = _pages;
     if (pages == null) return const SizedBox.shrink();
 
-    final pageTitle = pages[_currentPage].title;
-
     return AppBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ── Header ──────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 16, 16, 0),
-                child: Row(
-                  children: [
-                    if (_currentPage > 0)
-                      InkWell(
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        onTap: _previousPage,
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(Icons.arrow_back_ios, size: 20),
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 36),
-                    const Spacer(),
-                    Text(
-                      'Business Setup',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    // Step counter
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_currentPage + 1}/${_totalPages}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Progress bar ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (_currentPage + 1) / _totalPages,
-                    minHeight: 3,
-                    backgroundColor:
-                        Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(primary),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Page title & subtitle ────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      _pageHeadline,
-                      style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: -0.8,
-                        height: 1.1,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Text(
-                        _pageSubheadline,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontSize: 15,
-                              letterSpacing: -0.3,
-                              height: 1.35,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── PageView ─────────────────────────────────────────────────
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: pages.map((p) => p.widget).toList(),
-                ),
-              ),
-
-              // ── Bottom CTA ───────────────────────────────────────────────
-              // Only show explicit Next button on non-selection pages
-              // (selection pages auto-advance on tap)
-              if (_currentPage != 0)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: AuthButton(
-                    label: _nextLabel,
-                    onPressed: _nextEnabled ? _nextPage : null,
-                    isLoading: _isLoading,
-                    loadingText: 'Setting up…',
-                    isValid: _nextEnabled,
-                  ),
-                ),
-
-              const SizedBox(height: 6),
-
-              // Terms line (matches email screen)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text.rich(
-                    TextSpan(
-                      text: 'Step 2 of 2 — KYC & compliance. Your data is ',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.45),
-                            fontSize: 11,
-                            height: 1.4,
-                          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ── Header ──────────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 0),
+                    child: Row(
                       children: [
-                        TextSpan(
-                          text: 'encrypted and never sold.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                decoration: TextDecoration.underline,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.65),
-                                fontSize: 11,
-                              ),
+                        if (_currentPage > 0)
+                          InkWell(
+                            splashColor: Colors.transparent,
+                            highlightColor: Colors.transparent,
+                            hoverColor: Colors.transparent,
+                            onTap: _previousPage,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(Icons.arrow_back_ios, size: 20),
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 36),
+                        const Spacer(),
+                        Text(
+                          'Business Setup',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_currentPage + 1}/$_totalPages',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: primary,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 32),
-            ],
+                  // ── Progress bar ─────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (_currentPage + 1) / _totalPages,
+                        minHeight: 3,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.08),
+                        valueColor: AlwaysStoppedAnimation<Color>(primary),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Page title & subtitle ────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                              _pageHeadline,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge!
+                                  .copyWith(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -1,
+                                    height: 1.09,
+                                  ),
+                              textAlign: TextAlign.center,
+                            )
+                            .animate()
+                            .fadeIn(duration: 600.ms)
+                            .slideY(begin: 0.2, end: 0),
+                        const SizedBox(height: 8),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: Text(
+                            _pageSubheadline,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium!
+                                .copyWith(
+                                  fontSize: 16,
+                                  letterSpacing: -.5,
+                                  height: 1.3,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // ── PageView ─────────────────────────────────────────────────
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: pages.map((p) => p.widget).toList(),
+                    ),
+                  ),
+
+                  // ── Bottom CTA ───────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: AuthButton(
+                      label: _nextLabel,
+                      onPressed: _nextEnabled ? _nextPage : null,
+                      isLoading: _isLoading,
+                      loadingText: 'Setting up…',
+                      isValid: _nextEnabled,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'Step 2 of 2 — KYC & compliance. Your data is ',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.85),
+                                fontSize: 11,
+                                height: 1.4,
+                              ),
+                          children: [
+                            TextSpan(
+                              text: 'encrypted and never sold.',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    decoration: TextDecoration.underline,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withOpacity(1),
+                                    fontSize: 11,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -893,7 +1081,7 @@ class _BusinessOnboardingScreenState
   String get _pageHeadline {
     switch (_currentPage) {
       case 0:
-        return 'What type of\naccount?';
+        return 'What type of account?';
       default:
         if (_selectedAccountType == AccountType.individual) {
           switch (_currentPage) {
@@ -905,19 +1093,15 @@ class _BusinessOnboardingScreenState
         } else if (_selectedAccountType == AccountType.registeredBusiness) {
           switch (_currentPage) {
             case 1:
-              return 'Business type';
+              return 'Business details';
             case 2:
-              return 'Business\ndetails';
-            case 3:
               return 'Almost done';
           }
         } else {
           switch (_currentPage) {
             case 1:
-              return 'Entity type';
+              return 'Organisation details';
             case 2:
-              return 'Organisation\ndetails';
-            case 3:
               return 'Almost done';
           }
         }
@@ -940,19 +1124,15 @@ class _BusinessOnboardingScreenState
         } else if (_selectedAccountType == AccountType.registeredBusiness) {
           switch (_currentPage) {
             case 1:
-              return 'How is your business registered with the CAC?';
-            case 2:
               return 'Your business details plus your director\'s info for KYC.';
-            case 3:
+            case 2:
               return 'Review and accept to complete your account setup.';
           }
         } else {
           switch (_currentPage) {
             case 1:
-              return 'Select the category that matches your organisation.';
-            case 2:
               return 'Organisation details plus your authorised signatory\'s info.';
-            case 3:
+            case 2:
               return 'Review and accept to complete your account setup.';
           }
         }
@@ -977,9 +1157,81 @@ class _ScrollPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+/// Web-style inline dropdown trigger — matches _Field styling exactly.
+class _DropdownField extends StatelessWidget {
+  final GlobalKey fieldKey;
+  final String hint;
+  final String? selectedLabel;
+  final bool isOpen;
+  final VoidCallback onTap;
+
+  const _DropdownField({
+    required this.fieldKey,
+    required this.hint,
+    required this.selectedLabel,
+    required this.isOpen,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = selectedLabel != null;
+    return GestureDetector(
+      key: fieldKey,
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding:
+            const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.color
+              ?.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                selectedLabel ?? hint,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: hasValue
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(.35),
+                      fontSize: 15,
+                      letterSpacing: -.1,
+                    ),
+              ),
+            ),
+            AnimatedRotation(
+              turns: isOpen ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withOpacity(0.2),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1006,17 +1258,20 @@ class _InfoBanner extends StatelessWidget {
           Icon(
             Icons.info_outline_rounded,
             size: 16,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withOpacity(0.65),
-                height: 1.5,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(1)
+                  ),
             ),
           ),
         ],
@@ -1068,19 +1323,23 @@ class _Field extends StatelessWidget {
       maxLines: maxLines ?? 1,
       textCapitalization: textCapitalization,
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(.85),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 15,
             letterSpacing: -.1,
           ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(.35),
+              color:
+                  Theme.of(context).colorScheme.onSurface.withOpacity(.35),
               fontSize: 15,
               letterSpacing: -.1,
             ),
-        fillColor:
-            Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.2),
+        fillColor: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.color
+            ?.withOpacity(0.1),
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1096,16 +1355,17 @@ class _Field extends StatelessWidget {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: DayFiColors.error.withOpacity(0.6),
-          ),
+          borderSide:
+              BorderSide(color: DayFiColors.error.withOpacity(0.85)),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: DayFiColors.error),
+          borderSide: const BorderSide(color: DayFiColors.error),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 14,
+        ),
       ),
       validator: validator,
     );
@@ -1130,16 +1390,20 @@ class _TypeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
+        width: 360,
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: isSelected ? primary.withOpacity(0.1) : Colors.white.withOpacity(0.05),
+          color: isSelected
+              ? primary.withOpacity(0.1)
+              : onSurface.withOpacity(0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? primary : Colors.white.withOpacity(0.08),
+            color: isSelected ? primary : onSurface.withOpacity(0.08),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1150,13 +1414,17 @@ class _TypeCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: isSelected ? primary : Colors.white.withOpacity(0.08),
+                  color: isSelected
+                      ? primary
+                      : onSurface.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
                   size: 20,
-                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : onSurface.withOpacity(0.5),
                 ),
               ),
               const SizedBox(width: 14),
@@ -1167,20 +1435,20 @@ class _TypeCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? primary : Colors.white.withOpacity(0.9),
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? primary : onSurface.withOpacity(0.9),
+                        ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.45),
-                      height: 1.4,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: onSurface.withOpacity(0.85),
+                        ),
                   ),
                 ],
               ),
@@ -1189,7 +1457,11 @@ class _TypeCard extends StatelessWidget {
             AnimatedOpacity(
               opacity: isSelected ? 1 : 0,
               duration: const Duration(milliseconds: 200),
-              child: Icon(Icons.check_circle_rounded, color: primary, size: 20),
+              child: Icon(
+                Icons.check_circle_rounded,
+                color: primary,
+                size: 20,
+              ),
             ),
           ],
         ),

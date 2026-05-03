@@ -102,7 +102,7 @@ class _BiometricScreenState extends State<BiometricScreen> {
                     height: 80,
                     color: Theme.of(
                       context,
-                    ).colorScheme.primary.withOpacity(.85),
+                    ).colorScheme.primary,
                   ),
 
                   // .animate().scale(delay: 100.ms),
@@ -125,7 +125,7 @@ class _BiometricScreenState extends State<BiometricScreen> {
 
                   // Subtitle
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
+                    constraints: const BoxConstraints(maxWidth: 360),
                     child: Text(
                       'Use Face ID every time you open the app to keep your account secure.',
                       style: Theme.of(context).textTheme.bodyMedium!.copyWith(

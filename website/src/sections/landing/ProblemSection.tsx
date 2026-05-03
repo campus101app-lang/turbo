@@ -5,32 +5,32 @@ import ArrowBadge from "@/assets/arrow-badge-right.svg";
 const timelineSteps = [
   {
     day: "Day 1",
-    subtitle: "Get started fast",
+    subtitle: "You're live in minutes",
     features: [
-      "Sign up in under 30 minutes",
-      "Connect external bank accounts",
-      "Open and fund your corporate account",
-      "Add your team members in minutes",
+      "Sign up and verify your business",
+      "Connect your existing bank accounts",
+      "Send your first invoice or payment link",
+      "Set up your merchant store",
     ],
   },
   {
     day: "Day 7",
-    subtitle: "Take control",
+    subtitle: "Money is moving",
     features: [
-      "Set approval rules and expense policies",
-      "Automate bill payments to save hours",
-      "Create and send professional invoices",
-      "Issue cards to your team instantly",
+      "Accept Naira and USDC payments",
+      "Track expenses automatically",
+      "Share QR or NFC checkout with customers",
+      "See your cashflow in real time",
     ],
   },
   {
     day: "Day 30",
-    subtitle: "Scale with confidence",
+    subtitle: "You're in full control",
     features: [
-      "Unlock higher limits and advanced controls",
-      "Integrate with QuickBooks, Slack & Zoho",
-      "Run all financial operations",
-      "Close your books faster, with clean records",
+      "Invoices paid, inventory tracked, store running",
+      "Know exactly where every kobo went",
+      "Get paid by foreign clients in USDC",
+      "Your entire business finance, one app",
     ],
   },
 ];
@@ -41,11 +41,11 @@ const ProblemSection: React.FC = () => {
       <div className="editorial-container px-6">
         {/* Header */}
         <div className="mx-auto max-w-4xl text-center mb-16">
-          <p className="font-body text-[14px] uppercase tracking-widest text-zap-ink font-semibold opacity-100 text-green-800">
-            Dayfy in 30 days
+          <p className="font-body text-[14px] uppercase tracking-widest text-green-600 font-semibold opacity-100 text-green-600">
+            DayFi in 30 days
           </p>
           <h2 className="font-display font-semibold pt-4 mt-8 mx-auto w-full max-w-[600px] text-[clamp(1.75rem,9vw,3rem)] font-normal leading-[1.1] tracking-tight text-zap-ink md:mt-0">
-            Gain clarity and control <span className="italic text-green-800">in just 30 days</span>
+            From sign up to <span className="italic text-green-600">fully running</span>
           </h2>
         </div>
 

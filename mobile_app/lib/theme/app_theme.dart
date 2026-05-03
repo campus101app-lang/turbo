@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 class DayFiColors {
   // ── Light theme ─────────────────────────────────────────────────────────
-  static const lightBackground    = Color(0xFFF9F7F4); // matches web --color-bg
+  static const lightBackground    = Color(0xFFF9f7f4); // matches web --color-bg
   static const lightSurface       = Color(0xFFFFFFFF); // --color-bg-raised
   static const lightCard          = Color(0xFFFFFFFF); // --color-bg-raised
   static const lightBorder        = Color(0x14000000); // --color-border rgba(0,0,0,0.08)

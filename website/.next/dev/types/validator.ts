@@ -153,10 +153,10 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
-// Validate ../../../app/(website)/send-with-dayfi-id/page.tsx
+// Validate ../../../app/(website)/send-with-DayFi-id/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/send-with-dayfi-id">> = Specific
-  const handler = {} as typeof import("../../../app/(website)/send-with-dayfi-id/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/send-with-DayFi-id">> = Specific
+  const handler = {} as typeof import("../../../app/(website)/send-with-DayFi-id/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

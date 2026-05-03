@@ -402,7 +402,7 @@ class _FilterChip extends StatelessWidget {
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             color: selected
                 ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
           ),
         ),
       ),
@@ -881,7 +881,7 @@ class _CreateRequestSheetState extends ConsumerState<_CreateRequestSheet> {
             'A payment link will be generated to share with your client',
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 20),
@@ -1314,7 +1314,7 @@ class _RequestDetailSheetState extends State<_RequestDetailSheet> {
           Text(
             r.asset,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 12),
@@ -1548,7 +1548,7 @@ class _Label extends StatelessWidget {
     style: GoogleFonts.bricolageGrotesque(
       fontWeight: FontWeight.w500,
       fontSize: 12,
-      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
     ),
   );
 }
@@ -1632,7 +1632,7 @@ class _SegmentPicker extends StatelessWidget {
                 fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
                 color: isSel
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
           ),

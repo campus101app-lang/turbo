@@ -88,7 +88,7 @@ function FooterTop() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "flex justify-center mt-[0px]",
                                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                                href: "https://app.dayfi.co",
+                                                href: "https://app.DayFi.co",
                                                 target: "_blank",
                                                 rel: "noopener noreferrer",
                                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -307,21 +307,21 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$n
 const data = [
     {
         title: "Want to receive money from loved ones?",
-        subTitle: "Distance is no barrier with Dayfi. Easily receive and send money to friends and family, no matter where you are. Our secure platform helps you manage your finances and keep track of all your payments to stay connected.",
+        subTitle: "Distance is no barrier with DayFi. Easily receive and send money to friends and family, no matter where you are. Our secure platform helps you manage your finances and keep track of all your payments to stay connected.",
         img: "/assets/svg/recieveMoney.svg",
         className: "h-[695px]",
         bg: "#95DBC4"
     },
     {
         title: "Fast and Hassle-free money transfer!",
-        subTitle: "Get lightning-fast, hassle-free money transfers with Dayfi. Our platform allows you to send and receive payments quickly and securely, faster than many other platforms.",
+        subTitle: "Get lightning-fast, hassle-free money transfers with DayFi. Our platform allows you to send and receive payments quickly and securely, faster than many other platforms.",
         img: "/assets/svg/fastMoney.svg",
         className: "h-[636px]",
         bg: "#FFADD2"
     },
     {
-        title: "Send and receive for FREE with your Dayfi ID!",
-        subTitle: "Our platform allows you to make transactions without incurring charges by using a unique tag generated within the app. Enjoy the convenience and cost-saving benefits of this feature with Dayfi.",
+        title: "Send and receive for FREE with your DayFi ID!",
+        subTitle: "Our platform allows you to make transactions without incurring charges by using a unique tag generated within the app. Enjoy the convenience and cost-saving benefits of this feature with DayFi.",
         img: "/assets/svg/sendWithId.svg",
         className: "h-[630px]",
         bg: "#FEEBB4"
@@ -644,7 +644,7 @@ function JoinUs() {
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                     className: "mt-[8px] w-[685px] text-center max-sixm:w-full text-[#302D53] font-primary font-[400] text-[16px] leading-[24px]",
-                                    children: "Setting up Dayfi is easy. Follow the steps below to Get Started."
+                                    children: "Setting up DayFi is easy. Follow the steps below to Get Started."
                                 }, void 0, false, {
                                     fileName: "[project]/website/app/(website)/(landing)/joinUs.tsx",
                                     lineNumber: 35,
@@ -672,7 +672,7 @@ function JoinUs() {
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "mt-[24px] text-[#2A0079] font-secondary font-[400] text-[20px] leading-[32px]",
-                                            children: "Find the Dayfi app"
+                                            children: "Find the DayFi app"
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/joinUs.tsx",
                                             lineNumber: 47,
@@ -680,7 +680,7 @@ function JoinUs() {
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "mt-[16px] text-[#302D53] font-primary font-[400] text-[16px] leading-[24px]",
-                                            children: 'Find the Dayfi app in the App Store (iOS), Play Store (Android), or visit our website at dayfi.co to use Dayfi on the web. Search for "Dayfi" to download and install'
+                                            children: 'Find the DayFi app in the App Store (iOS), Play Store (Android), or visit our website at DayFi.co to use DayFi on the web. Search for "DayFi" to download and install'
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/joinUs.tsx",
                                             lineNumber: 50,
@@ -721,7 +721,7 @@ function JoinUs() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "mt-[24px] text-[#2A0079] font-secondary font-[400] text-[20px] leading-[32px]",
                                             children: [
-                                                "Install or access Dayfi",
+                                                "Install or access DayFi",
                                                 " "
                                             ]
                                         }, void 0, true, {
@@ -731,7 +731,7 @@ function JoinUs() {
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "mt-[16px] text-[#302D53] font-primary font-[400] text-[16px] leading-[24px]",
-                                            children: "Install the app on your mobile device by tapping Install, or simply access Dayfi instantly through your web browser—no download required. Setup takes just a few minutes."
+                                            children: "Install the app on your mobile device by tapping Install, or simply access DayFi instantly through your web browser—no download required. Setup takes just a few minutes."
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/joinUs.tsx",
                                             lineNumber: 74,
@@ -767,7 +767,7 @@ function JoinUs() {
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "mt-[16px] text-[#302D53] font-primary font-[400] text-[16px] leading-[24px]",
-                                            children: "Once the app is installed, launch it and register for a new account or log in to your existing account to access all of the features and benefits of Dayfi."
+                                            children: "Once the app is installed, launch it and register for a new account or log in to your existing account to access all of the features and benefits of DayFi."
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/joinUs.tsx",
                                             lineNumber: 88,
@@ -803,7 +803,7 @@ function JoinUs() {
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "flex justify-center mt-[24px]",
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                href: "https://app.dayfi.co",
+                                href: "https://app.DayFi.co",
                                 target: "_blank",
                                 rel: "noopener noreferrer",
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -1210,7 +1210,7 @@ function HomeValueProp() {
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
                                         className: "text-[#5645F5] font-tertiary font-[700] text-[20px] leading-[28px] relative z-10",
-                                        children: "Why Dayfi?"
+                                        children: "Why DayFi?"
                                     }, void 0, false, {
                                         fileName: "[project]/website/app/(website)/(landing)/homeValueProp.tsx",
                                         lineNumber: 96,
@@ -1262,7 +1262,7 @@ function HomeValueProp() {
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                 className: "mt-[10px] w-[685px] text-center max-sixm:w-full text-[#302D53] font-primary font-[400] text-[16px] leading-[24px]",
-                                children: "Traditional banks make international transfers expensive and slow. Dayfi changes that with technology built for the modern world."
+                                children: "Traditional banks make international transfers expensive and slow. DayFi changes that with technology built for the modern world."
                             }, void 0, false, {
                                 fileName: "[project]/website/app/(website)/(landing)/homeValueProp.tsx",
                                 lineNumber: 119,
@@ -1520,7 +1520,7 @@ function HomeValueProp() {
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "mt-[48px]",
                                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                    href: "https://app.dayfi.co",
+                                    href: "https://app.DayFi.co",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {

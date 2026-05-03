@@ -15,7 +15,7 @@ class AppBackground extends StatelessWidget {
       child: ColoredBox(
         color: isDark
             ? const Color(0xFF0D0D0D) // --color-bg dark
-            : const Color(0xFFF9F7F4), // --color-bg light
+            : const Color(0xFFf9f7f4), // --color-bg light
         child: child,
       ),
     );

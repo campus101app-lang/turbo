@@ -24,7 +24,15 @@ export function LogoTiles({
         className={`inline-flex shrink-0 items-center no-underline ${className}`}
         aria-label="Zap402 home"
       >
-        <Logo className="h-8 w-auto text-zap-ink" />
+        <img
+          src="/img/word_logo.png"
+          alt="Word Logo"
+          style={{
+            maxWidth: "88px",
+            height: "auto",
+            filter: "brightness(0) saturate(100%) invert(20%) sepia(90%) ..."
+          }}
+        />
       </Link>
     );
   }

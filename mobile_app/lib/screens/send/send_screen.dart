@@ -1,16 +1,26 @@
 // lib/screens/send/send_screen.dart
+//
+// Payments hub — selection-first nested flow.
+// User picks a payment method, then enters a dedicated sub-form.
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:mobile_app/widgets/app_bottomsheet.dart';
-import 'dart:async';
-import '../../models/asset.dart';
+
 import '../../providers/wallet_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/app_background.dart';
+
+// ── View states ────────────────────────────────────────────────────────────────
+
+enum _SendView { selection, blockchainUsdc, blockchainNgnt, bankTransfer, paymentRequest }
+
+// ── SendScreen ─────────────────────────────────────────────────────────────────
 
 class SendScreen extends ConsumerStatefulWidget {
   final String? initialAsset;
@@ -22,1170 +32,136 @@ class SendScreen extends ConsumerStatefulWidget {
 }
 
 class _SendScreenState extends ConsumerState<SendScreen> {
-  final _toController = TextEditingController();
-  final _amountController = TextEditingController();
-  final _memoController = TextEditingController();
-
-  String _selectedAsset = 'USDC';
-  bool _loading = false;
-  bool _resolving = false;
-  bool _invalidAmount = false;
-  String? _amountError;
-  Map<String, dynamic>? _resolvedRecipient;
-  String? _recipientError;
-  Timer? _debounce;
-  String _sendRail = 'blockchain';
-  List<Map<String, String>> _banks = [];
-  String? _selectedBankCode;
-  String? _selectedBankName;
-  final _bankAccountController = TextEditingController();
-  String? _resolvedBankAccountName;
-  String? _lastBankTransferStatus;
+  _SendView _view = _SendView.selection;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialAsset != null) {
-      _selectedAsset = widget.initialAsset!;
-    } else {
-      // Auto-select USDC if user has balance, otherwise default to USDC
-      final wallet = ref.read(walletProvider);
-      if (wallet.usdcBalance > 0) {
-        _selectedAsset = 'USDC';
-      }
-    }
-    _amountController.addListener(
-      () => _onAmountChanged(_amountController.text),
-    );
-    _toController.addListener(() => setState(() {}));
+    if (widget.initialAsset == 'NGNT') _view = _SendView.blockchainNgnt;
+    if (widget.initialAsset == 'USDC') _view = _SendView.blockchainUsdc;
   }
 
-  @override
-  void dispose() {
-    _toController.dispose();
-    _amountController.dispose();
-    _memoController.dispose();
-    _bankAccountController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onAmountChanged(String val) {
-    _debounce?.cancel();
-    setState(() {
-      _amountError = null;
-      _invalidAmount = false;
-    });
-    if (val.isEmpty || double.tryParse(val) == null) return;
-    _debounce = Timer(const Duration(milliseconds: 500), _validateAmount);
-  }
-
-  void _validateAmount() {
-    final amount = double.tryParse(_amountController.text.trim());
-    final available = _availableBalance(_selectedAsset);
-
-    setState(() {
-      if (amount == null) {
-        _invalidAmount = false;
-        _amountError = null;
-      } else if (amount <= 0) {
-        _invalidAmount = true;
-        _amountError = 'Amount must be greater than 0';
-      } else if (amount > available + 0.0001) {
-        // ← epsilon tolerance
-        _invalidAmount = true;
-        _amountError =
-            'Insufficient balance. Available: ${available.toStringAsFixed(2)} $_selectedAsset';
-      } else {
-        _invalidAmount = false;
-        _amountError = null;
-      }
-    });
-  }
-
-  double _availableBalance(String asset) {
-    final wallet = ref.read(walletProvider);
-    if (asset == 'NGNT') return wallet.ngntBalance;
-    return wallet.usdcBalance;
-  }
-
-  Future<void> _loadBanks() async {
-    if (_banks.isNotEmpty) return;
-    try {
-      final res = await apiService.getNigeriaBanks();
-      final raw = List<Map<String, dynamic>>.from(res['banks'] ?? []);
-      if (!mounted) return;
-      setState(() {
-        _banks = raw
-            .map((e) => {'code': '${e['code']}', 'name': '${e['name']}'})
-            .toList();
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _resolveRecipient(String value) async {
-    if (value.length < 3) {
-      setState(() {
-        _resolvedRecipient = null;
-        _recipientError = null;
-      });
-      return;
-    }
-    setState(() {
-      _resolving = true;
-      _recipientError = null;
-      _resolvedRecipient = null;
-    });
-    try {
-      final result = await ref
-          .read(walletProvider.notifier)
-          .resolveRecipient(value);
-      if (mounted) {
-        if (result != null) {
-          setState(() => _resolvedRecipient = result);
-        } else {
-          setState(() => _recipientError = 'Username or address not found');
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _recipientError = 'Username or address not found');
-      }
-    } finally {
-      if (mounted) setState(() => _resolving = false);
-    }
-  }
-
-  Future<void> _send() async {
-    final to = _toController.text.trim();
-    final amount = double.tryParse(_amountController.text.trim());
-
-    final missingRecipient = _sendRail == 'blockchain' && to.isEmpty;
-    if (missingRecipient || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid recipient and amount')),
-      );
-      return;
-    }
-
-    // Check for validation errors
-    if (_invalidAmount) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_amountError ?? 'Invalid amount')));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    // Show loading dialog that persists
-    if (!mounted) return;
-
-    showDayFiBottomSheet(
-      context: context,
-      isDismissible: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 24),
-
-            const SizedBox(
-              height: 24,
-              width: 24,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            ),
-
-            const SizedBox(height: 24),
-
-            Text(
-              'Sending...',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1,
-                height: 1.1,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            Text(
-              'Processing your payment',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 17,
-                letterSpacing: -.5,
-                height: 1.3,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      Map<String, dynamic> result;
-      if (_sendRail == 'bank') {
-        if (_selectedAsset != 'NGNT') {
-          throw Exception('Bank transfer is available for NGNT only');
-        }
-        if (_selectedBankCode == null ||
-            _bankAccountController.text.trim().length != 10) {
-          throw Exception(
-            'Select bank and enter a valid 10-digit account number',
-          );
-        }
-        if (_resolvedBankAccountName == null ||
-            _resolvedBankAccountName!.isEmpty) {
-          throw Exception('Resolve beneficiary account before sending');
-        }
-        final idempotencyKey =
-            '${_selectedBankCode}_${_bankAccountController.text.trim()}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
-        result = await apiService.withdrawToBank(
-          ngntAmount: amount,
-          bankCode: _selectedBankCode!,
-          accountNumber: _bankAccountController.text.trim(),
-          accountName: _resolvedBankAccountName!,
-          idempotencyKey: idempotencyKey,
-        );
-        _lastBankTransferStatus = (result['status'] as String?)?.toLowerCase();
-      } else {
-        result = await apiService.sendFunds(
-          to: _resolvedRecipient?['stellarAddress'] ?? to,
-          amount: amount,
-          asset: _selectedAsset,
-          memo: _memoController.text.trim().isEmpty
-              ? null
-              : _memoController.text.trim(),
-        );
-      }
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        _showSendSuccess(result);
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-
-        // Show error with retry option
-        showDayFiBottomSheet(
-          context: context,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 24),
-
-                Center(
-                  child: Text(
-                    'This transaction could not be completed. ${apiService.parseError(e)}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontSize: 17,
-                      letterSpacing: -.5,
-                      height: 1.3,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Retry
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: Size(MediaQuery.of(context).size.width, 48),
-                      side: BorderSide(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(.90),
-                        width: 1.5,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _send();
-                    },
-                    icon: const Icon(Icons.refresh_rounded, size: 20),
-                    label: Text(
-                      'Retry',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(.95),
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  // .animate().fadeIn(delay: 500.ms),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Dismiss
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: Size(MediaQuery.of(context).size.width, 48),
-                      side: const BorderSide(
-                        color: Colors.transparent,
-                        width: 1.5,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: Center(
-                      child: Text(
-                        'Dismiss',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(.95),
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // .animate().fadeIn(delay: 500.ms),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _showSendSuccess(Map<String, dynamic> result) {
-    final bankStatus = (_lastBankTransferStatus ?? '').toLowerCase();
-    final isBank = _sendRail == 'bank';
-    final isPending = isBank && bankStatus == 'pending';
-    final isFailed = isBank && bankStatus == 'failed';
-    final title = isBank
-        ? (isPending
-              ? 'Transfer Pending'
-              : isFailed
-              ? 'Transfer Failed'
-              : 'Transfer Sent')
-        : 'Sent!';
-    final subtitle = isBank
-        ? (isPending
-              ? 'Your bank transfer is processing. We will update your transactions shortly.'
-              : isFailed
-              ? 'Bank transfer failed. Please retry with correct beneficiary details.'
-              : '${_amountController.text} $_selectedAsset transfer submitted successfully.')
-        : '${_amountController.text} $_selectedAsset sent successfully.';
-    showDayFiBottomSheet(
-      context: context,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-
-            // ── Lottie success ──────────────────────────────
-            Lottie.asset(
-              'assets/animations/success.json',
-              width: 120,
-              height: 120,
-              repeat: false,
-            ),
-
-            const SizedBox(height: 4),
-
-            Text(
-              title,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -1,
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontSize: 17,
-                letterSpacing: -.5,
-                height: 1.3,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-
-            if (result['transaction']?['hash'] != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Tx: ${(result['transaction']['hash'] as String).substring(0, 12)}...',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(letterSpacing: 0.2),
-              ),
-            ],
-            if (isBank && result['txRef'] != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Ref: ${result['txRef']}',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // ── Done button ─────────────────────────────────
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: Size(MediaQuery.of(context).size.width, 48),
-                side: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(.90),
-                  width: 1.5,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                context.go('/mainshell');
-              },
-              child: Text(
-                'Done',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(.95),
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            // .animate().fadeIn(delay: 500.ms),
-          ],
-        ),
-      ),
-    );
-  }
-
-  double _getEmojiHeight(String? emoji) {
-    return emoji == 'assets/images/stellar.png' ? 38 : 40;
-  }
-
-  // ─── Asset bottom sheet ─────────────────────────────
-
-  void _showAssetPicker() {
-    const assets = kAssetList;
-
-    showDayFiBottomSheet(
-      context: context,
-      // backgroundColor: Theme.of(context).colorScheme.surface,
-      // shape: const RoundedRectangleBorder(
-      //   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      // ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Opacity(opacity: 0, child: Icon(Icons.close)),
-                Text(
-                  'Choose Asset to Send',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                    fontSize: 16,
-                    letterSpacing: -.1,
-                  ),
-                ),
-                InkWell(
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            ...assets.map((assetCode) {
-              final asset = kAssets[assetCode]!;
-
-              return InkWell(
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                onTap: () {
-                  setState(() {
-                    _selectedAsset = assetCode;
-                    _amountController.clear();
-                    _amountError = null;
-                    _invalidAmount = false;
-                  });
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    // border: Border.all(
-                    //   color: isSelected
-                    //       ? Theme.of(ctx).colorScheme.primary.withOpacity(0.3)
-                    //       : Theme.of(
-                    //           ctx,
-                    //         ).colorScheme.onSurface.withOpacity(0.1),
-                    // ),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(54),
-                        child: Image.asset(
-                          asset.emoji,
-                          height: _getEmojiHeight(asset.emoji),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-
-                      Text(
-                        assetCode,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-
-                      const Spacer(),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSendBalanceInfo(String assetCode) {
-    final available = _availableBalance(assetCode);
-
-    // Show error if amount is invalid
-    if (_invalidAmount && _amountError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            _amountError!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: const Color(0xFFFFA726),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Show available balance
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          'Available: ${available.toStringAsFixed(2)} $assetCode',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
-
-  bool get _canSendBankRail {
-    return _selectedAsset == 'NGNT' &&
-        _selectedBankCode != null &&
-        _bankAccountController.text.trim().length == 10 &&
-        (_resolvedBankAccountName?.isNotEmpty ?? false);
-  }
+  void _goBack() => setState(() => _view = _SendView.selection);
 
   @override
   Widget build(BuildContext context) {
-    return AppBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          title: Text(
-            '',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.color!.withOpacity(.95),
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-              letterSpacing: -0.1,
-            ),
-          ),
-          leading: InkWell(
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            onTap: () => context.pop(),
-            child: const Icon(Icons.arrow_back_ios, size: 20),
-          ),
-        ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    Center(
-                      child: Text(
-                        'Send USDC or NGNT',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      // .animate().fadeIn(),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        'Enter a username or wallet address.\nWe\'ll automatically detect and handle the transfer.',
-                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                          fontSize: 14,
-                          letterSpacing: -.1,
-                          height: 1.2,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      // .animate().fadeIn(delay: 15.ms),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Currency + Network dropdowns
-                    Center(
-                      child: SizedBox(
-                        width: (MediaQuery.of(context).size.width * .5) - 8,
-                        child: InkWell(
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          onTap: _showAssetPicker,
-                          child: _DropdownBox(
-                            emoji: kAssets[_selectedAsset]!.emoji,
-                            label: _selectedAsset,
-                          ),
-                        ),
-                      ),
-                      // .animate().fadeIn(delay: 25.ms),
-                    ),
-
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(child: _railChip('blockchain', 'Blockchain')),
-                        const SizedBox(width: 8),
-                        Expanded(child: _railChip('bank', 'Nigerian Bank')),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: TextField(
-                        controller: _toController,
-                        autocorrect: false,
-                        enabled: _sendRail == 'blockchain',
-                        onChanged: (v) {
-                          if (_sendRail == 'blockchain' && v.length > 2)
-                            _resolveRecipient(v);
-                        },
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(.85),
-                          fontSize: 15,
-                          letterSpacing: -.1,
-                        ),
-                        decoration: InputDecoration(
-                          hintStyle: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(.35),
-                                fontSize: 15,
-                                letterSpacing: -.1,
-                              ),
-                          fillColor: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                          hintText: _sendRail == 'bank'
-                              ? 'Blockchain recipient disabled on bank rail'
-                              : 'Type recipient\'s username or wallet address',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          suffixIcon: _resolving
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    height: 16,
-                                    width: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                )
-                              : _resolvedRecipient != null
-                              ? Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SvgPicture.asset(
-                                    'assets/icons/svgs/circle_check.svg',
-                                    color: DayFiColors.green,
-                                    height: 16,
-                                  ),
-                                )
-                              : null,
-
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 10,
-                          ),
-                        ),
-                      ),
-                      // .animate().fadeIn(delay: 50.ms),
-                    ),
-
-                    if (_recipientError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, left: 4),
-                        child: Text(
-                          _recipientError!,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 12,
-                              ),
-                        ),
-                      )
-                    else if (_resolvedRecipient != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, left: 4),
-                        child: Text(
-                          _resolvedRecipient!['username'] ??
-                              _resolvedRecipient!['address'] ??
-                              'Recipient found on-chain',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: DayFiColors.green,
-                                fontSize: 12,
-                              ),
-                        ),
-                      ),
-
-                    if (_sendRail == 'bank') ...[
-                      const SizedBox(height: 12),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedBankCode,
-                          onTap: _loadBanks,
-                          items: _banks
-                              .map(
-                                (b) => DropdownMenuItem<String>(
-                                  value: b['code'],
-                                  child: Text(b['name'] ?? ''),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            Map<String, String>? selected;
-                            for (final b in _banks) {
-                              if (b['code'] == v) {
-                                selected = b;
-                                break;
-                              }
-                            }
-                            setState(() {
-                              _selectedBankCode = v;
-                              _selectedBankName = selected?['name'];
-                              _resolvedBankAccountName = null;
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Select bank',
-                            filled: true,
-                            fillColor: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
-                        child: TextField(
-                          controller: _bankAccountController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 10,
-                          decoration: InputDecoration(
-                            hintText: '10-digit account number',
-                            counterText: '',
-                            filled: true,
-                            fillColor: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          onChanged: (v) async {
-                            if (v.length == 10 && _selectedBankCode != null) {
-                              try {
-                                final r = await apiService.resolveBankAccount(
-                                  bankCode: _selectedBankCode!,
-                                  accountNumber: v,
-                                );
-                                if (mounted) {
-                                  setState(
-                                    () => _resolvedBankAccountName =
-                                        r['accountName']?.toString(),
-                                  );
-                                }
-                              } catch (_) {
-                                if (mounted)
-                                  setState(
-                                    () => _resolvedBankAccountName = null,
-                                  );
-                              }
-                            } else {
-                              setState(() => _resolvedBankAccountName = null);
-                            }
-                          },
-                        ),
-                      ),
-                      if (_resolvedBankAccountName != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, left: 4),
-                          child: Text(
-                            '${_resolvedBankAccountName!} • ${_selectedBankName ?? ''}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: DayFiColors.green,
-                                  fontSize: 12,
-                                ),
-                          ),
-                        ),
-                      if (_resolvedBankAccountName == null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, left: 4),
-                          child: Text(
-                            'Select bank + enter account number to resolve beneficiary',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.45),
-                                  fontSize: 12,
-                                ),
-                          ),
-                        ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Amount
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: TextField(
-                        controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(.85),
-                          fontSize: 15,
-                          letterSpacing: -.1,
-                        ),
-                        decoration: InputDecoration(
-                          hintStyle: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(.35),
-                                fontSize: 15,
-                                letterSpacing: -.1,
-                              ),
-                          fillColor: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                          hintText: 'Enter amount (0.00)',
-                          prefixText: _selectedAsset == 'USDC' ? '\$ ' : '',
-                          suffixText: _selectedAsset,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 10,
-                          ),
-                        ),
-                      ),
-                      // .animate().fadeIn(delay: 100.ms),
-                    ),
-
-                    const SizedBox(height: 4),
-                    InkWell(
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      onTap: () {
-                        final maxAmount = _availableBalance(_selectedAsset);
-                        _amountController.text = maxAmount.toStringAsFixed(2);
-                      },
-                      child: _buildSendBalanceInfo(
-                        kAssets[_selectedAsset]!.code,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Memo
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: TextField(
-                        controller: _memoController,
-                        maxLength: 28,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(.85),
-                          fontSize: 15,
-                          letterSpacing: -.1,
-                        ),
-                        decoration: InputDecoration(
-                          hintStyle: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(.35),
-                                fontSize: 15,
-                                letterSpacing: -.1,
-                              ),
-                          fillColor: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.color?.withOpacity(0.1),
-                          hintText: "Add memo (optional)",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 10,
-                          ),
-                          counterText: '',
-                        ),
-                      ),
-                      // .animate().fadeIn(delay: 100.ms),
-                    ),
-
-                    const SizedBox(height: 20),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: Size(
-                            MediaQuery.of(context).size.width,
-                            48,
-                          ),
-                          side: BorderSide(
-                            color:
-                                _loading ||
-                                    _invalidAmount ||
-                                    _amountController.text.isEmpty ||
-                                    (_sendRail == 'blockchain' &&
-                                        _toController.text.trim().isEmpty) ||
-                                    (_sendRail == 'bank' && !_canSendBankRail)
-                                ? Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(.45)
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(.90),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed:
-                            _loading ||
-                                _invalidAmount ||
-                                _amountController.text.isEmpty ||
-                                (_sendRail == 'blockchain' &&
-                                    _toController.text.trim().isEmpty) ||
-                                (_sendRail == 'bank' && !_canSendBankRail)
-                            ? null
-                            : _send,
-                        child: Text(
-                          _sendRail == 'bank' ? 'Send to Bank' : 'Send',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color:
-                                    _loading ||
-                                        _invalidAmount ||
-                                        _amountController.text.isEmpty ||
-                                        (_sendRail == 'blockchain' &&
-                                            _toController.text
-                                                .trim()
-                                                .isEmpty) ||
-                                        (_sendRail == 'bank' &&
-                                            !_canSendBankRail)
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withOpacity(.45)
-                                    : Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withOpacity(.90),
-                                fontSize: 15,
-                              ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: switch (_view) {
+            _SendView.selection => _SelectionView(
+                key: const ValueKey('selection'),
+                onSelect: (v) => setState(() => _view = v),
               ),
-            ),
-          ),
+            _SendView.blockchainUsdc => _BlockchainSendView(
+                key: const ValueKey('usdc'),
+                asset: 'USDC',
+                onBack: _goBack,
+              ),
+            _SendView.blockchainNgnt => _BlockchainSendView(
+                key: const ValueKey('ngnt'),
+                asset: 'NGNT',
+                onBack: _goBack,
+              ),
+            _SendView.bankTransfer => _BankTransferView(
+                key: const ValueKey('bank'),
+                onBack: _goBack,
+              ),
+            _SendView.paymentRequest => _PaymentRequestView(
+                key: const ValueKey('request'),
+                onBack: _goBack,
+              ),
+          },
         ),
       ),
     );
   }
+}
 
-  Widget _railChip(String value, String label) {
-    final selected = _sendRail == value;
-    return GestureDetector(
-      onTap: () => setState(() => _sendRail = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
-              : Theme.of(context).colorScheme.onSurface.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            ),
+// ── Selection hub ──────────────────────────────────────────────────────────────
+
+class _SelectionView extends ConsumerWidget {
+  final void Function(_SendView) onSelect;
+  const _SelectionView({super.key, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final wallet = ref.watch(walletProvider);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Payments',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Choose how you want to send money.',
+                style: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.45)),
+              ),
+              const SizedBox(height: 24),
+
+              _MethodCard(
+                icon: Icons.account_balance_rounded,
+                iconColor: const Color(0xFF008751),
+                iconBg: const Color(0xFF008751).withOpacity(0.1),
+                title: 'Bank Transfer',
+                subtitle: 'Send NGNT to any Nigerian bank account',
+                badge: '₦ NGN',
+                onTap: () => onSelect(_SendView.bankTransfer),
+              ),
+              const SizedBox(height: 10),
+
+              _MethodCard(
+                icon: Icons.attach_money_rounded,
+                iconColor: const Color(0xFF2775CA),
+                iconBg: const Color(0xFF2775CA).withOpacity(0.1),
+                title: 'Send USDC',
+                subtitle: 'Send to DayFi username or Stellar address',
+                badge: '\$ USDC',
+                balanceLabel: '\$${wallet.usdcBalance.toStringAsFixed(2)}',
+                onTap: () => onSelect(_SendView.blockchainUsdc),
+              ),
+              const SizedBox(height: 10),
+
+              _MethodCard(
+                icon: Icons.currency_exchange_rounded,
+                iconColor: const Color(0xFF008751),
+                iconBg: const Color(0xFF008751).withOpacity(0.1),
+                title: 'Send NGNT',
+                subtitle: 'Send digital naira via Stellar network',
+                badge: '₦ NGNT',
+                balanceLabel: '₦${wallet.ngntBalance.toStringAsFixed(2)}',
+                onTap: () => onSelect(_SendView.blockchainNgnt),
+              ),
+              const SizedBox(height: 10),
+
+              _MethodCard(
+                icon: Icons.link_rounded,
+                iconColor: const Color(0xFF9C27B0),
+                iconBg: const Color(0xFF9C27B0).withOpacity(0.1),
+                title: 'Request Money',
+                subtitle: 'Create a payment link to share via WhatsApp',
+                badge: 'Link',
+                onTap: () => onSelect(_SendView.paymentRequest),
+              ),
+            ],
           ),
         ),
       ),
@@ -1193,55 +169,1075 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 }
 
-// ─── DropdownBox Widget ───────────────────────────────────────
+class _MethodCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor, iconBg;
+  final String title, subtitle, badge;
+  final String? balanceLabel;
+  final VoidCallback onTap;
 
-class _DropdownBox extends StatelessWidget {
-  final String? emoji;
-  final String label;
-
-  const _DropdownBox({this.emoji, required this.label});
+  const _MethodCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    this.balanceLabel,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: emoji != null ? 8 : 16,
-        vertical: emoji != null ? 7.5 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.050),
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.onSurface.withOpacity(0.06)),
         ),
-      ),
-      child: Row(
-        children: [
-          if (emoji != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(54),
-              child: Image.asset(emoji!, height: 24),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: iconColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badge,
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: iconColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.45)),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(.90),
-                fontSize: 13.5,
-                letterSpacing: -.1,
-              ),
-              overflow: TextOverflow.ellipsis,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (balanceLabel != null)
+                  Text(
+                    balanceLabel!,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary,
+                    ),
+                  ),
+                const SizedBox(height: 2),
+                Icon(Icons.arrow_forward_ios_rounded, size: 13, color: cs.onSurface.withOpacity(0.3)),
+              ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Blockchain send sub-flow ───────────────────────────────────────────────────
+
+class _BlockchainSendView extends ConsumerStatefulWidget {
+  final String asset;
+  final VoidCallback onBack;
+  const _BlockchainSendView({super.key, required this.asset, required this.onBack});
+
+  @override
+  ConsumerState<_BlockchainSendView> createState() => _BlockchainSendViewState();
+}
+
+class _BlockchainSendViewState extends ConsumerState<_BlockchainSendView> {
+  final _toCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  final _memoCtrl = TextEditingController();
+
+  bool _loading = false, _resolving = false, _invalidAmount = false;
+  String? _amountError, _recipientError;
+  Map<String, dynamic>? _resolvedRecipient;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _toCtrl.dispose();
+    _amountCtrl.dispose();
+    _memoCtrl.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  double get _available {
+    final w = ref.read(walletProvider);
+    return widget.asset == 'NGNT' ? w.ngntBalance : w.usdcBalance;
+  }
+
+  void _onAmountChanged(String v) {
+    _debounce?.cancel();
+    setState(() { _amountError = null; _invalidAmount = false; });
+    if (v.isEmpty || double.tryParse(v) == null) return;
+    _debounce = Timer(const Duration(milliseconds: 400), _validateAmount);
+  }
+
+  void _validateAmount() {
+    final amt = double.tryParse(_amountCtrl.text.trim());
+    setState(() {
+      if (amt == null || amt <= 0) {
+        _invalidAmount = true;
+        _amountError = 'Enter a valid amount';
+      } else if (amt > _available + 0.0001) {
+        _invalidAmount = true;
+        _amountError = 'Insufficient balance. Available: ${_available.toStringAsFixed(2)} ${widget.asset}';
+      } else {
+        _invalidAmount = false;
+        _amountError = null;
+      }
+    });
+  }
+
+  Future<void> _resolveRecipient(String value) async {
+    if (value.length < 3) {
+      setState(() { _resolvedRecipient = null; _recipientError = null; });
+      return;
+    }
+    setState(() { _resolving = true; _recipientError = null; _resolvedRecipient = null; });
+    try {
+      final result = await ref.read(walletProvider.notifier).resolveRecipient(value);
+      if (mounted) {
+        setState(() {
+          _resolvedRecipient = result;
+          if (result == null) _recipientError = 'Username or address not found';
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _recipientError = 'Username or address not found');
+    } finally {
+      if (mounted) setState(() => _resolving = false);
+    }
+  }
+
+  bool get _canSend {
+    return !_loading &&
+        !_invalidAmount &&
+        _amountCtrl.text.trim().isNotEmpty &&
+        _toCtrl.text.trim().isNotEmpty;
+  }
+
+  Future<void> _send() async {
+    _validateAmount();
+    if (!_canSend) return;
+
+    final to = _toCtrl.text.trim();
+    final amount = double.parse(_amountCtrl.text.trim());
+
+    setState(() => _loading = true);
+
+    showDayFiBottomSheet(
+      context: context,
+      isDismissible: false,
+      child: _loadingSheet(context, 'Sending...', 'Processing your payment'),
+    );
+
+    try {
+      final result = await apiService.sendFunds(
+        to: _resolvedRecipient?['stellarAddress'] ?? to,
+        amount: amount,
+        asset: widget.asset,
+        memo: _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim(),
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        _showSuccess(
+          '${_amountCtrl.text} ${widget.asset} sent successfully.',
+          txHash: result['transaction']?['hash'],
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        _showError(apiService.parseError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showSuccess(String msg, {String? txHash}) {
+    showDayFiBottomSheet(
+      context: context,
+      child: _successSheet(context, 'Sent!', msg, txHash: txHash),
+    );
+  }
+
+  void _showError(String msg) {
+    showDayFiBottomSheet(
+      context: context,
+      child: _errorSheet(context, msg, onRetry: _send),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final assetColor = widget.asset == 'USDC' ? const Color(0xFF2775CA) : const Color(0xFF008751);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SubHeader(
+                onBack: widget.onBack,
+                icon: widget.asset == 'USDC' ? Icons.attach_money_rounded : Icons.currency_exchange_rounded,
+                iconColor: assetColor,
+                title: 'Send ${widget.asset}',
+                subtitle: widget.asset == 'USDC'
+                    ? 'To any DayFi username or Stellar address'
+                    : 'Digital naira via Stellar network',
+              ),
+              const SizedBox(height: 24),
+
+              // Balance chip
+              _BalanceChip(asset: widget.asset, balance: _available),
+              const SizedBox(height: 20),
+
+              // Recipient
+              _label(context, 'Recipient'),
+              const SizedBox(height: 6),
+              _inputField(
+                context,
+                controller: _toCtrl,
+                hint: 'DayFi username or Stellar address',
+                onChanged: (v) {
+                  setState(() {});
+                  if (v.length > 2) _resolveRecipient(v);
+                },
+                suffix: _resolving
+                    ? const _InputSpinner()
+                    : _resolvedRecipient != null
+                    ? Icon(Icons.check_circle_rounded, color: DayFiColors.green, size: 18)
+                    : null,
+              ),
+              if (_recipientError != null)
+                _fieldHint(context, _recipientError!, color: cs.error)
+              else if (_resolvedRecipient != null)
+                _fieldHint(
+                  context,
+                  _resolvedRecipient!['username'] ?? 'Recipient found on-chain',
+                  color: DayFiColors.green,
+                ),
+              const SizedBox(height: 16),
+
+              // Amount
+              _label(context, 'Amount'),
+              const SizedBox(height: 6),
+              _inputField(
+                context,
+                controller: _amountCtrl,
+                hint: '0.00',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                prefix: widget.asset == 'USDC' ? '\$ ' : '₦ ',
+                suffix: GestureDetector(
+                  onTap: () {
+                    _amountCtrl.text = _available.toStringAsFixed(2);
+                    _validateAmount();
+                  },
+                  child: Text('MAX', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary)),
+                ),
+                onChanged: _onAmountChanged,
+              ),
+              if (_amountError != null)
+                _fieldHint(context, _amountError!, color: const Color(0xFFFFA726))
+              else
+                _fieldHint(context, 'Available: ${_available.toStringAsFixed(2)} ${widget.asset}'),
+              const SizedBox(height: 16),
+
+              // Memo
+              _label(context, 'Memo (optional)'),
+              const SizedBox(height: 6),
+              _inputField(
+                context,
+                controller: _memoCtrl,
+                hint: 'Add a note',
+                maxLength: 28,
+              ),
+              const SizedBox(height: 28),
+
+              _PrimaryButton(
+                label: 'Send ${widget.asset}',
+                enabled: _canSend,
+                loading: _loading,
+                onTap: _send,
+              ),
+            ],
           ),
-          Icon(
-            Icons.keyboard_arrow_down,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bank transfer sub-flow ─────────────────────────────────────────────────────
+
+class _BankTransferView extends ConsumerStatefulWidget {
+  final VoidCallback onBack;
+  const _BankTransferView({super.key, required this.onBack});
+
+  @override
+  ConsumerState<_BankTransferView> createState() => _BankTransferViewState();
+}
+
+class _BankTransferViewState extends ConsumerState<_BankTransferView> {
+  final _accountCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+
+  List<Map<String, String>> _banks = [];
+  String? _bankCode, _bankName, _resolvedName;
+  bool _loading = false, _invalidAmount = false;
+  String? _amountError;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBanks();
+  }
+
+  @override
+  void dispose() {
+    _accountCtrl.dispose();
+    _amountCtrl.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  double get _available => ref.read(walletProvider).ngntBalance;
+
+  Future<void> _loadBanks() async {
+    try {
+      final res = await apiService.getNigeriaBanks();
+      final raw = List<Map<String, dynamic>>.from(res['banks'] ?? []);
+      if (!mounted) return;
+      setState(() {
+        _banks = raw.map((e) => {'code': '${e['code']}', 'name': '${e['name']}'}).toList();
+      });
+    } catch (_) {}
+  }
+
+  void _onAmountChanged(String v) {
+    _debounce?.cancel();
+    setState(() { _amountError = null; _invalidAmount = false; });
+    if (v.isEmpty || double.tryParse(v) == null) return;
+    _debounce = Timer(const Duration(milliseconds: 400), _validateAmount);
+  }
+
+  void _validateAmount() {
+    final amt = double.tryParse(_amountCtrl.text.trim());
+    setState(() {
+      if (amt == null || amt <= 0) {
+        _invalidAmount = true;
+        _amountError = 'Enter a valid amount';
+      } else if (amt > _available + 0.0001) {
+        _invalidAmount = true;
+        _amountError = 'Insufficient NGNT balance. Available: ₦${_available.toStringAsFixed(2)}';
+      } else {
+        _invalidAmount = false;
+        _amountError = null;
+      }
+    });
+  }
+
+  Future<void> _resolveAccount(String number) async {
+    if (number.length != 10 || _bankCode == null) return;
+    try {
+      final r = await apiService.resolveBankAccount(bankCode: _bankCode!, accountNumber: number);
+      if (mounted) setState(() => _resolvedName = r['accountName']?.toString());
+    } catch (_) {
+      if (mounted) setState(() => _resolvedName = null);
+    }
+  }
+
+  bool get _canSend =>
+      !_loading &&
+      !_invalidAmount &&
+      _bankCode != null &&
+      _accountCtrl.text.trim().length == 10 &&
+      (_resolvedName?.isNotEmpty ?? false) &&
+      _amountCtrl.text.trim().isNotEmpty;
+
+  Future<void> _send() async {
+    _validateAmount();
+    if (!_canSend) return;
+
+    final amount = double.parse(_amountCtrl.text.trim());
+    setState(() => _loading = true);
+
+    showDayFiBottomSheet(
+      context: context,
+      isDismissible: false,
+      child: _loadingSheet(context, 'Sending...', 'Initiating bank transfer'),
+    );
+
+    try {
+      final idempotencyKey =
+          '${_bankCode}_${_accountCtrl.text.trim()}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
+      final result = await apiService.withdrawToBank(
+        ngntAmount: amount,
+        bankCode: _bankCode!,
+        accountNumber: _accountCtrl.text.trim(),
+        accountName: _resolvedName!,
+        idempotencyKey: idempotencyKey,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        final status = (result['status'] as String?)?.toLowerCase() ?? '';
+        final isPending = status == 'pending';
+        showDayFiBottomSheet(
+          context: context,
+          child: _successSheet(
+            context,
+            isPending ? 'Transfer Pending' : 'Transfer Sent',
+            isPending
+                ? 'Your bank transfer is processing. We\'ll update your transactions shortly.'
+                : '₦${_amountCtrl.text} sent to $_resolvedName · $_bankName',
+            txRef: result['txRef'],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        showDayFiBottomSheet(
+          context: context,
+          child: _errorSheet(context, apiService.parseError(e), onRetry: _send),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SubHeader(
+                onBack: widget.onBack,
+                icon: Icons.account_balance_rounded,
+                iconColor: const Color(0xFF008751),
+                title: 'Bank Transfer',
+                subtitle: 'Send NGNT to any Nigerian bank account',
+              ),
+              const SizedBox(height: 24),
+
+              _BalanceChip(asset: 'NGNT', balance: _available),
+              const SizedBox(height: 20),
+
+              // Bank selector
+              _label(context, 'Bank'),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _bankCode,
+                    isExpanded: true,
+                    hint: Text('Select bank', style: TextStyle(color: cs.onSurface.withOpacity(0.4), fontSize: 14)),
+                    items: _banks.map((b) => DropdownMenuItem(value: b['code'], child: Text(b['name'] ?? ''))).toList(),
+                    onChanged: (v) {
+                      setState(() {
+                        _bankCode = v;
+                        _bankName = _banks.firstWhere((b) => b['code'] == v, orElse: () => {})['name'];
+                        _resolvedName = null;
+                      });
+                      if (_accountCtrl.text.length == 10) _resolveAccount(_accountCtrl.text);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Account number
+              _label(context, 'Account Number'),
+              const SizedBox(height: 6),
+              _inputField(
+                context,
+                controller: _accountCtrl,
+                hint: '10-digit account number',
+                keyboardType: TextInputType.number,
+                maxLength: 10,
+                onChanged: (v) {
+                  setState(() => _resolvedName = null);
+                  _resolveAccount(v);
+                },
+                suffix: _resolvedName != null
+                    ? Icon(Icons.check_circle_rounded, color: DayFiColors.green, size: 18)
+                    : null,
+              ),
+              if (_resolvedName != null)
+                _fieldHint(context, '$_resolvedName · ${_bankName ?? ''}', color: DayFiColors.green)
+              else
+                _fieldHint(context, 'Account name will appear here after resolution'),
+              const SizedBox(height: 16),
+
+              // Amount
+              _label(context, 'Amount (NGNT)'),
+              const SizedBox(height: 6),
+              _inputField(
+                context,
+                controller: _amountCtrl,
+                hint: '0.00',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                prefix: '₦ ',
+                suffix: GestureDetector(
+                  onTap: () {
+                    _amountCtrl.text = _available.toStringAsFixed(2);
+                    _validateAmount();
+                  },
+                  child: Text('MAX', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.primary)),
+                ),
+                onChanged: _onAmountChanged,
+              ),
+              if (_amountError != null)
+                _fieldHint(context, _amountError!, color: const Color(0xFFFFA726))
+              else
+                _fieldHint(context, 'Available: ₦${_available.toStringAsFixed(2)} NGNT'),
+              const SizedBox(height: 28),
+
+              _PrimaryButton(
+                label: 'Send to Bank',
+                enabled: _canSend,
+                loading: _loading,
+                onTap: _send,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Payment request sub-flow ───────────────────────────────────────────────────
+
+class _PaymentRequestView extends ConsumerStatefulWidget {
+  final VoidCallback onBack;
+  const _PaymentRequestView({super.key, required this.onBack});
+
+  @override
+  ConsumerState<_PaymentRequestView> createState() => _PaymentRequestViewState();
+}
+
+class _PaymentRequestViewState extends ConsumerState<_PaymentRequestView> {
+  final _amountCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  bool _loading = false;
+  String? _generatedLink;
+  String? _error;
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createRequest() async {
+    final amt = double.tryParse(_amountCtrl.text.trim());
+    if (amt == null || amt <= 0) {
+      setState(() => _error = 'Enter a valid amount');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final note = _noteCtrl.text.trim();
+      final res = await apiService.createRequest({
+        'amount': amt,
+        'asset': 'NGNT',
+        if (note.isNotEmpty) 'note': note,
+      });
+      if (mounted) {
+        final reqNumber = res['request']?['requestNumber'] ?? res['requestNumber'] ?? '';
+        setState(() {
+          _generatedLink = 'https://dayfi.me/pay/$reqNumber';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = apiService.parseError(e); _loading = false; });
+    }
+  }
+
+  void _copyLink() {
+    if (_generatedLink == null) return;
+    Clipboard.setData(ClipboardData(text: _generatedLink!));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Link copied to clipboard'), duration: Duration(seconds: 2)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SubHeader(
+                onBack: widget.onBack,
+                icon: Icons.link_rounded,
+                iconColor: const Color(0xFF9C27B0),
+                title: 'Request Money',
+                subtitle: 'Create a shareable payment link',
+              ),
+              const SizedBox(height: 24),
+
+              if (_generatedLink != null) ...[
+                // Success state
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: DayFiColors.green.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: DayFiColors.green.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: DayFiColors.green, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Payment link created',
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 15, fontWeight: FontWeight.w700, color: DayFiColors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: cs.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: cs.onSurface.withOpacity(0.08)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _generatedLink!,
+                                style: TextStyle(fontSize: 13, color: cs.onSurface.withOpacity(0.7)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _copyLink,
+                              child: Icon(Icons.copy_rounded, size: 18, color: cs.onSurface.withOpacity(0.5)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _PrimaryButton(
+                              label: 'Copy Link',
+                              enabled: true,
+                              loading: false,
+                              onTap: _copyLink,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 48),
+                                side: BorderSide(color: cs.onSurface.withOpacity(0.15)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => setState(() => _generatedLink = null),
+                              child: Text('New Request', style: TextStyle(fontSize: 14, color: cs.onSurface)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                _label(context, 'Amount (USDC)'),
+                const SizedBox(height: 6),
+                _inputField(
+                  context,
+                  controller: _amountCtrl,
+                  hint: '0.00',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  prefix: '\$ ',
+                ),
+                if (_error != null) _fieldHint(context, _error!, color: cs.error),
+                const SizedBox(height: 16),
+
+                _label(context, 'Note (optional)'),
+                const SizedBox(height: 6),
+                _inputField(
+                  context,
+                  controller: _noteCtrl,
+                  hint: 'What is this for?',
+                  maxLength: 100,
+                ),
+                const SizedBox(height: 28),
+
+                _PrimaryButton(
+                  label: 'Generate Payment Link',
+                  enabled: !_loading,
+                  loading: _loading,
+                  onTap: _createRequest,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shared widgets ─────────────────────────────────────────────────────────────
+
+class _SubHeader extends StatelessWidget {
+  final VoidCallback onBack;
+  final IconData icon;
+  final Color iconColor;
+  final String title, subtitle;
+
+  const _SubHeader({
+    required this.onBack,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onBack,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: cs.onSurface.withOpacity(0.5)),
+              const SizedBox(width: 4),
+              Text('Payments', style: TextStyle(fontSize: 13, color: cs.onSurface.withOpacity(0.5))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4, color: cs.onSurface,
+                  ),
+                ),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.45))),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _BalanceChip extends ConsumerWidget {
+  final String asset;
+  final double balance;
+  const _BalanceChip({required this.asset, required this.balance});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final prefix = asset == 'USDC' ? '\$' : '₦';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.account_balance_wallet_outlined, size: 14, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            'Balance: $prefix${balance.toStringAsFixed(2)} $asset',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary),
           ),
         ],
       ),
     );
   }
+}
+
+class _InputSpinner extends StatelessWidget {
+  const _InputSpinner();
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.all(12),
+    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+  );
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final String label;
+  final bool enabled, loading;
+  final VoidCallback onTap;
+
+  const _PrimaryButton({
+    required this.label,
+    required this.enabled,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final active = enabled && !loading;
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: active ? cs.onSurface : cs.onSurface.withOpacity(0.2),
+          foregroundColor: cs.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: active ? onTap : null,
+        child: loading
+            ? SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: cs.surface),
+              )
+            : Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+// ── Helper builders ────────────────────────────────────────────────────────────
+
+Widget _label(BuildContext context, String text) {
+  final cs = Theme.of(context).colorScheme;
+  return Text(
+    text,
+    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface.withOpacity(0.55), letterSpacing: 0.3),
+  );
+}
+
+Widget _fieldHint(BuildContext context, String text, {Color? color}) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.only(top: 5, left: 2),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 11, color: color ?? cs.onSurface.withOpacity(0.4)),
+    ),
+  );
+}
+
+Widget _inputField(
+  BuildContext context, {
+  required TextEditingController controller,
+  required String hint,
+  TextInputType? keyboardType,
+  String? prefix,
+  Widget? suffix,
+  int? maxLength,
+  void Function(String)? onChanged,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return TextField(
+    controller: controller,
+    keyboardType: keyboardType,
+    maxLength: maxLength,
+    onChanged: onChanged,
+    style: const TextStyle(fontSize: 15),
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: cs.onSurface.withOpacity(0.3), fontSize: 15),
+      prefixText: prefix,
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: cs.onSurface.withOpacity(0.06),
+      counterText: '',
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: cs.primary.withOpacity(0.4), width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    ),
+  );
+}
+
+// ── Shared bottom sheet bodies ─────────────────────────────────────────────────
+
+Widget _loadingSheet(BuildContext ctx, String title, String subtitle) {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+        const SizedBox(height: 20),
+        Text(title, style: Theme.of(ctx).textTheme.displaySmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -1)),
+        const SizedBox(height: 8),
+        Text(subtitle, style: TextStyle(fontSize: 15, color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.5)), textAlign: TextAlign.center),
+      ],
+    ),
+  );
+}
+
+Widget _successSheet(BuildContext ctx, String title, String subtitle, {String? txHash, String? txRef}) {
+  final cs = Theme.of(ctx).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Lottie.asset('assets/animations/success.json', width: 110, height: 110, repeat: false),
+        Text(title, style: Theme.of(ctx).textTheme.displaySmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -1)),
+        const SizedBox(height: 10),
+        Text(subtitle, style: TextStyle(fontSize: 15, color: cs.onSurface.withOpacity(0.55), height: 1.4), textAlign: TextAlign.center),
+        if (txHash != null) ...[
+          const SizedBox(height: 6),
+          Text('Tx: ${txHash.substring(0, 12)}...', style: Theme.of(ctx).textTheme.bodySmall),
+        ],
+        if (txRef != null) ...[
+          const SizedBox(height: 4),
+          Text('Ref: $txRef', style: Theme.of(ctx).textTheme.bodySmall),
+        ],
+        const SizedBox(height: 28),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: cs.onSurface,
+              foregroundColor: cs.surface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Done', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _errorSheet(BuildContext ctx, String message, {required VoidCallback onRetry}) {
+  final cs = Theme.of(ctx).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(color: cs.error.withOpacity(0.1), shape: BoxShape.circle),
+          child: Icon(Icons.error_outline_rounded, color: cs.error, size: 28),
+        ),
+        const SizedBox(height: 16),
+        Text('Transaction failed', style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Text(message, style: TextStyle(fontSize: 14, color: cs.onSurface.withOpacity(0.5), height: 1.4), textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity, height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: cs.onSurface, foregroundColor: cs.surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () { Navigator.pop(ctx); onRetry(); },
+            child: const Text('Retry', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Dismiss', style: TextStyle(color: cs.onSurface.withOpacity(0.5)))),
+      ],
+    ),
+  );
 }

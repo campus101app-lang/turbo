@@ -1,22 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
-// import { useOpenWalletConnect } from "@/components/wallet/WalletConnectModal";
-// import { useWallet } from "@/hooks";
-// import { useContract } from "@/hooks";
-// import { useProfileStore } from "@/state/profileStore";
-// import { useWalletStore } from "@/state/walletStore";
-// import { useToastStore } from "@/state/toastStore";
-// import { useInteractionHistoryStore } from "@/state/interactionHistoryStore";
-// import { ProfileFormData } from "@/types/profile";
-// import { TERMINAL_DEFAULT_PATH } from "@/constants/terminalNav";
-// import {
-//   ERRORS,
-//   formatUserFacingContractError,
-//   isAlreadyRegisteredContractError,
-//   isLikelyNetworkError,
-// } from "@/utils/error";
 
 const stagger = 0.06;
 const fadeUp = {
@@ -48,104 +34,15 @@ function generateBio(): string {
 
 const HeroSection: React.FC = () => {
   const navigate = useNavigate();
-  // const { connected } = useWallet();
-  // const publicKey = useWalletStore((s) => s.publicKey);
-  // const openWalletConnect = useOpenWalletConnect();
-  // const isRegistered = useProfileStore((s) => s.isRegistered);
-  // const { registerProfile } = useContract();
-  // const { addToast } = useToastStore();
-
   const [loading, setLoading] = useState(false);
   const hasFired = useRef(false);
-
-  // If already registered and wallet connects, go straight to dashboard
-  // useEffect(() => {
-  //   if (connected && isRegistered) {
-  //     navigate(TERMINAL_DEFAULT_PATH, { replace: true });
-  //   }
-  // }, [connected, isRegistered, navigate]);
-
-  // Auto-register once wallet connects (not yet registered)
-  // useEffect(() => {
-  //   if (!connected || !publicKey || isRegistered || hasFired.current) return;
-  //   hasFired.current = true;
-
-  //   const run = async () => {
-  //    Promise.resolve().then(() => setLoading(true));
-  //     const data: ProfileFormData = {
-  //       username: generateUsername(publicKey),
-  //       displayName: generateDisplayName(publicKey),
-  //       bio: generateBio(),
-  //       imageUrl: "",
-  //       xHandle: "",
-  //       instagramUrl: "",
-  //       tiktokUrl: "",
-  //       youtubeUrl: "",
-  //     };
-
-  //     try {
-  //       await registerProfile(data);
-  //       addToast({
-  //         message: "You're live — welcome to Zap402.",
-  //         type: "success",
-  //         duration: 4000,
-  //       });
-  //       navigate(TERMINAL_DEFAULT_PATH, { replace: true });
-  //     } catch (err) {
-  //       hasFired.current = false;
-  //       setLoading(false);
-
-  //       if (isAlreadyRegisteredContractError(err)) {
-  //         useInteractionHistoryStore.getState().setActiveJourneyId(null);
-  //         navigate(TERMINAL_DEFAULT_PATH, { replace: true });
-  //         return;
-  //       }
-  //       if (isLikelyNetworkError(err)) {
-  //         addToast({ message: ERRORS.NETWORK, type: "error", duration: 5000 });
-  //         return;
-  //       }
-  //       const msg = formatUserFacingContractError(err);
-  //       const lower = msg.toLowerCase();
-  //       if (
-  //         lower.includes("reject") ||
-  //         lower.includes("denied") ||
-  //         lower.includes("cancel") ||
-  //         lower.includes("user declined")
-  //       ) {
-  //         addToast({
-  //           message: "Signature declined — try again when ready.",
-  //           type: "error",
-  //           duration: 4000,
-  //         });
-  //       } else {
-  //         addToast({ message: msg, type: "error", duration: 5000 });
-  //       }
-  //     }
-  //   };
-
-  //   void run();
-  // }, [connected, publicKey, isRegistered]);
-
-  // const handleCta = () => {
-  //   if (connected && isRegistered) {
-  //     navigate(TERMINAL_DEFAULT_PATH);
-  //   } else {
-  //     openWalletConnect();
-  //   }
-  // };
-
-  // const ctaLabel = loading
-  //   ? "Setting up…"
-  //   : connected && isRegistered
-  //   ? "Go to dashboard"
-  //   : "Get started";
 
   return (
     <section
       id="hero"
-      className="editorial-section overflow-hidden px-0 py-16"
+      className="editorial-section bg-white overflow-hidden px-0 py-16"
     >
-      <div className="editorial-container mx-auto w-full max-w-[1200px] px-4">
+      <div className="editorial-container mx-auto w-full max-w-[900px] px-4">
         <div className="flex flex-col md:flex-row items-center gap-10 md:gap-12">
 
           {/* Text + CTA */}
@@ -156,14 +53,14 @@ const HeroSection: React.FC = () => {
               transition={{ duration: 0.45, delay: stagger * 3 }}
               className="font-body w-full mb-5 text-[16px] leading-snug text-zap-ink md:text-[20px]"
             >
-              
+
             </motion.p>
             <motion.h1
               {...fadeUp}
               transition={{ duration: 0.45, delay: stagger * 2 }}
               className="font-display font-bold w-full text-[clamp(3.8rem,7vw,4.5rem)] leading-[.95] tracking-tight text-zap-faint"
             >
-              Control your business finances, all in one place
+              Built for <span className="italic">Nigerian businesses</span> that move fast.
             </motion.h1>
 
             <motion.p
@@ -171,45 +68,41 @@ const HeroSection: React.FC = () => {
               transition={{ duration: 0.45, delay: stagger * 3 }}
               className="font-body mt-5 w-full text-[18px] leading-snug text-zap-ink-muted md:text-[22px]"
             >
-              Track expenses, reimbursements, and invoices for financial efficiency on Africa’s most loved spend management platform.</motion.p>
+              Send money, get paid, run your store, and track every kobo — all in one place.</motion.p>
             <motion.div
               {...fadeUp}
               transition={{ duration: 0.45, delay: stagger * 4 }}
               className="mt-8"
             >
-              <div className="flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => { }}
-                  disabled={loading}
-                  className="inline-flex min-w-[340px] items-center justify-center gap-2 rounded-lg border border-white/80 bg-transparent text-white py-2 text-base font-light tracking-normal hover:bg-white/5 transition-colors disabled:pointer-events-none"
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                {/* Internal link using Link from react-router-dom */}
+                <Link
+                  to="/signup"
+                  className="inline-flex min-w-[180px] items-center justify-center font-body text-[15px] font-semibold bg-zap-ink text-white px-6 py-3 rounded-full hover:opacity-90 transition-opacity"
                 >
-                  {loading && (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  )}
-                  Download it now
-                </button>
+                  Get started free
+                </Link>
 
-                <button
-                  type="button"
-                  onClick={() => { }}
-                  className="inline-flex min-w-[340px] items-center justify-center gap-2 rounded-lg border border-white/80 bg-transparent text-white py-2 text-base font-light tracking-normal hover:bg-white/5 transition-colors disabled:pointer-events-none"
+                {/* Anchor link for page sections */}
+                <a
+                  href="#features"
+                  className="inline-flex min-w-[180px] items-center justify-center font-body text-[15px] font-semibold text-zap-ink border border-zap-ink/20 px-6 py-3 rounded-full hover:border-zap-ink/40 transition-colors"
                 >
                   See all features
-                </button>
+                </a>
               </div>
             </motion.div>
           </div>
 
 
           {/* Hero image */}
-          <motion.img
+          {/* <motion.img
             {...fadeUp}
             transition={{ duration: 0.55, delay: stagger * 5 }}
             src="/img/hero.webp"
             alt="Hero illustration"
             className="w-full md:w-[46%] shrink-0 rounded-2xl"
-          />
+          /> */}
 
         </div>
       </div>

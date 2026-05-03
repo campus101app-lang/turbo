@@ -1,4 +1,8 @@
 // lib/screens/home/home_screen.dart
+//
+// Merged dashboard: live wallet data + KPI cards + activity feed + insights.
+// Replaces both home_screen.dart and enhanced_home_screen.dart.
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -6,15 +10,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart' show DateFormat;
+import 'package:intl/intl.dart';
+import 'package:mobile_app/providers/shell_navigation_provider.dart';
 import 'package:mobile_app/screens/accounts/accounts_screen.dart';
+
 import '../../providers/wallet_provider.dart';
-import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../theme/app_theme.dart';
 
 // ── Providers ──────────────────────────────────────────────────────────────────
 
@@ -24,13 +28,21 @@ final userProvider = FutureProvider<Map<String, dynamic>>(
 
 final _txHomeProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final result = await apiService.getTransactions(page: 1, limit: 100);
-  final txs = List<Map<String, dynamic>>.from(result['transactions'] ?? []);
-  return txs.where((tx) {
-    final asset = (tx['asset'] as String?)?.toUpperCase() ?? '';
-    final swapFrom = (tx['swapFromAsset'] as String?)?.toUpperCase() ?? '';
-    final swapTo = (tx['swapToAsset'] as String?)?.toUpperCase() ?? '';
-    return asset != 'XLM' && swapFrom != 'XLM' && swapTo != 'XLM';
-  }).toList();
+  return List<Map<String, dynamic>>.from(result['transactions'] ?? []);
+});
+
+final _invoicesHomeProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  final result = await apiService.getInvoices(page: 1, limit: 50);
+  return List<Map<String, dynamic>>.from(result['invoices'] ?? []);
+});
+
+final _expensesHomeProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
+  final result = await apiService.getExpenses(page: 1, limit: 50);
+  return List<Map<String, dynamic>>.from(result['expenses'] ?? []);
 });
 
 final _xlmPriceHistoryHomeProvider = FutureProvider<Map<String, double>>((
@@ -73,12 +85,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _balanceHidden = false;
   Timer? _refreshTimer;
 
-  double _asDouble(dynamic value, [double fallback = 0.0]) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? fallback;
-    return fallback;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -93,7 +99,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  // ── Chart helpers ──────────────────────────────────────────────────────────
+  double _asDouble(dynamic value, [double fallback = 0.0]) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  String _fmtMixed(double ngn, double usd) {
+    final parts = <String>[];
+    if (ngn > 0) {
+      if (ngn >= 1000000) parts.add('₦${(ngn / 1000000).toStringAsFixed(1)}M');
+      else if (ngn >= 1000) parts.add('₦${(ngn / 1000).toStringAsFixed(0)}k');
+      else parts.add('₦${ngn.toStringAsFixed(0)}');
+    }
+    if (usd > 0) parts.add('\$${usd.toStringAsFixed(2)}');
+    return parts.isEmpty ? '₦0' : parts.join(' + ');
+  }
+
+  // ── Sparkline helpers ──────────────────────────────────────────────────────
 
   List<double> _buildPoints(
     List<Map<String, dynamic>> txs,
@@ -103,7 +126,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Map<String, double> priceHistory,
   ) {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
-
     final filtered =
         txs
             .where((t) {
@@ -183,7 +205,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final dt = DateTime.tryParse(e.key);
       return dt != null && dt.isAfter(cutoff);
     }).toList()..sort((a, b) => a.key.compareTo(b.key));
-
     if (relevant.isEmpty) {
       return [balance * currentPrice, balance * currentPrice];
     }
@@ -194,7 +215,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<double> _combinePoints(List<double> a, List<double> b) {
     final len = a.length > b.length ? a.length : b.length;
     if (len == 0) return [];
-
     List<double> interp(List<double> src) {
       if (src.length == len) return src;
       return List.generate(len, (i) {
@@ -237,19 +257,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final walletState = ref.watch(walletProvider);
     final txAsync = ref.watch(_txHomeProvider);
-    final priceHistoryAsync = ref.watch(_xlmPriceHistoryHomeProvider);
-    final priceHistory = priceHistoryAsync.value ?? {};
-    final ngnRateAsync = ref.watch(ngnRateProvider);
-
-    const xlmReserve = 1.5;
-    final xlmPrice = walletState.xlmPriceUSD;
-    final xlmDisplayBalance = walletState.xlmBalance - xlmReserve > 0
-        ? walletState.xlmBalance - xlmReserve
-        : 0.0;
-
+    final invoicesAsync = ref.watch(_invoicesHomeProvider);
+    final expensesAsync = ref.watch(_expensesHomeProvider);
     final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
+    final userAsync = ref.watch(userProvider);
 
     final txs = txAsync.value ?? [];
+    final invoices = invoicesAsync.value ?? [];
+    final expenses = expensesAsync.value ?? [];
+
     final recentTxs = [...txs]
       ..sort((a, b) {
         final aDate =
@@ -261,689 +277,644 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return bDate.compareTo(aDate);
       });
 
-    final xlmPoints = _buildPoints(
-      txs,
-      'XLM',
-      xlmDisplayBalance,
-      xlmPrice,
-      priceHistory,
-    );
+    // USDC sparkline — no XLM, no price history needed
     final usdcPoints = _buildPoints(
       txs,
       'USDC',
       walletState.usdcBalance,
       1.0,
-      priceHistory,
+      {},
     );
-    final combinedPoints = _combinePoints(xlmPoints, usdcPoints);
-
     final usdcChange = _computeChange(usdcPoints);
+
+    // NGNT sparkline — reconstruct from txns, converted to USD via ngntPriceUSD
+    final ngntPriceUsd = walletState.ngntPriceUSD ?? 0.0;
+    final rawNgntPoints = _buildPoints(txs, 'NGNT', walletState.ngntBalance, 1.0, {});
+    final ngntPoints = rawNgntPoints.map((v) => v * ngntPriceUsd).toList();
+
+    // Combined portfolio 7d change
+    final combinedPoints = _combinePoints(usdcPoints, ngntPoints);
     final totalChange = _computeChange(combinedPoints);
 
-    final ext = AppThemeExtension.of(context);
+    // KPI derivations
+    final pendingInvoices = invoices
+        .where((i) => ['sent', 'viewed', 'overdue'].contains(i['status']))
+        .toList();
+    double pendingNgn = 0, pendingUsd = 0;
+    for (final i in pendingInvoices) {
+      final amt = _asDouble(i['totalAmount']);
+      if ((i['currency'] as String?) == 'USDC') pendingUsd += amt;
+      else pendingNgn += amt;
+    }
+    final pendingFmt = _fmtMixed(pendingNgn, pendingUsd);
+    final overdueCount = invoices.where((i) => i['status'] == 'overdue').length;
+    double paidNgn = 0, paidUsd = 0;
+    for (final i in invoices) {
+      if (i['status'] != 'paid') continue;
+      final dt = DateTime.tryParse(i['updatedAt']?.toString() ?? '');
+      if (dt == null) continue;
+      final now2 = DateTime.now();
+      if (dt.year != now2.year || dt.month != now2.month) continue;
+      final amt = _asDouble(i['totalAmount']);
+      if ((i['currency'] as String?) == 'USDC') paidUsd += amt;
+      else paidNgn += amt;
+    }
+    final paidFmt = _fmtMixed(paidNgn, paidUsd);
+    final paidThisMonth = paidNgn;
+
+    final totalExpensesThisMonth = expenses
+        .where((e) {
+          final dt = DateTime.tryParse(e['createdAt']?.toString() ?? '');
+          if (dt == null) return false;
+          final now = DateTime.now();
+          return dt.year == now.year && dt.month == now.month;
+        })
+        .fold<double>(0, (s, e) => s + _asDouble(e['amount']));
+
+    final userName = userAsync.value?['fullName'] as String? ?? '';
+    final firstName = userName.isNotEmpty ? userName.split(' ').first : 'there';
+
+    final isWide = MediaQuery.sizeOf(context).width >= 768;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SizedBox(
-        width: double.infinity,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(walletProvider.notifier).refresh();
+          ref.invalidate(userProvider);
+          ref.invalidate(_txHomeProvider);
+          ref.invalidate(_invoicesHomeProvider);
+          ref.invalidate(_expensesHomeProvider);
+          ref.invalidate(ngnRateProvider);
+        },
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 960),
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    await ref.read(walletProvider.notifier).refresh();
-                    ref.invalidate(userProvider);
-                    ref.invalidate(_txHomeProvider);
-                    ref.invalidate(_xlmPriceHistoryHomeProvider);
-                    ref.invalidate(ngnRateProvider);
-                  },
-                  child: ListView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(0, 32.0, 0, 0),
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Balance card ─────────────────────────────────
-                          Expanded(
-                            child: Column(
-                              children: [
-                                SizedBox(
-                                  height: 100,
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: AccountMoverCard(
-                                          ticker: 'NGN',
-                                          name: 'NG Naira',
-                                          gainUp: true,
-                                          gainAmountAbsNgn: 0,
-                                          accent: const Color(0xFF008751),
-                                          line: _toSpots(
-                                            ngnRateAsync != null
-                                                ? List.filled(7, usdToNgn)
-                                                : [],
-                                          ),
-                                          imagePath: 'assets/images/ng.png',
-                                          valueUSD:
-                                              walletState.ngntBalance *
-                                              (walletState.ngnRate ?? 0),
-                                          balanceLabel:
-                                              '${walletState.ngntBalance.toStringAsFixed(2)} NGNT',
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: AccountMoverCard(
-                                          ticker: 'USD',
-                                          name: 'US Dollar',
-                                          gainUp: usdcChange >= 0,
-                                          gainAmountAbsNgn:
-                                              walletState.usdcBalance *
-                                              usdToNgn *
-                                              usdcChange.abs() /
-                                              100,
-                                          accent: usdcChange >= 0
-                                              ? DayFiColors.green
-                                              : ext.errorColor,
-                                          line: _toSpots(usdcPoints),
-                                          imagePath: 'assets/images/us.png',
-                                          valueUSD: walletState.usdcBalance,
-                                          balanceLabel:
-                                              '${walletState.usdcBalance.toStringAsFixed(2)} USDC',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Stack(
-                                  children: [
-                                    Center(
-                                      child: Container(
-                                        height: 54,
-                                        width:
-                                            MediaQuery.of(context).size.width *
-                                            .85,
-                                        margin: const EdgeInsets.fromLTRB(
-                                          16,
-                                          0,
-                                          16,
-                                          0,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            28,
-                                          ),
-                                          border: Border.all(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurface
-                                                .withOpacity(0.04),
-                                          ),
-                                          color: Theme.of(
-                                            context,
-                                          ).canvasColor.withOpacity(.75),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: const EdgeInsets.fromLTRB(
-                                        0,
-                                        6,
-                                        0,
-                                        0,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(24),
-                                        border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withOpacity(0.04),
-                                          width: .5,
-                                        ),
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.surface,
-                                      ),
-                                      padding: const EdgeInsets.fromLTRB(
-                                        8,
-                                        18,
-                                        8,
-                                        4,
-                                      ),
-                                      child: _buildBalanceSection(
-                                        walletState,
-                                        totalChange,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                // ── Recent transactions ────────────────────────────────
-                                if (recentTxs.isNotEmpty) ...[
-                                  _SectionHeader(
-                                    label: 'Most recent',
-                                    trailing: '',
-                                    onTrailingTap: () =>
-                                        context.push('/transactions'),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    margin: const EdgeInsets.fromLTRB(
-                                      16,
-                                      6,
-                                      16,
-                                      0,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withOpacity(0.04),
-                                      ),
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                    ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      6,
-                                      6,
-                                      6,
-                                      4,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        ...recentTxs.take(3).map((tx) {
-                                          final isSend = tx['type'] == 'send';
-                                          final isSwap = tx['type'] == 'swap';
-                                          final amount = _asDouble(
-                                            tx['amount'],
-                                          );
-                                          final asset =
-                                              tx['asset'] as String? ?? '';
-                                          final swapToAsset =
-                                              tx['swapToAsset'] as String? ??
-                                              '';
-                                          final rawSwapToAmount =
-                                              tx['receivedAmount'] ??
-                                              tx['swapToAmount'];
-                                          final swapToAmount =
-                                              rawSwapToAmount != null
-                                              ? _asDouble(rawSwapToAmount)
-                                              : null;
-                                          final createdAt =
-                                              DateTime.tryParse(
-                                                tx['createdAt'] ?? '',
-                                              ) ??
-                                              DateTime.now();
-                                          final status =
-                                              tx['status'] as String?;
-                                          final accent = isSend
-                                              ? DayFiColors.red
-                                              : isSwap
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.primary
-                                              : DayFiColors.green;
-
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                              horizontal: 12,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                // Icon + asset badge
-                                                Stack(
-                                                  alignment: Alignment.center,
-                                                  children: [
-                                                    SizedBox(
-                                                      height: 32,
-                                                      child: Align(
-                                                        alignment:
-                                                            Alignment.topCenter,
-                                                        child: SvgPicture.asset(
-                                                          isSwap
-                                                              ? 'assets/icons/svgs/swap.svg'
-                                                              : isSend
-                                                              ? 'assets/icons/svgs/send.svg'
-                                                              : 'assets/icons/svgs/receive.svg',
-                                                          color:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .primary
-                                                                  .withOpacity(
-                                                                    .75,
-                                                                  ),
-                                                          width: 22,
-                                                          height: 22,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Positioned(
-                                                      bottom: 0,
-                                                      right: 0,
-                                                      child: ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              24,
-                                                            ),
-                                                        child: Image.asset(
-                                                          asset.toUpperCase() ==
-                                                                  'USDC'
-                                                              ? 'assets/images/usdc.png'
-                                                              : 'assets/images/stellar.png',
-                                                          width: 14,
-                                                          height: 14,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(width: 14),
-                                                // Label + time
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        isSwap
-                                                            ? 'Swapped $asset → $swapToAsset'
-                                                            : '${isSend ? 'Sent' : 'Received'} $asset',
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodyMedium
-                                                            ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontSize: 14,
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary
-                                                                      .withOpacity(
-                                                                        .95,
-                                                                      ),
-                                                            ),
-                                                      ),
-                                                      Text(
-                                                        status?.toLowerCase() ==
-                                                                'confirmed'
-                                                            ? DateFormat(
-                                                                'h:mm a',
-                                                              ).format(
-                                                                createdAt
-                                                                    .toLocal(),
-                                                              )
-                                                            : (status ?? ''),
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary
-                                                                      .withOpacity(
-                                                                        .65,
-                                                                      ),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              fontSize: 14,
-                                                              letterSpacing:
-                                                                  -.1,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                // Amount
-                                                Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.end,
-                                                  children: [
-                                                    Text(
-                                                      isSwap
-                                                          ? '${amount.toStringAsFixed(2)} $asset'
-                                                          : '${isSend ? '-' : '+'}${amount.toStringAsFixed(2)} $asset',
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodySmall
-                                                          ?.copyWith(
-                                                            fontSize: 14,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            letterSpacing: 1,
-                                                            color:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .colorScheme
-                                                                    .primary,
-                                                          ),
-                                                    ),
-                                                    Text(
-                                                      isSwap
-                                                          ? '$amount $asset → ${swapToAmount != null ? '${swapToAmount.toStringAsFixed(2)} ' : ''}$swapToAsset'
-                                                          : '${amount.toStringAsFixed(2)} $asset',
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .labelSmall
-                                                          ?.copyWith(
-                                                            color:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .colorScheme
-                                                                    .onSurface
-                                                                    .withOpacity(
-                                                                      .65,
-                                                                    ),
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                            fontSize: 14,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            elevation: 0,
-                                            backgroundColor: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall!
-                                                .color!
-                                                .withOpacity(0.1),
-                                            foregroundColor: Theme.of(context)
-                                                .colorScheme
-                                                .onSurface
-                                                .withOpacity(.555),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(24),
-                                            ),
-                                          ),
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Full activity view is coming soon.',
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              0,
-                                              15,
-                                              0,
-                                              15,
-                                            ),
-                                            child: Text(
-                                              'VIEW ALL',
-                                              style:
-                                                  GoogleFonts.bricolageGrotesque(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                    letterSpacing: .2,
-                                                    height: 1,
-                                                    color: ext.sectionHeader,
-                                                  ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 32),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Greeting(firstName: firstName, walletState: walletState),
+                    const SizedBox(height: 20),
+                    if (isWide)
+                      _WideLayout(
+                        walletState: walletState,
+                        usdcChange: usdcChange,
+                        usdcPoints: usdcPoints,
+                        // ngntPoints: ngntPoints,
+                        usdToNgn: usdToNgn,
+                        balanceHidden: _balanceHidden,
+                        onToggleHide: () =>
+                            setState(() => _balanceHidden = !_balanceHidden),
+                        recentTxs: recentTxs,
+                        invoices: invoices,
+                        pendingFmt: pendingFmt,
+                        pendingCount: pendingInvoices.length,
+                        overdueCount: overdueCount,
+                        paidFmt: paidFmt,
+                        paidThisMonth: paidThisMonth,
+                        totalExpensesThisMonth: totalExpensesThisMonth,
+                        asDouble: _asDouble,
+                        toSpots: _toSpots,
+                        totalChange: totalChange,
+                        xlmPoints: ngntPoints,
+                        combinedPoints: combinedPoints,
+                      )
+                    else
+                      _NarrowLayout(
+                        walletState: walletState,
+                        usdcChange: usdcChange,
+                        usdcPoints: usdcPoints,
+                        totalChange: totalChange,
+                        xlmPoints: ngntPoints,
+                        combinedPoints: combinedPoints,
+                        usdToNgn: usdToNgn,
+                        balanceHidden: _balanceHidden,
+                        onToggleHide: () =>
+                            setState(() => _balanceHidden = !_balanceHidden),
+                        recentTxs: recentTxs,
+                        invoices: invoices,
+                        pendingFmt: pendingFmt,
+                        pendingCount: pendingInvoices.length,
+                        overdueCount: overdueCount,
+                        paidFmt: paidFmt,
+                        paidThisMonth: paidThisMonth,
+                        totalExpensesThisMonth: totalExpensesThisMonth,
+                        asDouble: _asDouble,
+                        toSpots: _toSpots,
                       ),
-
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  // ── Action handlers ────────────────────────────────────────────────────────
+// ── Greeting ───────────────────────────────────────────────────────────────────
 
-  void _handleSendTap(WalletState walletState) {
-    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ Cannot send: wallet has no balance'),
-          backgroundColor: Color(0xFFFFA726),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    context.push('/send');
-  }
+class _Greeting extends ConsumerWidget {
+  final String firstName;
+  final WalletState walletState;
+  const _Greeting({required this.firstName, required this.walletState});
 
-  void _handleSwapTap(WalletState walletState) {
-    if (walletState.usdcBalance == 0 && walletState.xlmBalance == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ Cannot swap: wallet has no balance'),
-          backgroundColor: Color(0xFFFFA726),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-    context.push('/swap');
-  }
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening';
 
-  // ── Balance section ────────────────────────────────────────────────────────
-
-  Widget _buildBalanceSection(WalletState walletState, double changePct) {
-    const xlmReserve = 1.5;
-    final xlmPrice = walletState.xlmPriceUSD ?? 0.0;
-    final rawTotal = walletState.totalUSD - (xlmReserve * xlmPrice);
-    final liveTotal = rawTotal < 0
-        ? 0.0
-        : double.parse(rawTotal.toStringAsFixed(2));
-
-    final displayTotal =
-        (walletState.hasError || walletState.isOffline) && liveTotal == 0
-        ? walletState.lastKnownTotal
-        : liveTotal;
-
-    final pos = changePct >= 0;
-
-    return Column(
+    return Row(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-              decoration: BoxDecoration(
-                color: pos
-                    ? DayFiColors.green.withOpacity(0.15)
-                    : DayFiColors.red.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Text(
-                '${pos ? '' : '−'}${changePct.abs().toStringAsFixed(2)}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 12,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$greeting, $firstName 👋',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: pos ? DayFiColors.green : DayFiColors.red,
-                  letterSpacing: 0.5,
+                  letterSpacing: -0.5,
+                  color: cs.onSurface,
                 ),
-              ),
-            ),
-          ],
-        ).animate().fadeIn(duration: 400.ms),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'total balance',
-              style: GoogleFonts.bricolageGrotesque(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1,
-                letterSpacing: 0.65,
-              ),
-            ),
-            const SizedBox(width: 6),
-            InkWell(
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              onTap: () => setState(() => _balanceHidden = !_balanceHidden),
-              child: SvgPicture.asset(
-                _balanceHidden
-                    ? 'assets/icons/svgs/eye_closed.svg'
-                    : 'assets/icons/svgs/eye_open.svg',
-                height: 21,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-              ),
-            ),
-          ],
-        ).animate().fadeIn(duration: 500.ms),
-        if (walletState.isLoading && walletState.lastKnownTotal == null)
-          _buildBalanceRow('—', '.—')
-        else if (_balanceHidden)
-          _buildBalanceRow('***', '.**', isHidden: true)
-        else
-          _buildBalanceRow(
-            (displayTotal ?? 0.0).toInt().toString(),
-            '.${(displayTotal ?? 0.0).toStringAsFixed(2).split('.')[1]}',
+              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
+              Text(
+                'Here\'s your business at a glance.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: cs.onSurface.withOpacity(0.45),
+                ),
+              ).animate().fadeIn(duration: 500.ms, delay: 50.ms),
+            ],
           ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildActionButton(
-              icon: 'assets/icons/svgs/send.svg',
-              label: 'SEND',
-              onPressed: () => _handleSendTap(walletState),
-            ),
-            const SizedBox(width: 6),
-            _buildActionButton(
-              icon: 'assets/icons/svgs/receive.svg',
-              label: 'RECEIVE',
-              onPressed: () => context.push('/receive'),
-            ),
-            const SizedBox(width: 6),
-            _buildActionButton(
-              icon: 'assets/icons/svgs/swap.svg',
-              label: 'CONVERT',
-              onPressed: () => _handleSwapTap(walletState),
-            ),
-          ],
+        ),
+        // Quick actions
+        _QuickActionPill(
+          label: '+ Invoice',
+          onTap: () =>
+              ref.read(shellNavProvider.notifier).goTo(ShellDest.createInvoice),
+        ),
+        const SizedBox(width: 8),
+        _QuickActionPill(
+          label: 'Send',
+          icon: Icons.arrow_upward_rounded,
+          onTap: () => ref.read(shellNavProvider.notifier).goTo(ShellDest.send),
+        ),
+        const SizedBox(width: 8),
+        _QuickActionPill(
+          label: 'Request',
+          icon: Icons.arrow_downward_rounded,
+          onTap: () => ref.read(shellNavProvider.notifier).goTo(ShellDest.receive),
         ),
       ],
     );
   }
+}
 
-  Widget _buildActionButton({
-    required String icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Expanded(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.onSurface.withOpacity(.555).withOpacity(.06),
-          foregroundColor: Theme.of(
-            context,
-          ).colorScheme.onSurface.withOpacity(.555),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
+class _QuickActionPill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  const _QuickActionPill({required this.label, this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.onSurface,
+          borderRadius: BorderRadius.circular(20),
         ),
-        onPressed: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                icon,
-                height: 18,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withOpacity(.555),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .2,
-                ),
-              ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: cs.surface),
+              const SizedBox(width: 4),
             ],
-          ),
+            Text(
+              label,
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: cs.surface,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildBalanceRow(
-    String whole,
-    String decimal, {
-    bool isHidden = false,
-  }) {
+// ── Wide layout (web) ──────────────────────────────────────────────────────────
+
+class _WideLayout extends StatelessWidget {
+  final WalletState walletState;
+  final double totalChange, usdcChange, usdToNgn;
+  final List<double> xlmPoints, usdcPoints, combinedPoints;
+  final bool balanceHidden;
+  final VoidCallback onToggleHide;
+  final List<Map<String, dynamic>> recentTxs, invoices;
+  final String pendingFmt, paidFmt;
+  final double paidThisMonth, totalExpensesThisMonth;
+  final int pendingCount, overdueCount;
+  final double Function(dynamic, [double]) asDouble;
+  final List<FlSpot> Function(List<double>) toSpots;
+
+  const _WideLayout({
+    required this.walletState,
+    required this.totalChange,
+    required this.usdcChange,
+    required this.usdToNgn,
+    required this.xlmPoints,
+    required this.usdcPoints,
+    required this.combinedPoints,
+    required this.balanceHidden,
+    required this.onToggleHide,
+    required this.recentTxs,
+    required this.invoices,
+    required this.pendingFmt,
+    required this.pendingCount,
+    required this.overdueCount,
+    required this.paidFmt,
+    required this.paidThisMonth,
+    required this.totalExpensesThisMonth,
+    required this.asDouble,
+    required this.toSpots,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left column: balance + KPIs + insights
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              _BalanceCard(
+                walletState: walletState,
+                totalChange: totalChange,
+                usdcChange: usdcChange,
+                usdToNgn: usdToNgn,
+                xlmPoints: xlmPoints,
+                usdcPoints: usdcPoints,
+                balanceHidden: balanceHidden,
+                onToggleHide: onToggleHide,
+                toSpots: toSpots,
+              ),
+              const SizedBox(height: 16),
+              _KpiRow(
+                pendingFmt: pendingFmt,
+                pendingCount: pendingCount,
+                overdueCount: overdueCount,
+                paidFmt: paidFmt,
+                totalExpensesThisMonth: totalExpensesThisMonth,
+              ),
+              const SizedBox(height: 16),
+              _InsightsCard(
+                invoices: invoices,
+                overdueCount: overdueCount,
+                paidThisMonth: paidThisMonth,
+                totalExpensesThisMonth: totalExpensesThisMonth,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        // Right column: recent transactions
+        Expanded(
+          flex: 4,
+          child: _RecentActivity(txs: recentTxs, asDouble: asDouble),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Narrow layout (mobile) ─────────────────────────────────────────────────────
+
+class _NarrowLayout extends StatelessWidget {
+  final WalletState walletState;
+  final double totalChange, usdcChange, usdToNgn;
+  final List<double> xlmPoints, usdcPoints, combinedPoints;
+  final bool balanceHidden;
+  final VoidCallback onToggleHide;
+  final List<Map<String, dynamic>> recentTxs, invoices;
+  final String pendingFmt, paidFmt;
+  final double paidThisMonth, totalExpensesThisMonth;
+  final int pendingCount, overdueCount;
+  final double Function(dynamic, [double]) asDouble;
+  final List<FlSpot> Function(List<double>) toSpots;
+
+  const _NarrowLayout({
+    required this.walletState,
+    required this.totalChange,
+    required this.usdcChange,
+    required this.usdToNgn,
+    required this.xlmPoints,
+    required this.usdcPoints,
+    required this.combinedPoints,
+    required this.balanceHidden,
+    required this.onToggleHide,
+    required this.recentTxs,
+    required this.invoices,
+    required this.pendingFmt,
+    required this.pendingCount,
+    required this.overdueCount,
+    required this.paidFmt,
+    required this.paidThisMonth,
+    required this.totalExpensesThisMonth,
+    required this.asDouble,
+    required this.toSpots,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _BalanceCard(
+          walletState: walletState,
+          totalChange: totalChange,
+          usdcChange: usdcChange,
+          usdToNgn: usdToNgn,
+          xlmPoints: xlmPoints,
+          usdcPoints: usdcPoints,
+          balanceHidden: balanceHidden,
+          onToggleHide: onToggleHide,
+          toSpots: toSpots,
+        ),
+        const SizedBox(height: 16),
+        _KpiRow(
+          pendingFmt: pendingFmt,
+          pendingCount: pendingCount,
+          overdueCount: overdueCount,
+          paidFmt: paidFmt,
+          totalExpensesThisMonth: totalExpensesThisMonth,
+        ),
+        const SizedBox(height: 16),
+        _RecentActivity(txs: recentTxs, asDouble: asDouble),
+        const SizedBox(height: 16),
+        _InsightsCard(
+          invoices: invoices,
+          overdueCount: overdueCount,
+          paidThisMonth: paidThisMonth,
+          totalExpensesThisMonth: totalExpensesThisMonth,
+        ),
+      ],
+    );
+  }
+}
+
+// ── Balance card ───────────────────────────────────────────────────────────────
+
+class _BalanceCard extends ConsumerWidget {
+  final WalletState walletState;
+  final double totalChange, usdcChange, usdToNgn;
+  final List<double> xlmPoints, usdcPoints;
+  final bool balanceHidden;
+  final VoidCallback onToggleHide;
+  final List<FlSpot> Function(List<double>) toSpots;
+
+  const _BalanceCard({
+    required this.walletState,
+    required this.totalChange,
+    required this.usdcChange,
+    required this.usdToNgn,
+    required this.xlmPoints,
+    required this.usdcPoints,
+    required this.balanceHidden,
+    required this.onToggleHide,
+    required this.toSpots,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final ext = AppThemeExtension.of(context);
+
+    // Total = USDC + NGNT converted to USD
+    final ngnUsdRate = walletState.ngnRate ?? 0;
+    final ngntUsd = walletState.ngntBalance * ngnUsdRate;
+    final liveTotal = (walletState.usdcBalance + ngntUsd).clamp(
+      0,
+      double.infinity,
+    );
+    final displayTotal =
+        (walletState.hasError || walletState.isOffline) && liveTotal == 0
+        ? walletState.lastKnownTotal
+        : double.parse(liveTotal.toStringAsFixed(2));
+
+    final pos = usdcChange >= 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Currency cards row
+          SizedBox(
+            height: 100,
+            child: Row(
+            children: [
+              Expanded(
+                child: AccountMoverCard(
+                  ticker: 'NGN',
+                  name: 'NG Naira',
+                  gainUp: true,
+                  gainAmountAbsNgn: 0,
+                  accent: const Color(0xFF008751),
+                  line: toSpots(List.filled(7, usdToNgn)),
+                  imagePath: 'assets/images/ng.png',
+                  valueUSD:
+                      walletState.ngntBalance * (walletState.ngnRate ?? 0),
+                  balanceLabel:
+                      '${walletState.ngntBalance.toStringAsFixed(2)} NGNT',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AccountMoverCard(
+                  ticker: 'USD',
+                  name: 'US Dollar',
+                  gainUp: usdcChange >= 0,
+                  gainAmountAbsNgn:
+                      walletState.usdcBalance *
+                      usdToNgn *
+                      usdcChange.abs() /
+                      100,
+                  accent: usdcChange >= 0 ? DayFiColors.green : ext.errorColor,
+                  line: toSpots(usdcPoints),
+                  imagePath: 'assets/images/us.png',
+                  valueUSD: walletState.usdcBalance,
+                  balanceLabel:
+                      '${walletState.usdcBalance.toStringAsFixed(2)} USDC',
+                ),
+              ),
+            ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Total balance display
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            decoration: BoxDecoration(
+              color: cs.onSurface.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: pos
+                            ? DayFiColors.green.withOpacity(0.15)
+                            : DayFiColors.red.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${pos ? '+' : '−'}${totalChange.abs().toStringAsFixed(2)}%  7d',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: pos ? DayFiColors.green : DayFiColors.red,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(duration: 400.ms),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'total balance',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.6,
+                        color: cs.onSurface.withOpacity(0.45),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onToggleHide,
+                      child: Icon(
+                        balanceHidden
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 16,
+                        color: cs.onSurface.withOpacity(0.4),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _BalanceDisplay(
+                  total: displayTotal ?? 0,
+                  hidden: balanceHidden,
+                  loading:
+                      walletState.isLoading &&
+                      walletState.lastKnownTotal == null,
+                ),
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Row(
+                  children: [
+                    _ActionBtn(
+                      icon: Icons.arrow_upward_rounded,
+                      label: 'Send',
+                      onTap: () => ref
+                          .read(shellNavProvider.notifier)
+                          .goTo(ShellDest.send),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.arrow_downward_rounded,
+                      label: 'Receive',
+                      onTap: () => ref
+                          .read(shellNavProvider.notifier)
+                          .goTo(ShellDest.receive),
+                    ),
+                    _ActionBtn(
+                      icon: Icons.swap_horiz_rounded,
+                      label: 'Convert',
+                      onTap: () => ref
+                          .read(shellNavProvider.notifier)
+                          .goTo(ShellDest.swap),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BalanceDisplay extends StatelessWidget {
+  final double total;
+  final bool hidden, loading;
+  const _BalanceDisplay({
+    required this.total,
+    required this.hidden,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final whole = loading
+        ? '—'
+        : hidden
+        ? '***'
+        : total.toInt().toString();
+    final dec = loading || hidden
+        ? '.—'
+        : '.${total.toStringAsFixed(2).split('.')[1]}';
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             '\$',
             style: GoogleFonts.bricolageGrotesque(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
+              color: cs.primary,
               height: 1,
             ),
           ),
@@ -951,70 +922,537 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Text(
           whole,
           style: GoogleFonts.bricolageGrotesque(
-            fontSize: 40,
+            fontSize: 38,
             fontWeight: FontWeight.w500,
-            color: Theme.of(context).colorScheme.primary,
+            color: cs.primary,
             height: 1,
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.only(top: 10),
           child: Text(
-            decimal,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontSize: 40,
+            dec,
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 38,
               fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.primary,
+              color: cs.primary,
               height: 1,
             ),
           ),
         ),
       ],
-    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.05, end: 0);
+    ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.05, end: 0);
   }
 }
 
-// ── Section header ─────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.label,
-    this.trailing,
-    this.onTrailingTap,
-  });
-
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final String? trailing;
-  final VoidCallback? onTrailingTap;
+  final VoidCallback onTap;
+  const _ActionBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ext = AppThemeExtension.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.bricolageGrotesque(
-              fontWeight: FontWeight.w600,
-              color: ext.sectionHeader,
-              fontSize: 12,
-            ),
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: cs.onSurface.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
           ),
-          if (trailing != null)
-            GestureDetector(
-              onTap: onTrailingTap,
-              child: Text(
-                trailing!.toUpperCase(),
+          child: Column(
+            children: [
+              Icon(icon, size: 18, color: cs.onSurface.withOpacity(0.7)),
+              const SizedBox(height: 4),
+              Text(
+                label,
                 style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: ext.sectionHeader.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withOpacity(0.55),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── KPI row ────────────────────────────────────────────────────────────────────
+
+class _KpiRow extends ConsumerWidget {
+  final String pendingFmt, paidFmt;
+  final double totalExpensesThisMonth;
+  final int pendingCount, overdueCount;
+  const _KpiRow({
+    required this.pendingFmt,
+    required this.pendingCount,
+    required this.overdueCount,
+    required this.paidFmt,
+    required this.totalExpensesThisMonth,
+  });
+
+  String _fmt(double v) {
+    if (v >= 1000000) return '₦${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 1000) return '₦${(v / 1000).toStringAsFixed(0)}k';
+    return '₦${v.toStringAsFixed(0)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nav = ref.read(shellNavProvider.notifier);
+    return Row(
+      children: [
+        Expanded(
+          child: _KpiCard(
+            label: 'Collected',
+            value: paidFmt,
+            sub: 'This month',
+            accent: DayFiColors.green,
+            icon: Icons.check_circle_outline_rounded,
+            onTap: () => nav.goTo(ShellDest.billing),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _KpiCard(
+            label: 'Pending',
+            value: pendingFmt,
+            sub: '$pendingCount invoices',
+            accent: const Color(0xFFE57745),
+            icon: Icons.hourglass_bottom_rounded,
+            onTap: () => nav.goTo(ShellDest.billing),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _KpiCard(
+            label: 'Overdue',
+            value: '$overdueCount',
+            sub: 'invoices',
+            accent: overdueCount > 0 ? DayFiColors.red : DayFiColors.green,
+            icon: Icons.warning_amber_rounded,
+            onTap: () => nav.goTo(ShellDest.billing),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _KpiCard(
+            label: 'Expenses',
+            value: _fmt(totalExpensesThisMonth),
+            sub: 'This month',
+            accent: const Color(0xFF9C27B0),
+            icon: Icons.attach_money_rounded,
+            onTap: () => nav.goTo(ShellDest.expenses),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  final String label, value, sub;
+  final Color accent;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _KpiCard({
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.accent,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.onSurface.withOpacity(0.05)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 14, color: accent),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 11,
+                  color: cs.onSurface.withOpacity(0.2),
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface.withOpacity(0.45),
+              ),
+            ),
+            Text(
+              sub,
+              style: TextStyle(
+                fontSize: 10,
+                color: cs.onSurface.withOpacity(0.3),
+              ),
+            ),
+          ],
+        ),
+      ).animate().fadeIn(delay: 100.ms),
+    );
+  }
+}
+
+// ── Recent activity ────────────────────────────────────────────────────────────
+
+class _RecentActivity extends ConsumerWidget {
+  final List<Map<String, dynamic>> txs;
+  final double Function(dynamic, [double]) asDouble;
+  const _RecentActivity({required this.txs, required this.asDouble});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: [
+                Text(
+                  'RECENT ACTIVITY',
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: cs.onSurface.withOpacity(0.35),
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => ref
+                      .read(shellNavProvider.notifier)
+                      .goTo(ShellDest.transactions),
+                  child: Text(
+                    'See all',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withOpacity(0.4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (txs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'No transactions yet',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurface.withOpacity(0.35),
+                  ),
+                ),
+              ),
+            )
+          else
+            ...txs.take(8).map((tx) => _TxRow(tx: tx, asDouble: asDouble)),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _TxRow extends StatelessWidget {
+  final Map<String, dynamic> tx;
+  final double Function(dynamic, [double]) asDouble;
+  const _TxRow({required this.tx, required this.asDouble});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isSend = tx['type'] == 'send';
+    final isSwap = tx['type'] == 'swap';
+    final amount = asDouble(tx['amount']).abs();
+    final asset = tx['asset'] as String? ?? '';
+    final swapToAsset = tx['swapToAsset'] as String? ?? '';
+    final swapToAmount = tx['receivedAmount'] ?? tx['swapToAmount'];
+    final createdAt =
+        DateTime.tryParse(tx['createdAt'] ?? '') ?? DateTime.now();
+    final status = tx['status'] as String? ?? '';
+    final accent = isSend
+        ? DayFiColors.red
+        : isSwap
+        ? cs.primary
+        : DayFiColors.green;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: cs.onSurface.withOpacity(0.04)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isSwap
+                  ? Icons.swap_horiz_rounded
+                  : isSend
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              size: 16,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isSwap
+                      ? 'Swap $asset → $swapToAsset'
+                      : '${isSend ? 'Sent' : 'Received'} $asset',
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface.withOpacity(0.85),
+                  ),
+                ),
+                Text(
+                  status.toLowerCase() == 'confirmed'
+                      ? DateFormat('MMM d, h:mm a').format(createdAt.toLocal())
+                      : status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurface.withOpacity(0.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            isSwap
+                ? '${amount.toStringAsFixed(2)} $asset'
+                : '${isSend ? '−' : '+'}${amount.toStringAsFixed(2)} $asset',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isSend ? DayFiColors.red : cs.onSurface.withOpacity(0.85),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Insights card ──────────────────────────────────────────────────────────────
+
+class _InsightsCard extends ConsumerWidget {
+  final List<Map<String, dynamic>> invoices;
+  final int overdueCount;
+  final double paidThisMonth, totalExpensesThisMonth;
+  const _InsightsCard({
+    required this.invoices,
+    required this.overdueCount,
+    required this.paidThisMonth,
+    required this.totalExpensesThisMonth,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+
+    final totalInvoiced = invoices.fold<double>(
+      0,
+      (s, i) => s + ((i['totalAmount'] as num?)?.toDouble() ?? 0),
+    );
+    final collectionRate = totalInvoiced > 0
+        ? (paidThisMonth / totalInvoiced) * 100
+        : 0.0;
+
+    final insights = <(String, String, Color)>[
+      if (overdueCount > 0)
+        (
+          'Overdue invoices',
+          '$overdueCount invoice${overdueCount > 1 ? 's are' : ' is'} overdue. Follow up to improve cash flow.',
+          DayFiColors.red,
+        ),
+      if (collectionRate > 0)
+        (
+          'Collection rate',
+          'You\'ve collected ${collectionRate.toStringAsFixed(0)}% of invoiced amounts this period.',
+          collectionRate > 70 ? DayFiColors.green : const Color(0xFFE57745),
+        ),
+      (
+        'Spending',
+        totalExpensesThisMonth > 0
+            ? 'Total expenses this month: ₦${(totalExpensesThisMonth / 1000).toStringAsFixed(0)}k'
+            : 'No expenses recorded this month.',
+        const Color(0xFF9C27B0),
+      ),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.onSurface.withOpacity(0.05)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                size: 15,
+                color: cs.onSurface.withOpacity(0.4),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'INSIGHTS',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: cs.onSurface.withOpacity(0.35),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...insights.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _InsightTile(
+                title: item.$1,
+                body: item.$2,
+                accent: item.$3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightTile extends StatelessWidget {
+  final String title, body;
+  final Color accent;
+  const _InsightTile({
+    required this.title,
+    required this.body,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withOpacity(0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 3,
+            height: 36,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface.withOpacity(0.75),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withOpacity(0.5),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1026,13 +1464,10 @@ class _SectionHeader extends StatelessWidget {
 class _SparklinePainter extends CustomPainter {
   final List<double> points;
   final Color color;
-  final Color fillColor;
   final double strokeWidth;
-
   const _SparklinePainter({
     required this.points,
     required this.color,
-    required this.fillColor,
     this.strokeWidth = 1.8,
   });
 
@@ -1051,323 +1486,23 @@ class _SparklinePainter extends CustomPainter {
           size.height * 0.09,
     );
 
-    final fill = Path()..moveTo(0, size.height);
-    for (int i = 0; i < points.length; i++) {
-      fill.lineTo(pt(i).dx, pt(i).dy);
-    }
-    fill
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..color = fillColor
-        ..style = PaintingStyle.fill,
-    );
-
-    final line = Path()..moveTo(pt(0).dx, pt(0).dy);
+    final path = Path()..moveTo(pt(0).dx, pt(0).dy);
     for (int i = 1; i < points.length; i++) {
       final p = pt(i - 1), c = pt(i);
       final cx = (p.dx + c.dx) / 2;
-      line.cubicTo(cx, p.dy, cx, c.dy, c.dx, c.dy);
+      path.cubicTo(cx, p.dy, cx, c.dy, c.dx, c.dy);
     }
     canvas.drawPath(
-      line,
+      path,
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
+        ..strokeCap = StrokeCap.round,
     );
   }
 
   @override
   bool shouldRepaint(_SparklinePainter o) =>
       o.points != points || o.color != color;
-}
-
-// ── Mover card ─────────────────────────────────────────────────────────────────
-
-class _MoverCard extends StatelessWidget {
-  final String imagePath;
-  final String code;
-  final String name;
-  final double usdValue;
-  final double changePercent;
-  final List<double> points;
-
-  const _MoverCard({
-    required this.imagePath,
-    required this.code,
-    required this.name,
-    required this.usdValue,
-    required this.changePercent,
-    required this.points,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pos = changePercent >= 0;
-    final accent = pos ? DayFiColors.green : DayFiColors.red;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image.asset(imagePath, width: 28, height: 28),
-              ),
-              const Spacer(),
-              Icon(
-                Icons.nightlight_round,
-                size: 13,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            code,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              letterSpacing: .4,
-            ),
-          ),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w400,
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (points.length >= 2)
-            SizedBox(
-              height: 32,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _SparklinePainter(
-                  points: points,
-                  color: accent,
-                  fillColor: Colors.transparent,
-                  strokeWidth: 1.8,
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '\$${usdValue.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: accent.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${pos ? '▲' : '▼'} ${changePercent.abs().toStringAsFixed(2)}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: accent,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Holding row ────────────────────────────────────────────────────────────────
-
-class _HoldingRow extends StatelessWidget {
-  final String imagePath;
-  final String code;
-  final String name;
-  final double balance;
-  final double usdValue;
-  final double changePercent;
-  final List<double> points;
-
-  const _HoldingRow({
-    required this.imagePath,
-    required this.code,
-    required this.name,
-    required this.balance,
-    required this.usdValue,
-    required this.changePercent,
-    required this.points,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pos = changePercent >= 0;
-    final accent = pos ? DayFiColors.green : DayFiColors.red;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.04),
-        ),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(imagePath, width: 36, height: 36),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  code,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    letterSpacing: -0.1,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.88),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${balance.toStringAsFixed(code == 'USDC' ? 2 : 4)} $code',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.45),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (points.length >= 2)
-            SizedBox(
-              width: 52,
-              height: 28,
-              child: CustomPaint(
-                painter: _SparklinePainter(
-                  points: points,
-                  color: accent,
-                  fillColor: Colors.transparent,
-                  strokeWidth: 1.5,
-                ),
-              ),
-            ),
-          const SizedBox(width: 20),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '\$${usdValue.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  letterSpacing: -0.1,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.88),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${pos ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Action button ──────────────────────────────────────────────────────────────
-
-class _ActionButton extends StatelessWidget {
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.asset(
-                icon,
-                height: 22,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(.60),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(.60),
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

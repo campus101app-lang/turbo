@@ -16,31 +16,30 @@ import {
 // import ScrollReveal from "@/components/feedback/ScrollReveal";
 
 const KINDS = [
-  { label: "Expense management", description: "Organise transactions and enforce policies", image: "/images/expense.jpg" },
-  { label: "Corporate cards", description: "Flexible multi-currency cards for your teams", image: "/images/cards.jpg" },
-  { label: "Payments automation", description: "Efficient payments with approval rules", image: "/images/payments.jpg" },
-  { label: "Bank connect", description: "Connect and manage bank accounts", image: "/images/bank.jpg" },
-  { label: "Invoicing", description: "Create and send invoices in minutes", image: "/images/invoicing.jpg" },
-  { label: "Tax Management", description: "Configure taxes once, apply everywhere", image: "/images/tax.jpg" },
-  { label: "Payroll", description: "Automated and intelligent payroll", image: "/images/payroll.jpg" },
-  { label: "Inventory management", description: "Track products and company assets", image: "/images/inventory.jpg" },
-
+  { label: "Payments", description: "Send and receive in Naira or USDC instantly", image: "/images/payments.jpg" },
+  { label: "Invoicing", description: "Create, send, and get paid on invoices in minutes", image: "/images/invoicing.jpg" },
+  { label: "Merchant Store", description: "Sell products with QR and NFC checkout", image: "/images/merchant.jpg" },
+  { label: "Expense Tracking", description: "Automatic categorization built for Nigerian spending", image: "/images/expense.jpg" },
+  { label: "Accounts", description: "Connect and manage all your bank accounts in one place", image: "/images/bank.jpg" },
+  { label: "Analytics", description: "Real-time insights into your cashflow and spending", image: "/images/analytics.jpg" },
+  { label: "Cards", description: "Multi-currency cards for you and your team", image: "/images/cards.jpg" },
+  { label: "Inventory", description: "Track stock, set alerts, and manage products", image: "/images/inventory.jpg" },
 ] as const;
 
 const CreatorsKindsSection: React.FC = () => {
   return (
     <section
-      id="creators"
-      className="editorial-section bg-zap-bg"
+      id="features"
+      className="editorial-section bg-white"
     >
       <div className="editorial-container">
         {/* <ScrollReveal> */}
         <div className="mx-auto max-w-4xl text-center">
-          <p className="font-body text-[14px] uppercase tracking-widest text-zap-ink font-semibold opacity-100 text-green-800">
-             Products
-          </p> 
+          <p className="font-body text-[14px] uppercase tracking-widest text-green-600 font-semibold opacity-100 text-green-600">
+            Products
+          </p>
           <h2 className="font-display font-semibold pt-4 mt-8 mx-auto w-full max-w-[600px] text-[clamp(1.75rem,9vw,3rem)] font-normal leading-[1.1] tracking-tight text-zap-ink md:mt-0">
-            One platform,{" "}<span className="italic">more control</span>{" "}and complete visibility
+            One platform,{" "}<span className="italic text-green-600">more control</span>{" "}and complete visibility
           </h2>
           {/* <p className="font-body pt-0 mt-0 mx-auto w-full max-w-[600px] text-[20px] leading-snug text-zap-ink leading-[1] md:mt-4 md:text-[28px]">
             One platform, more control and complete visibility

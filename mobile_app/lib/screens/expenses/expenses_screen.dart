@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_app/providers/selected_expense_provider.dart';
+import 'package:mobile_app/providers/shell_navigation_provider.dart';
 import 'package:mobile_app/widgets/app_bottomsheet.dart';
 import '../../providers/wallet_provider.dart'; // for ngnRateProvider
 import '../../services/api_service.dart';
@@ -74,7 +76,7 @@ class Expense {
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
-final _expensesProvider = FutureProvider.autoDispose<List<Expense>>((
+final expensesProvider = FutureProvider.autoDispose<List<Expense>>((
   ref,
 ) async {
   final result = await apiService.getExpenses(limit: 100);
@@ -94,7 +96,7 @@ class ExpensesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expAsync = ref.watch(_expensesProvider);
+    final expAsync = ref.watch(expensesProvider);
     final userAsync = ref.watch(_userMeProvider);
 
     return Scaffold(
@@ -106,14 +108,15 @@ class ExpensesScreen extends ConsumerWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 960),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 32.0,  0, 100),
+                padding: const EdgeInsets.fromLTRB(0, 32.0, 0, 100),
                 child: expAsync.when(
                   loading: () => const SizedBox(
                     height: 400,
                     child: Center(child: CircularProgressIndicator()),
                   ),
                   error: (e, _) => _buildError(context, ref, e.toString()),
-                  data: (expenses) => _buildBody(context, ref, expenses, userAsync),
+                  data: (expenses) =>
+                      _buildBody(context, ref, expenses, userAsync),
                 ),
               ),
             ),
@@ -163,7 +166,7 @@ class ExpensesScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () => ref.invalidate(_expensesProvider),
+            onPressed: () => ref.invalidate(expensesProvider),
             child: const Text('Retry'),
           ),
         ],
@@ -187,7 +190,7 @@ class ExpensesScreen extends ConsumerWidget {
     final pending = expenses.where((e) => e.status == 'pending').toList();
 
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(_expensesProvider),
+      onRefresh: () async => ref.invalidate(expensesProvider),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -207,7 +210,8 @@ class ExpensesScreen extends ConsumerWidget {
               pending: pending,
               isMerchant: isMerchant,
               currentUserId: currentUserId,
-              onShowDetail: (e) => _showDetailModal(context, ref, e, isMerchant, currentUserId),
+              onShowDetail: (e) =>
+                  _showDetailModal(context, ref, e, isMerchant, currentUserId),
               onShowCreate: () => _showCreateModal(context, ref),
             ),
           ),
@@ -217,19 +221,7 @@ class ExpensesScreen extends ConsumerWidget {
   }
 
   void _showCreateModal(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _GlassModal(
-        child: _CreateExpenseFlow(
-          onCreated: () {
-            ref.invalidate(_expensesProvider);
-            ref.invalidate(_userMeProvider);
-            Navigator.of(context).pop();
-          },
-        ),
-      ),
-    );
+    ref.read(shellNavProvider.notifier).goTo(ShellDest.createExpense);
   }
 
   void _showDetailModal(
@@ -239,22 +231,8 @@ class ExpensesScreen extends ConsumerWidget {
     bool isMerchant,
     String? currentUserId,
   ) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _GlassModal(
-        child: _ExpenseDetailContent(
-          expense: expense,
-          isMerchant: isMerchant,
-          currentUserId: currentUserId,
-          onRefresh: () {
-            ref.invalidate(_expensesProvider);
-            Navigator.of(context).pop();
-          },
-          onClose: () => Navigator.of(context).pop(),
-        ),
-      ),
-    );
+    ref.read(selectedExpenseProvider.notifier).state = expense;
+    ref.read(shellNavProvider.notifier).goTo(ShellDest.expenseDetail);
   }
 }
 
@@ -373,10 +351,7 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
         const SizedBox(height: 24),
         // Content
         Expanded(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: _buildStep(),
-          ),
+          child: FadeTransition(opacity: _fadeAnimation, child: _buildStep()),
         ),
       ],
     );
@@ -421,7 +396,9 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ['office', 'travel', 'food', 'supplies', 'other'].map((cat) {
+          children: ['office', 'travel', 'food', 'supplies', 'other'].map((
+            cat,
+          ) {
             return _SegmentButton(
               label: cat[0].toUpperCase() + cat.substring(1),
               selected: _selectedCategory == cat,
@@ -469,7 +446,7 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
   Widget _buildStep3() {
     final amount = double.tryParse(_amountCtrl.text) ?? 0.0;
     final symbol = _selectedCurrency == 'USDC' ? '\$' : '₦';
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -493,9 +470,12 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
               ),
               const SizedBox(height: 8),
               Text(
-                _selectedCategory[0].toUpperCase() + _selectedCategory.substring(1),
+                _selectedCategory[0].toUpperCase() +
+                    _selectedCategory.substring(1),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
               if (_descriptionCtrl.text.trim().isNotEmpty) ...[
@@ -529,10 +509,7 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
           ),
         ),
         const SizedBox(height: 32),
-        _ModalPrimaryButton(
-          label: 'Create Expense',
-          onTap: _submitExpense,
-        ),
+        _ModalPrimaryButton(label: 'Create Expense', onTap: _submitExpense),
       ],
     );
   }
@@ -560,9 +537,9 @@ class _CreateExpenseFlowState extends ConsumerState<_CreateExpenseFlow>
       widget.onCreated();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create expense: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create expense: $e')));
       }
     }
   }
@@ -586,7 +563,8 @@ class _ExpenseDetailContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ExpenseDetailContent> createState() => _ExpenseDetailContentState();
+  ConsumerState<_ExpenseDetailContent> createState() =>
+      _ExpenseDetailContentState();
 }
 
 class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
@@ -608,7 +586,9 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
         _ModalHeader(
           title: 'Expense Details',
           onBack: null,
-          onClose: widget.onClose, step: 0, totalSteps: 0,
+          onClose: widget.onClose,
+          step: 0,
+          totalSteps: 0,
         ),
         const SizedBox(height: 24),
         // Content
@@ -639,34 +619,47 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
                       ? '≈ ₦${ngnAmount.toStringAsFixed(0)}'
                       : '≈ \$${usdAmount.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Details
                 _DetailRow(label: 'Title', value: widget.expense.title),
                 if (widget.expense.description != null)
-                  _DetailRow(label: 'Description', value: widget.expense.description!),
+                  _DetailRow(
+                    label: 'Description',
+                    value: widget.expense.description!,
+                  ),
                 _DetailRow(label: 'Category', value: widget.expense.category),
                 _DetailRow(
                   label: 'Date',
-                  value: DateFormat('MMM d, yyyy').format(widget.expense.createdAt),
+                  value: DateFormat(
+                    'MMM d, yyyy',
+                  ).format(widget.expense.createdAt),
                 ),
                 if (widget.expense.approvedAt != null)
                   _DetailRow(
                     label: 'Approved',
-                    value: DateFormat('MMM d, yyyy').format(widget.expense.approvedAt!),
+                    value: DateFormat(
+                      'MMM d, yyyy',
+                    ).format(widget.expense.approvedAt!),
                   ),
                 if (widget.expense.rejectionNote != null)
-                  _DetailRow(label: 'Rejection Note', value: widget.expense.rejectionNote!),
-                
+                  _DetailRow(
+                    label: 'Rejection Note',
+                    value: widget.expense.rejectionNote!,
+                  ),
+
                 const SizedBox(height: 32),
-                
+
                 // Actions
                 if (widget.isMerchant && widget.expense.status == 'pending')
                   _buildMerchantActions()
-                else if (!widget.isMerchant && widget.expense.status == 'pending')
+                else if (!widget.isMerchant &&
+                    widget.expense.status == 'pending')
                   _buildEmployeeActions()
                 else if (widget.expense.status == 'rejected')
                   _buildRejectedActions(),
@@ -771,9 +764,9 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
       widget.onRefresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to approve: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to approve: $e')));
       }
     } finally {
       setState(() => _approving = false);
@@ -790,9 +783,9 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
       widget.onRefresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to reject: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to reject: $e')));
       }
     } finally {
       setState(() => _rejecting = false);
@@ -806,9 +799,9 @@ class _ExpenseDetailContentState extends ConsumerState<_ExpenseDetailContent> {
       widget.onRefresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
       }
     } finally {
       setState(() => _deleting = false);
@@ -866,16 +859,22 @@ class _ExpenseInsightsPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usdToNgn = ref.watch(ngnRateProvider) ?? 1600.0;
-    
+
     final approved = expenses.where((e) => e.status == 'approved').toList();
     final rejected = expenses.where((e) => e.status == 'rejected').toList();
-    
-    final totalApproved = approved.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
+
+    final totalApproved = approved.fold(
+      0.0,
+      (sum, e) => sum + e.toNgn(usdToNgn),
+    );
     final totalPending = pending.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
-    final totalRejected = rejected.fold(0.0, (sum, e) => sum + e.toNgn(usdToNgn));
-    
+    final totalRejected = rejected.fold(
+      0.0,
+      (sum, e) => sum + e.toNgn(usdToNgn),
+    );
+
     final totalExpenses = totalApproved + totalPending + totalRejected;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -909,7 +908,7 @@ class _ExpenseInsightsPanel extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 24),
-        
+
         // Metric Cards Row
         Row(
           children: [
@@ -955,11 +954,11 @@ class _ExpenseInsightsPanel extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 24),
-        
+
         // Category Breakdown
         _CategoryBreakdownCard(expenses: expenses, usdToNgn: usdToNgn),
         const SizedBox(height: 24),
-        
+
         // Status Distribution
         _StatusDistributionCard(
           approved: approved.length,
@@ -1008,11 +1007,7 @@ class _MetricCard extends StatelessWidget {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: color,
-            ),
+            child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1027,7 +1022,7 @@ class _MetricCard extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -1052,17 +1047,18 @@ class _CategoryBreakdownCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categoryTotals = <String, double>{};
-    
+
     for (final expense in expenses) {
       final amount = expense.toNgn(usdToNgn);
-      categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + amount;
+      categoryTotals[expense.category] =
+          (categoryTotals[expense.category] ?? 0) + amount;
     }
-    
+
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    
+
     final total = categoryTotals.values.fold(0.0, (sum, val) => sum + val);
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1116,7 +1112,9 @@ class _CategoryBreakdownCard extends ConsumerWidget {
                   Text(
                     '${percentage.toStringAsFixed(1)}%',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.5),
                     ),
                   ),
                 ],
@@ -1127,7 +1125,7 @@ class _CategoryBreakdownCard extends ConsumerWidget {
       ),
     );
   }
-  
+
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'office':
@@ -1234,7 +1232,7 @@ class _StatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percentage = total > 0 ? count / total : 0.0;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1242,16 +1240,16 @@ class _StatusBar extends StatelessWidget {
           children: [
             Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             const Spacer(),
             Text(
               '$count',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -1324,12 +1322,11 @@ class _ExpenseListPanel extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            if (myExpenses.isNotEmpty)
-              _CreateButton(onTap: onShowCreate),
+            if (myExpenses.isNotEmpty) _CreateButton(onTap: onShowCreate),
           ],
         ),
         const SizedBox(height: 24),
-        
+
         // My Expenses (date-grouped)
         if (myExpenses.isEmpty)
           _EmptyExpenseCard(onCreate: onShowCreate)
@@ -1343,7 +1340,9 @@ class _ExpenseListPanel extends ConsumerWidget {
               child: Text(
                 dateLabel,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.5),
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -1690,7 +1689,7 @@ class _SmallIconButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 18,
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
         ),
       ),
     );
@@ -1795,9 +1794,9 @@ class _DetailRow extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -1909,9 +1908,12 @@ class _ExpenseTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    expense.category[0].toUpperCase() + expense.category.substring(1),
+                    expense.category[0].toUpperCase() +
+                        expense.category.substring(1),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.5),
                       fontSize: 12,
                     ),
                   ),
@@ -2020,9 +2022,10 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
 // ─── Add missing imports ───────────────────────────────────────────────────────────
 class _SummaryRow extends StatefulWidget {
-  final List<Expense> expenses; 
+  final List<Expense> expenses;
   final double usdToNgn;
 
   const _SummaryRow({required this.expenses, required this.usdToNgn});
@@ -2057,7 +2060,6 @@ class _SummaryRowState extends State<_SummaryRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-     
         if (_allocationExpanded) ...[
           // const SizedBox(height: 10),
           if (widget.expenses.isEmpty)
@@ -2077,7 +2079,9 @@ class _SummaryRowState extends State<_SummaryRow> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.08),
                   width: .5,
                 ),
                 color: AppThemeExtension.of(context).cardSurface,
@@ -2176,9 +2180,8 @@ class _MiniAllocationRow extends StatelessWidget {
                             letterSpacing: .95,
                             height: 1,
                             color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(.555)
-                          ,
+                              context,
+                            ).colorScheme.onSurface.withOpacity(.555),
                           ),
                         ),
                         if (hasPct)
@@ -2189,10 +2192,9 @@ class _MiniAllocationRow extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.95,
                               height: 1,
-                              color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(.555)
-                          .withOpacity(0.72),
+                              color: Theme.of(context).colorScheme.onSurface
+                                  .withOpacity(.555)
+                                  .withOpacity(0.72),
                             ),
                           ),
                       ],
@@ -2201,9 +2203,9 @@ class _MiniAllocationRow extends StatelessWidget {
                 },
               ),
             ],
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2221,9 +2223,7 @@ class _SectionLabel extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        _StatusPill(
-          status: label.toLowerCase().replaceAll(' ', '_'),
-        ),
+        _StatusPill(status: label.toLowerCase().replaceAll(' ', '_')),
         const SizedBox(width: 4),
         Text(
           '($count)'.toUpperCase(),
@@ -2237,7 +2237,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
 
 class _CreateExpenseSheet extends ConsumerStatefulWidget {
   final VoidCallback onCreated;
@@ -2344,10 +2343,7 @@ class _CreateExpenseSheetState extends ConsumerState<_CreateExpenseSheet> {
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(.555)
-                          ,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(.555),
             ),
           ),
           const SizedBox(height: 20),
@@ -2503,8 +2499,14 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(confirmLabel)),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(confirmLabel),
+          ),
         ],
       ),
     );
@@ -2525,9 +2527,9 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
       widget.onRefresh();
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense approved.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Expense approved.')));
       }
     } catch (e) {
       if (mounted) {
@@ -2608,9 +2610,9 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
       widget.onRefresh();
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense rejected.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Expense rejected.')));
       }
     } catch (e) {
       if (mounted) {
@@ -2631,7 +2633,8 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
     final usdAmount = e.currency == 'NGNT'
         ? (usdToNgn > 0 ? ngnAmount / usdToNgn : 0.0)
         : e.amount;
-    final isOwner = widget.currentUserId != null &&
+    final isOwner =
+        widget.currentUserId != null &&
         (e.submittedBy?['id']?.toString() == widget.currentUserId);
     final canAct = widget.isMerchant && e.status == 'pending' && !isOwner;
     final canOwnerManage = isOwner && e.status == 'pending';
@@ -2939,15 +2942,15 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (_titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
       return;
     }
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
       return;
     }
     setState(() => _saving = true);
@@ -2957,15 +2960,17 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
         'amount': amount,
         'category': _category,
         'currency': _currency,
-        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        'description': _descCtrl.text.trim().isEmpty
+            ? null
+            : _descCtrl.text.trim(),
       };
       final res = await apiService.updateExpense(widget.expense.id, payload);
       if (mounted) Navigator.pop(context, res['expense']);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiService.parseError(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiService.parseError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -2990,7 +2995,9 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -3060,7 +3067,11 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
           const SizedBox(height: 12),
           _Label('Note (optional)'),
           const SizedBox(height: 6),
-          _Field(controller: _descCtrl, hint: 'Any additional details...', maxLines: 3),
+          _Field(
+            controller: _descCtrl,
+            hint: 'Any additional details...',
+            maxLines: 3,
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -3076,7 +3087,10 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(
                       'Save changes',
@@ -3094,7 +3108,6 @@ class _EditExpenseSheetState extends State<_EditExpenseSheet> {
   }
 }
 
-
 class _Label extends StatelessWidget {
   final String text;
   const _Label(this.text);
@@ -3106,7 +3119,7 @@ class _Label extends StatelessWidget {
       style: GoogleFonts.bricolageGrotesque(
         fontWeight: FontWeight.w500,
         fontSize: 12,
-        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
       ),
     );
   }
@@ -3192,7 +3205,7 @@ class _SegmentedPicker extends StatelessWidget {
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
           ),

@@ -49,7 +49,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 SvgPicture.asset(
                   'assets/icons/svgs/alert.svg',
                   height: 80,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(.85),
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 // .animate().scale(delay: 100.ms),
 
@@ -72,7 +72,7 @@ class _BackupScreenState extends State<BackupScreen> {
 
                 // Subtitle
          ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child:      Text(
                   'This is your seed phrase. Manually save these 12 words somewhere safe. Without them, you cannot recover your account.',
                   style: Theme.of(context).textTheme.bodyMedium!.copyWith(

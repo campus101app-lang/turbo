@@ -11,7 +11,6 @@ import '../../models/inventory_item.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/selected_product_provider.dart';
 import '../../providers/shell_navigation_provider.dart';
-import '../../screens/merchant/checkout_screen.dart'; // cartProvider
 import '../../theme/app_theme.dart';
 
 // ─── Filter enum ──────────────────────────────────────────────────────────────

@@ -126,7 +126,7 @@ class _EnhancedOrganizationScreenState extends State<EnhancedOrganizationScreen>
               end: Alignment.bottomCenter,
               colors: [
                 themeExtension.surfaceBackground,
-                themeExtension.surfaceBackground.withOpacity(0.8),
+                themeExtension.surfaceBackground.withOpacity(1),
               ],
             ),
           ),

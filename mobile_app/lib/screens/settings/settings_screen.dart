@@ -513,7 +513,7 @@ class _ThemeOption extends StatelessWidget {
               size: 32,
               color: isSelected
                   ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 8),
@@ -524,7 +524,7 @@ class _ThemeOption extends StatelessWidget {
               fontSize: 13,
               color: isSelected
                   ? Theme.of(context).colorScheme.onSurface.withOpacity(0.95)
-                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
           ),
         ],

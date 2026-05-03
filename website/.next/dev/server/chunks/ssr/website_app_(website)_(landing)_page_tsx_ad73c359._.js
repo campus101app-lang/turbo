@@ -70,19 +70,19 @@ function LandingPage() {
         }
 
         /* NAV */
-        .dayfi-nav {
+        .DayFi-nav {
           position: fixed; top: 0; left: 0; right: 0; z-index: 100;
           display: flex; align-items: center; justify-content: space-between;
           padding: 20px 48px;
           border-bottom: 1px solid transparent;
           transition: border-color 0.3s, background 0.3s;
         }
-        .dayfi-nav.scrolled {
+        .DayFi-nav.scrolled {
           background: rgba(0,0,0,0.88);
           backdrop-filter: blur(24px);
           border-color: var(--border);
         }
-        .dayfi-logo {
+        .DayFi-logo {
           font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
           color: var(--text); text-decoration: none; opacity: 0.45;
         }
@@ -267,14 +267,14 @@ function LandingPage() {
         .apk-link:hover { color: var(--text); }
 
         /* FOOTER */
-        .dayfi-footer {
+        .DayFi-footer {
           border-top: 1px solid var(--border);
           padding: 32px 48px;
           display: flex; align-items: center; justify-content: space-between;
         }
-        .dayfi-footer p { font-size: 12px; color: var(--dim); }
-        .dayfi-footer a { color: var(--dim); font-size: 12px; text-decoration: none; transition: color 0.2s; }
-        .dayfi-footer a:hover { color: var(--muted); }
+        .DayFi-footer p { font-size: 12px; color: var(--dim); }
+        .DayFi-footer a { color: var(--dim); font-size: 12px; text-decoration: none; transition: color 0.2s; }
+        .DayFi-footer a:hover { color: var(--muted); }
 
         /* ANIMATIONS */
         @keyframes fadeUp {
@@ -287,12 +287,12 @@ function LandingPage() {
 
         /* RESPONSIVE */
         @media (max-width: 768px) {
-          .dayfi-nav { padding: 16px 20px; }
+          .DayFi-nav { padding: 16px 20px; }
           .features-grid { grid-template-columns: 1fr; }
           .hero-phones { flex-direction: column; align-items: center; }
           .phone-frame.secondary { transform: none; }
           .cta-box { padding: 48px 24px; }
-          .dayfi-footer { flex-direction: column; gap: 12px; text-align: center; }
+          .DayFi-footer { flex-direction: column; gap: 12px; text-align: center; }
         }
       `
             }, void 0, false, {
@@ -302,12 +302,12 @@ function LandingPage() {
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
                 ref: navRef,
-                className: "dayfi-nav",
+                className: "DayFi-nav",
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
                         href: "/",
-                        className: "dayfi-logo",
-                        children: "dayfi."
+                        className: "DayFi-logo",
+                        children: "DayFi."
                     }, void 0, false, {
                         fileName: "[project]/website/app/(website)/(landing)/page.tsx",
                         lineNumber: 296,
@@ -470,7 +470,7 @@ function LandingPage() {
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "ph-logo",
-                                            children: "dayfi."
+                                            children: "DayFi."
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/page.tsx",
                                             lineNumber: 328,
@@ -718,7 +718,7 @@ function LandingPage() {
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "ph-input",
-                                            children: "@ada@dayfi.me"
+                                            children: "@ada@DayFi.me"
                                         }, void 0, false, {
                                             fileName: "[project]/website/app/(website)/(landing)/page.tsx",
                                             lineNumber: 370,
@@ -896,7 +896,7 @@ function LandingPage() {
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                        children: "Your @dayfi.me username"
+                                        children: "Your @DayFi.me username"
                                     }, void 0, false, {
                                         fileName: "[project]/website/app/(website)/(landing)/page.tsx",
                                         lineNumber: 403,
@@ -1120,7 +1120,7 @@ function LandingPage() {
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("footer", {
-                className: "dayfi-footer",
+                className: "DayFi-footer",
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                         children: "© 2026 DayFi. Built on Stellar."

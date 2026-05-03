@@ -384,6 +384,11 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                                   _loadVirtualAccount();
                                 },
                               ),
+                              _Tab(
+                                label: 'Request',
+                                selected: _selectedTab == 2,
+                                onTap: () => setState(() => _selectedTab = 2),
+                              ),
                             ],
                           ),
                         ),
@@ -391,8 +396,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                         const SizedBox(height: 6),
 
                         if (_selectedTab == 0) _buildBlockchainTab(),
-                        // if (_selectedTab == 1) _buildUsernameTab(),
                         if (_selectedTab == 1) _buildNgnTab(),
+                        if (_selectedTab == 2) _buildRequestTab(),
                       ],
                     ),
                   ),
@@ -541,7 +546,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     );
   }
 
-  // ─── Tab 2: Fund with NGN (Virtual Account) ───────────────
+  // ─── Tab 2: Payment Request ────────────────────────────────
+
+  Widget _buildRequestTab() {
+    return _PaymentRequestPanel(onCopy: _copy, onShare: _share);
+  }
+
+  // ─── Tab 3: Fund with NGN (Virtual Account) ────────────────
 
   Widget _buildNgnTab() {
     // Still loading the GET check
@@ -602,7 +613,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
         // Account details card
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -645,7 +656,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
         // Info note
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -658,7 +669,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                 Icon(
                   Icons.info_outline_rounded,
                   size: 16,
-                  color: const Color(0xFF008751).withOpacity(0.8),
+                  color: const Color(0xFF008751).withOpacity(1),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -670,7 +681,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                       height: 1.4,
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.65),
+                      ).colorScheme.onSurface.withOpacity(1)
                     ),
                   ),
                 ),
@@ -708,7 +719,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
         // Share + Copy buttons
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: Row(
             children: [
               Expanded(
@@ -834,7 +845,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
 
         // BVN field
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -844,7 +855,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   fontWeight: FontWeight.w500,
                   color: Theme.of(
                     context,
-                  ).colorScheme.onSurface.withOpacity(0.6),
+                  ).colorScheme.onSurface.withOpacity(0.85),
                   fontSize: 12,
                 ),
               ),
@@ -923,7 +934,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         const SizedBox(height: 24),
 
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: SizedBox(
             width: double.infinity,
             height: 52,
@@ -1005,7 +1016,7 @@ class _VaDetailRow extends StatelessWidget {
                   fontSize: 11,
                   color: Theme.of(
                     context,
-                  ).colorScheme.onSurface.withOpacity(0.45),
+                  ).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
               const SizedBox(height: 2),
@@ -1033,7 +1044,7 @@ class _VaDetailRow extends StatelessWidget {
                 size: 16,
                 color: Theme.of(
                   context,
-                ).colorScheme.onSurface.withOpacity(0.45),
+                ).colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
           ),
@@ -1074,7 +1085,7 @@ class _Tab extends StatelessWidget {
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: selected
-                ? Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(.85)
+                ? Theme.of(context).textTheme.bodyLarge?.color
                 : null,
             fontWeight: FontWeight.w500,
             fontSize: 13,
@@ -1200,7 +1211,7 @@ class _ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
+      constraints: const BoxConstraints(maxWidth: 360),
       child: Row(
         children: [
           Expanded(
@@ -1267,6 +1278,208 @@ class _ActionButtons extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Payment Request Panel ────────────────────────────────────────────────────
+
+class _PaymentRequestPanel extends StatefulWidget {
+  final void Function(String, [String]) onCopy;
+  final void Function(String) onShare;
+  const _PaymentRequestPanel({required this.onCopy, required this.onShare});
+
+  @override
+  State<_PaymentRequestPanel> createState() => _PaymentRequestPanelState();
+}
+
+class _PaymentRequestPanelState extends State<_PaymentRequestPanel> {
+  final _amountCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  bool _loading = false;
+  String? _error;
+  String? _link;
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final amt = double.tryParse(_amountCtrl.text.trim());
+    if (amt == null || amt <= 0) {
+      setState(() => _error = 'Enter a valid amount');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final note = _noteCtrl.text.trim();
+      final res = await apiService.createRequest({
+        'amount': amt,
+        'asset': 'NGNT',
+        if (note.isNotEmpty) 'note': note,
+      });
+      final reqNumber =
+          res['request']?['requestNumber'] ?? res['requestNumber'] ?? '';
+      if (mounted) {
+        setState(() {
+          _link = 'https://dayfi.me/pay/$reqNumber';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  void _reset() => setState(() {
+        _link = null;
+        _error = null;
+        _amountCtrl.clear();
+        _noteCtrl.clear();
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final link = _link;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
+      child: link != null ? _buildResult(cs, link) : _buildForm(cs),
+    );
+  }
+
+  Widget _buildForm(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Create a payment request. Share the link — anyone can pay instantly.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: cs.onSurface.withOpacity(0.55)),
+        ),
+        const SizedBox(height: 24),
+        _field(_amountCtrl, 'Amount (NGNT)',
+            inputType: const TextInputType.numberWithOptions(decimal: true)),
+        const SizedBox(height: 12),
+        _field(_noteCtrl, 'Note (optional)'),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(_error!, style: TextStyle(color: cs.error, fontSize: 12)),
+        ],
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 50,
+          child: FilledButton(
+            onPressed: _loading ? null : _create,
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
+                : const Text('Generate Link',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResult(ColorScheme cs, String link) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.onSurface.withOpacity(0.08)),
+          ),
+          child: PrettyQrView.data(data: link),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          link,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary),
+        ),
+        const SizedBox(height: 20),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => widget.onCopy(link, 'Payment link copied'),
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy'),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size(0, 46),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => widget.onShare(link),
+              icon: const Icon(Icons.share, size: 16),
+              label: const Text('Share'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                minimumSize: const Size(0, 46),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: _reset,
+          child: const Text('Create another'),
+        ),
+      ],
+    );
+  }
+
+  Widget _field(
+    TextEditingController ctrl,
+    String hint, {
+    TextInputType inputType = TextInputType.text,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return TextField(
+      controller: ctrl,
+      keyboardType: inputType,
+      decoration: InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: cs.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: cs.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: cs.outline.withOpacity(0.4)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
       ),
     );
   }

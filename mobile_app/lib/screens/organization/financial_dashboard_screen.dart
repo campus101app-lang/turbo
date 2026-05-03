@@ -74,7 +74,7 @@ class _OrganizationFinancialDashboardScreenState extends ConsumerState<Organizat
               Text(
                 'Start creating invoices and processing transactions',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
             ],
@@ -173,7 +173,7 @@ class _PeriodSelector extends StatelessWidget {
                   labelStyle: TextStyle(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
               );
@@ -297,7 +297,7 @@ class _OverviewCard extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 8),
@@ -351,7 +351,7 @@ class _RevenueChart extends StatelessWidget {
                     child: Text(
                       'No revenue data available',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                       ),
                     ),
                   )
@@ -560,7 +560,7 @@ class _TeamPerformance extends StatelessWidget {
               child: Text(
                 'No team performance data available',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
             )
@@ -609,7 +609,7 @@ class _TeamMemberPerformance extends StatelessWidget {
                 Text(
                   '${member['invoicesCreated'] ?? 0} invoices • ${member['revenueGenerated'] ?? 0} generated',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
               ],
@@ -663,7 +663,7 @@ class _RecentActivity extends StatelessWidget {
               child: Text(
                 'No recent activity',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
             )
@@ -730,7 +730,7 @@ class _ActivityTile extends StatelessWidget {
                 Text(
                   activity['timestamp'] as String? ?? '',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
               ],

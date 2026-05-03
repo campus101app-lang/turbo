@@ -186,140 +186,158 @@ class _OtpScreenState extends State<OtpScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    onTap: () => context.pop(),
-                    child: const Icon(Icons.arrow_back_ios, size: 20),
-                  ),
-                ),
-                const Spacer(flex: 1),
-
-                Text(
-                  'Enter the 6-digit code',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                    height: 1.09,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
-                const SizedBox(height: 6),
-
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Text(
-                    'Enter the code we\'ve sent to $masked',
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      fontSize: 17,
-                      letterSpacing: -.5,
-                      height: 1.3,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+          child: SizedBox(
+            width: double.infinity,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: InkWell(
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        onTap: () => context.pop(),
+                        child: const Icon(Icons.arrow_back_ios, size: 20),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
+                    const SizedBox(height: 48),
 
-                  // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
-                ),
-                const SizedBox(height: 32),
-
-                // ── Pinput replaces the manual Row of TextFormFields ──
-                Pinput(
-                  enableSuggestions: true,
-                  length: 6,
-                  controller: _pinController,
-                  focusNode: _pinFocusNode,
-                  defaultPinTheme: defaultPinTheme,
-                  focusedPinTheme: focusedPinTheme,
-                  showCursor: true,
-                  // cursor: Column(
-                  //   mainAxisAlignment: MainAxisAlignment.end,
-                  //   children: [
-                  //     Container(
-                  //       margin: const EdgeInsets.only(bottom: 9),
-                  //       width: 16,
-                  //       height: 1.5,
-                  //       decoration: BoxDecoration(
-                  //         color: focusedColor,
-                  //         borderRadius: BorderRadius.circular(8),
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
-                  // Drives the Continue button enable/disable + auto-submit
-                  onChanged: (_) => setState(() {}),
-                  onCompleted: (_) => _verify(),
-                ),
-
-                // .animate().fadeIn(delay: 200.ms),
-                const SizedBox(height: 32),
-
-                // Resend
-                Center(
-                  child: _resending
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                    Text(
+                          'Enter the 6-digit code',
+                          style: Theme.of(context).textTheme.labelLarge!
+                              .copyWith(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                // color: Colors.white,
+                                letterSpacing: -1,
+                                height: 1.09,
+                              ),
+                          textAlign: TextAlign.center,
                         )
-                      : InkWell(
-                          splashColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          onTap: _resendCountdown == 0 ? _resend : null,
-                          child: Text.rich(
-                            TextSpan(
-                              text: _resendCountdown > 0
-                                  ? 'Didn\'t get the code? Request a new one in '
-                                  : 'Didn\'t get the code? ',
-                              style: Theme.of(context).textTheme.bodySmall,
-                              children: [
+                        .animate()
+                        .fadeIn(duration: 600.ms)
+                        .slideY(begin: 0.2, end: 0),
+
+                    // .animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+                    const SizedBox(height: 8),
+
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      child: Text(
+                        'Enter the code we\'ve sent to $masked',
+                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          fontSize: 16,
+                          letterSpacing: -.5,
+                          height: 1.3,
+                          color: Theme.of(context).textTheme.bodyMedium?.color!,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      // .animate().fadeIn(delay: 100.ms, duration: 400.ms),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // ── Pinput replaces the manual Row of TextFormFields ──
+                    Pinput(
+                      enableSuggestions: true,
+                      length: 6,
+                      controller: _pinController,
+                      focusNode: _pinFocusNode,
+                      defaultPinTheme: defaultPinTheme,
+                      focusedPinTheme: focusedPinTheme,
+                      showCursor: true,
+                      autofocus: true,
+                      enableInteractiveSelection: true,
+                      toolbarEnabled: true,
+                      onClipboardFound: (value) {
+                        _pinController.setText(value);
+                      },
+                      // cursor: Column(
+                      //   mainAxisAlignment: MainAxisAlignment.end,
+                      //   children: [
+                      //     Container(
+                      //       margin: const EdgeInsets.only(bottom: 9),
+                      //       width: 16,
+                      //       height: 1.5,
+                      //       decoration: BoxDecoration(
+                      //         color: focusedColor,
+                      //         borderRadius: BorderRadius.circular(8),
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                      // Drives the Continue button enable/disable + auto-submit
+                      onChanged: (_) => setState(() {}),
+                      onCompleted: (_) => _verify(),
+                    ),
+
+                    // .animate().fadeIn(delay: 200.ms),
+                    const SizedBox(height: 32),
+
+                    // Resend
+                    Center(
+                      child: _resending
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : InkWell(
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              onTap: _resendCountdown == 0 ? _resend : null,
+                              child: Text.rich(
                                 TextSpan(
                                   text: _resendCountdown > 0
-                                      ? '00:${_resendCountdown.toString().padLeft(2, '0')}'
-                                      : 'Resend',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: _resendCountdown == 0
-                                            ? focusedColor
-                                            : null,
-                                        letterSpacing: -.1,
-                                        fontSize: 12,
-                                      ),
+                                      ? 'Didn\'t get the code? Request a new one in '
+                                      : 'Didn\'t get the code? ',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  children: [
+                                    TextSpan(
+                                      text: _resendCountdown > 0
+                                          ? '00:${_resendCountdown.toString().padLeft(2, '0')}'
+                                          : 'Resend',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: _resendCountdown == 0
+                                                ? focusedColor
+                                                : null,
+                                            // letterSpacing: -.1,
+                                            fontSize: 12,
+                                          ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                textAlign: TextAlign.center,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
+                    ),
+
+                    const SizedBox(height: 48),
+
+                    AuthButton(
+                      label: 'Continue',
+                      onPressed: _otp.length == 6 ? _verify : null,
+                      isLoading: _loading,
+                      loadingText: 'Verifying...',
+                      isValid: _otp.length == 6,
+                    ),
+
+                    const SizedBox(height: 32),
+                  ],
                 ),
-
-                const Spacer(flex: 3),
-
-                AuthButton(
-                  label: 'Continue',
-                  onPressed: _otp.length == 6 ? _verify : null,
-                  isLoading: _loading,
-                  loadingText: 'Verifying...',
-                  isValid: _otp.length == 6,
-                ),
-
-                const SizedBox(height: 32),
-              ],
+              ),
             ),
           ),
         ),

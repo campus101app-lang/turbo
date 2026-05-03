@@ -126,7 +126,7 @@ class _EnhancedBillingScreenState extends State<EnhancedBillingScreen>
               end: Alignment.bottomCenter,
               colors: [
                 themeExtension.surfaceBackground,
-                themeExtension.surfaceBackground.withOpacity(0.8),
+                themeExtension.surfaceBackground.withOpacity(1),
               ],
             ),
           ),

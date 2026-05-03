@@ -91,7 +91,7 @@ class ApiService {
     required String fullName,
     required String businessName,
     required String businessCategory,
-    String? businessEmail,
+    String? referralCode,
   }) async {
     final resp = await _dio.post(
       '/api/auth/setup-profile', // ← was setup-business-profile, wrong
@@ -100,7 +100,7 @@ class ApiService {
         'fullName': fullName,
         'businessName': businessName,
         'businessCategory': businessCategory,
-        if (businessEmail != null) 'businessEmail': businessEmail,
+        if (referralCode != null) 'businessEmail': referralCode,
       },
     );
     return resp.data as Map<String, dynamic>;
@@ -673,6 +673,7 @@ class ApiService {
 
   Future<void> deleteInventoryItem(String itemId) async =>
       _dio.delete('/api/inventory/$itemId');
+
 
   Future<Map<String, dynamic>> getCheckoutUri({
     required List<Map<String, dynamic>> items,

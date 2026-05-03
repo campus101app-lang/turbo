@@ -2,24 +2,24 @@ import React from "react";
 
 const businessStages = [
   {
-    title: "Startups",
-    description: "Take control of your finance with real-time expense tracking.",
-    image: "/img/rocket.svg",
+    title: "Freelancers",
+    description: "Invoice clients, accept USDC, and track every payment in one place.",
+    image: "/img/freelancer.svg",
   },
   {
-    title: "Mid-sized Businesses",
-    description: "Scale operations with advanced automation and team controls.",
+    title: "Small Businesses",
+    description: "Run your store, manage inventory, and get paid faster.",
     image: "/img/shop.svg",
   },
   {
-    title: "Large Businesses",
-    description: "Complex workflows simplified with custom integrations.",
-    image: "/img/building-small.svg",
+    title: "Startups",
+    description: "Real-time expense tracking and multi-currency payments from day one.",
+    image: "/img/rocket.svg",
   },
   {
-    title: "Enterprises",
-    description: "Maximum security and dedicated support for global scale.",
-    image: "/img/building-large.svg",
+    title: "Growing Teams",
+    description: "Cards, accounts, and spending visibility as your business scales.",
+    image: "/img/building-small.svg",
   },
 ];
 
@@ -30,14 +30,14 @@ const ThreeWaysSection: React.FC = () => {
       <div className="editorial-container px-6">
         {/* Header */}
         <div className="mx-auto max-w-4xl text-center mb-16">
-          <p className="font-body text-[14px] uppercase tracking-widest text-zap-ink font-semibold opacity-100 text-green-800">
+          <p className="font-body text-[14px] uppercase tracking-widest text-green-600 font-semibold opacity-100 text-green-600">
             Solutions
           </p>
           <h2 className="font-display font-semibold pt-4 mt-8 mx-auto w-full max-w-[600px] text-[clamp(1.75rem,9vw,3rem)] font-normal leading-[1.1] tracking-tight text-zap-ink md:mt-0">
-            Built for businesses <span className="italic">at every stage</span>
+            From your first sale <span className="italic text-green-600">to your thousandth</span>
           </h2>
           <p className="font-body pt-0 mt-0 mx-auto w-full max-w-[600px] text-[14px] leading-snug text-zap-ink leading-[1] md:mt-4 md:text-[20px]">
-            Dayfy scales with your business through real-time control, automations, integrations, and customization.
+            DayFi grows with you — whether you're a solo founder or building a team.
           </p>
         </div>
 

@@ -44,8 +44,8 @@ const footerDataA = {
             path: "/one-wallet-for-africa"
         },
         {
-            title: "Send with Dayfi ID",
-            path: "/send-with-dayfi-id"
+            title: "Send with DayFi ID",
+            path: "/send-with-DayFi-id"
         }
     ]
 };
@@ -99,7 +99,7 @@ const footerCountries = {
 };
 const footerDataC = {
     heading: "Contact",
-    email: "support@dayfi.co",
+    email: "support@DayFi.co",
     country: "Nigeria",
     address: "371, Borno Way, Alagomeji, Yaba, Lagos"
 };
@@ -116,15 +116,15 @@ const footerLegalLinks = [
 const footerSocialIcons = [
     {
         name: "x",
-        link: "https://twitter.com/dayfi"
+        link: "https://twitter.com/DayFi"
     },
     {
         name: "linkedin",
-        link: "https://linkedin.com/company/dayfi"
+        link: "https://linkedin.com/company/DayFi"
     },
     {
         name: "instagram",
-        link: "https://instagram.com/dayfi"
+        link: "https://instagram.com/DayFi"
     }
 ];
 function Footer() {
@@ -169,7 +169,7 @@ function Footer() {
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                 className: "font-primary text-[24px] font-[700] text-[#19156F]",
-                                                children: "dayfi"
+                                                children: "DayFi"
                                             }, void 0, false, {
                                                 fileName: "[project]/website/components/footer/page.tsx",
                                                 lineNumber: 124,
@@ -186,7 +186,7 @@ function Footer() {
                                         children: [
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                 className: "mt-[16px] font-primary font-[400] text-[14px] leading-[20px] text-[#5A5775]",
-                                                children: "Dayfi offers a reliable way to send and receive money from any part of the world. We eliminate the risks and hiccups associated with online transactions by delivering a cheap, quick, and secure portal for completing financial obligations."
+                                                children: "DayFi offers a reliable way to send and receive money from any part of the world. We eliminate the risks and hiccups associated with online transactions by delivering a cheap, quick, and secure portal for completing financial obligations."
                                             }, void 0, false, {
                                                 fileName: "[project]/website/components/footer/page.tsx",
                                                 lineNumber: 129,
@@ -194,7 +194,7 @@ function Footer() {
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                 className: "mt-[16px] font-primary font-[400] text-[12px] leading-[16px] text-[#5A5775]",
-                                                children: "© 2026 Dayfi Technologies Co. All rights reserved."
+                                                children: "© 2026 DayFi Technologies Co. All rights reserved."
                                             }, void 0, false, {
                                                 fileName: "[project]/website/components/footer/page.tsx",
                                                 lineNumber: 135,
@@ -425,7 +425,7 @@ function Footer() {
                                 className: "flex gap-[8px] mt-[24px] max-xlsm:mt-[32px]",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                        href: "https://x.com/UseDayfi",
+                                        href: "https://x.com/UseDayFi",
                                         target: "_blank",
                                         rel: "noopener noreferrer",
                                         className: "w-[42px] h-[42px] rounded-full bg-[#CAC5FC] flex items-center justify-center hover:bg-[#5645F5] transition-all group",
@@ -455,7 +455,7 @@ function Footer() {
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                        href: "https://www.linkedin.com/company/daily-finance-dayfi/",
+                                        href: "https://www.linkedin.com/company/daily-finance-DayFi/",
                                         target: "_blank",
                                         rel: "noopener noreferrer",
                                         className: "w-[42px] h-[42px] rounded-full bg-[#CAC5FC] flex items-center justify-center hover:bg-[#5645F5] transition-all group",
@@ -514,7 +514,7 @@ function Footer() {
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("a", {
-                                        href: "https://www.instagram.com/dayfipay/",
+                                        href: "https://www.instagram.com/DayFipay/",
                                         target: "_blank",
                                         rel: "noopener noreferrer",
                                         className: "w-[42px] h-[42px] rounded-full bg-[#CAC5FC] flex items-center justify-center hover:bg-[#5645F5] transition-all group",
@@ -665,7 +665,7 @@ function Header() {
                             onClick: ()=>router.push("/"),
                             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                 className: "font-primary text-[24px] font-[700] text-[#19156F]",
-                                children: "dayfi."
+                                children: "DayFi."
                             }, void 0, false, {
                                 fileName: "[project]/website/components/header/page.tsx",
                                 lineNumber: 17,

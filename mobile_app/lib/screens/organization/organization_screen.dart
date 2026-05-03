@@ -74,7 +74,7 @@ class _OrganizationScreenState extends ConsumerState<OrganizationScreen> {
               Text(
                 'Create an organization to manage your team',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
               const SizedBox(height: 24),
@@ -217,7 +217,7 @@ class _OrganizationHeader extends StatelessWidget {
                 },
                 icon: Icon(
                   Icons.edit,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                 ),
               ),
             ],
@@ -314,7 +314,7 @@ class _StatCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                   ),
                 ),
               ),
@@ -414,7 +414,7 @@ class _TeamMembersSection extends StatelessWidget {
                   Text(
                     'Invite team members to collaborate',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -481,7 +481,7 @@ class _MemberTile extends StatelessWidget {
                   Text(
                     user['email'] ?? 'No email',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                     ),
                   ),
                 ],
@@ -588,7 +588,7 @@ class _FinancialDashboardButton extends StatelessWidget {
                     Text(
                       'View team revenue, transactions, and performance metrics',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                       ),
                     ),
                   ],
@@ -727,7 +727,7 @@ class _SettingTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                     ),
                   ),
                 ],
@@ -820,7 +820,7 @@ class _CreateOrganizationDialogState extends State<_CreateOrganizationDialog> {
             Text(
               'Set up your organization to manage team members and workflows',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
             const SizedBox(height: 24),
@@ -947,7 +947,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
             Text(
               'Send an invitation to join your organization',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
             const SizedBox(height: 24),

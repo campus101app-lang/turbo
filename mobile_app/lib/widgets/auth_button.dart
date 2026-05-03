@@ -25,7 +25,7 @@ class AuthButton extends StatelessWidget {
     final opacityValue = (isValid && !isButtonDisabled) ? 0.90 : 0.45;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
+      constraints: const BoxConstraints(maxWidth: 360),
       child: OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           minimumSize: Size(MediaQuery.of(context).size.width, 48),

@@ -50,23 +50,23 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$website$2f$components$2f$sha
 ;
 ;
 const metadata = {
-    title: "Dayfi - Send Money Across Africa Instantly",
-    description: "Dayfi makes cross-border payments in Africa fast, affordable, and accessible. Send money, swap currencies, and manage multiple wallets with ease.",
+    title: "DayFi - Send Money Across Africa Instantly",
+    description: "DayFi makes cross-border payments in Africa fast, affordable, and accessible. Send money, swap currencies, and manage multiple wallets with ease.",
     icons: {
         icon: "/logo.svg",
         shortcut: "/logo.svg",
         apple: "/logo.svg"
     },
     openGraph: {
-        title: "Dayfi - Send Money Across Africa Instantly",
-        description: "Dayfi makes cross-border payments in Africa fast, affordable, and accessible.",
-        siteName: "Dayfi",
+        title: "DayFi - Send Money Across Africa Instantly",
+        description: "DayFi makes cross-border payments in Africa fast, affordable, and accessible.",
+        siteName: "DayFi",
         type: "website"
     },
     twitter: {
         card: "summary_large_image",
-        title: "Dayfi - Send Money Across Africa Instantly",
-        description: "Dayfi makes cross-border payments in Africa fast, affordable, and accessible."
+        title: "DayFi - Send Money Across Africa Instantly",
+        description: "DayFi makes cross-border payments in Africa fast, affordable, and accessible."
     }
 };
 function RootLayout({ children, modal }) {

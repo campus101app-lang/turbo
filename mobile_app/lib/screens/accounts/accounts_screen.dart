@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_app/theme/app_theme.dart';
+import '../../providers/shell_navigation_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../services/api_service.dart';
 
@@ -36,6 +37,7 @@ final _txAccountsProvider = FutureProvider<List<Map<String, dynamic>>>((
   final result = await apiService.getTransactions(page: 1, limit: 100);
   return List<Map<String, dynamic>>.from(result['transactions'] ?? []);
 });
+
 
 final _xlmPriceHistoryAccountsProvider = FutureProvider<Map<String, double>>((
   ref,
@@ -74,9 +76,8 @@ class AccountsScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountsScreenState extends ConsumerState<AccountsScreen> {
-  bool _moversExpanded = true;
-  bool _accountsExpanded = true;
   Timer? _refreshTimer;
+  String? _drillAsset; // null = show all, 'USDC' | 'NGNT'
 
   double _asDouble(dynamic value, [double fallback = 0.0]) {
     if (value is num) return value.toDouble();
@@ -302,7 +303,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               await ref.read(walletProvider.notifier).refresh();
             },
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 32.0,  0, 100),
+              padding: const EdgeInsets.fromLTRB(0, 32.0, 0, 100),
               children: [
                 //    // ── Top movers ────────────────────────────────────────────
                 // _FoldableSectionHeader(
@@ -311,8 +312,6 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 //   expanded: _moversExpanded,
                 //   onTap: () => setState(() => _moversExpanded = !_moversExpanded),
                 // ),
-
-            
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Stack(
@@ -408,73 +407,61 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                     ],
                   ),
                 ),
-               
-            const SizedBox(height: 8),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
-                    height: 100,
-                    child: Row(
-                      children: [
-                        // const SizedBox(width: 8),
-                        Expanded(
-                          child: AccountMoverCard(
-                            ticker: 'NGN',
-                            name: 'NG Naira',
-                            gainUp: true,
-                            gainAmountAbsNgn: 0,
-                            accent: const Color(0xFF008751),
-                            line: _toSpots(ngntPoints),
-                            imagePath: 'assets/images/ng.png',
-                            valueUSD: w.ngntBalance * (w.ngnRate ?? 0), // ← ADD
-                            balanceLabel:
-                                '${w.ngntBalance.toStringAsFixed(2)} NGNT',
-                          ),
+
+                const SizedBox(height: 8),
+                // ── Two asset cards ────────────────────────────────────
+                _buildAssetCards(w, usdcChange, usdcPoints, ngntPoints, ext, usdToNgn),
+
+                const SizedBox(height: 10),
+                // ── Swap button ────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GestureDetector(
+                    onTap: () => ref.read(shellNavProvider.notifier).goTo(ShellDest.swap),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFF008751).withValues(alpha: 0.35),
                         ),
-                        Expanded(
-                          child: AccountMoverCard(
-                            ticker: 'USD',
-                            name: 'US Dollar',
-                            gainUp: usdcChange >= 0,
-                            gainAmountAbsNgn:
-                                (w.usdcBalance *
-                                usdToNgn *
-                                usdcChange.abs() /
-                                100),
-                            accent: usdcChange >= 0
-                                ? DayFiColors.green
-                                : ext.errorColor,
-                            line: _toSpots(usdcPoints),
-                            imagePath: 'assets/images/us.png',
-                            valueUSD: w.usdcBalance, // ← ADD
-                            balanceLabel:
-                                '${w.usdcBalance.toStringAsFixed(2)} USDC',
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF008751).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.swap_horiz_rounded,
+                                color: Color(0xFF008751), size: 18),
                           ),
-                        ),
-                        // Expanded(
-                        //   child: _AccountMoverCard(
-                        //     ticker: 'XLM',
-                        //     name: 'Stellar Lumens',
-                        //     gainUp: xlmChange >= 0,
-                        //     gainAmountAbsNgn:
-                        //         (xlmDisplay *
-                        //         w.xlmPriceUSD *
-                        //         xlmChange.abs() /
-                        //         100),
-                        //     accent: xlmChange >= 0
-                        //         ? DayFiColors.green
-                        //         : ext.errorColor,
-                        //     line: _toSpots(xlmPoints),
-                        //     imagePath: 'assets/images/stellar.png',
-                        //     valueUSD: xlmDisplay,
-                        //     balanceLabel: '${xlmDisplay.toStringAsFixed(2)} XLM',
-                        //   ),
-                        // ),
-                        // ],
-                      ],
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Swap NGNT ↔ USDC',
+                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                Text('Exchange on-chain instantly',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Colors.grey),
+                        ],
+                      ),
                     ),
                   ),
-        
-                const SizedBox(height: 24),
+                ),
+
+                const SizedBox(height: 16),
+                // ── Transaction drill-down ─────────────────────────────
+                _buildTxSection(txs, ext),
+
+                const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Stack(
@@ -639,6 +626,191 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ── Asset cards row (3 cards, horizontally scrollable) ────────────────────
+
+  Widget _buildAssetCards(
+    WalletState w,
+    double usdcChange,
+    List<double> usdcPoints,
+    List<double> ngntPoints,
+    AppThemeExtension ext,
+    double usdToNgn,
+  ) {
+
+    return SizedBox(
+      height: 108,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          // NGNT card
+          SizedBox(
+            width: 160,
+            child: GestureDetector(
+              onTap: () => setState(() =>
+                  _drillAsset = _drillAsset == 'NGNT' ? null : 'NGNT'),
+              child: _cardBorder(
+                _drillAsset == 'NGNT',
+                AccountMoverCard(
+                  ticker: 'NGN',
+                  name: 'NG Naira',
+                  gainUp: true,
+                  gainAmountAbsNgn: 0,
+                  accent: const Color(0xFF008751),
+                  line: _toSpots(ngntPoints),
+                  imagePath: 'assets/images/ng.png',
+                  valueUSD: w.ngntBalance * (w.ngnRate ?? 0),
+                  balanceLabel: '${w.ngntBalance.toStringAsFixed(2)} NGNT',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // USDC card
+          SizedBox(
+            width: 160,
+            child: GestureDetector(
+              onTap: () => setState(() =>
+                  _drillAsset = _drillAsset == 'USDC' ? null : 'USDC'),
+              child: _cardBorder(
+                _drillAsset == 'USDC',
+                AccountMoverCard(
+                  ticker: 'USD',
+                  name: 'US Dollar',
+                  gainUp: usdcChange >= 0,
+                  gainAmountAbsNgn:
+                      w.usdcBalance * usdToNgn * usdcChange.abs() / 100,
+                  accent: usdcChange >= 0 ? DayFiColors.green : ext.errorColor,
+                  line: _toSpots(usdcPoints),
+                  imagePath: 'assets/images/us.png',
+                  valueUSD: w.usdcBalance,
+                  balanceLabel: '${w.usdcBalance.toStringAsFixed(2)} USDC',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _cardBorder(bool selected, Widget child) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: selected
+            ? Border.all(color: DayFiColors.blue, width: 2)
+            : Border.all(color: Colors.transparent, width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      ),
+    );
+  }
+
+  // ── Transaction drill-down section ─────────────────────────────────────────
+
+  Widget _buildTxSection(
+      List<Map<String, dynamic>> txs, AppThemeExtension ext) {
+    if (_drillAsset == null) return const SizedBox.shrink();
+
+    final filtered = txs.where((t) {
+      final asset = t['asset'] as String? ?? '';
+      final swapTo = t['swapToAsset'] as String? ?? '';
+      return asset == _drillAsset || swapTo == _drillAsset;
+    }).take(20).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.07),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Row(children: [
+                Text(
+                  '$_drillAsset Transactions',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => _drillAsset = null),
+                  child: const Icon(Icons.close, size: 18),
+                ),
+              ]),
+            ),
+            if (filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Text('No transactions found.',
+                    style: TextStyle(color: ext.secondaryText)),
+              )
+            else
+              ...filtered.map((tx) {
+                final type = tx['type'] as String? ?? '';
+                final isIn = ['receive', 'deposit'].contains(type);
+                final amt = (tx['amount'] as num?)?.toDouble() ?? 0;
+                final asset = tx['asset'] as String? ?? '';
+                final dt =
+                    DateTime.tryParse(tx['createdAt']?.toString() ?? '');
+                final label = tx['memo'] as String? ??
+                    tx['recipientAddress'] as String? ??
+                    type;
+                return ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 14,
+                    backgroundColor:
+                        (isIn ? DayFiColors.green : DayFiColors.red)
+                            .withValues(alpha: 0.15),
+                    child: Icon(
+                      isIn
+                          ? Icons.arrow_downward_rounded
+                          : Icons.arrow_upward_rounded,
+                      size: 13,
+                      color: isIn ? DayFiColors.green : DayFiColors.red,
+                    ),
+                  ),
+                  title: Text(
+                    label.length > 28
+                        ? '${label.substring(0, 26)}…'
+                        : label,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  subtitle: dt != null
+                      ? Text(
+                          '${dt.day}/${dt.month}/${dt.year}',
+                          style: TextStyle(
+                              fontSize: 11, color: ext.secondaryText),
+                        )
+                      : null,
+                  trailing: Text(
+                    '${isIn ? '+' : '−'}${amt.toStringAsFixed(2)} $asset',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isIn ? DayFiColors.green : DayFiColors.red,
+                    ),
+                  ),
+                );
+              }),
+          ],
         ),
       ),
     );
@@ -919,56 +1091,48 @@ class AccountMoverCard extends StatelessWidget {
           const Spacer(),
           Expanded(
             flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text.rich(
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: balanceLabel.toString().split(" ").last == "USDC"
-                            ? '\$'
-                            : balanceLabel.toString().split(" ").last == "NGNT"
-                            ? '₦'
-                            : '',
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onSurface
-                              .withOpacity(.555)
-                              .withValues(alpha: 0.82),
-                          letterSpacing: 1,
-                          height: 1,
-                        ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Text.rich(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: balanceLabel.toString().split(" ").last == "USDC"
+                          ? '\$'
+                          : balanceLabel.toString().split(" ").last == "NGNT"
+                          ? '₦'
+                          : '',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface
+                            .withValues(alpha: 0.45),
+                        height: 1,
                       ),
-                      TextSpan(
-                        text: balanceLabel.toString().split(" ").first,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: .2,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                    ),
+                    TextSpan(
+                      text: balanceLabel.toString().split(" ").first,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .2,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                    ],
-                  ),
+                    ),
+                    TextSpan(
+                      text: '  ${balanceLabel.toString().split(" ").last}',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.onSurface
+                            .withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ],
                 ),
-                // const SizedBox(height: 2),
-                // Text(
-                //   "USD ${valueUSD.toStringAsFixed(2)}",
-                //   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                //     color: Theme.of(
-                //       context,
-                //     ).colorScheme.onSurface.withOpacity(.65),
-                //     fontWeight: FontWeight.w500,
-                //     fontSize: 10,
-                //     height: 1,
-                //   ),
-                // ),
-              ],
+              ),
             ),
           ),
         ],
@@ -976,3 +1140,4 @@ class AccountMoverCard extends StatelessWidget {
     );
   }
 }
+

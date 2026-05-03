@@ -305,7 +305,7 @@ class _BuyScreenState extends State<BuyScreen> {
               ),
               const SizedBox(height: 8),
                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
+                    constraints: const BoxConstraints(maxWidth: 360),
                     child:  TextField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -545,7 +545,7 @@ class _SellScreenState extends State<SellScreen> {
               Text('Amount', style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 8),
                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
+                    constraints: const BoxConstraints(maxWidth: 360),
                     child:  TextField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(

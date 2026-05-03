@@ -474,7 +474,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
+                  constraints: const BoxConstraints(maxWidth: 360),
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       minimumSize: Size(MediaQuery.of(context).size.width, 48),
@@ -521,7 +521,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
 
             // Done button — no border, full width
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: SizedBox(
                 width: double.infinity,
                 child: TextButton(
@@ -589,7 +589,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -723,7 +723,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                           ),
                           Expanded(
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints: const BoxConstraints(maxWidth: 360),
                               child: TextField(
                                 controller: _fromAmountController,
                                 keyboardType:
@@ -736,7 +736,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                                     ?.copyWith(
                                       color: Theme.of(
                                         context,
-                                      ).colorScheme.onSurface.withOpacity(.85),
+                                      ).colorScheme.onSurface,
                                       fontSize: 18,
                                       letterSpacing: -.1,
                                       fontWeight: FontWeight.w500,
@@ -856,7 +856,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                             size: 18,
                             color: Theme.of(
                               context,
-                            ).colorScheme.onSurface.withOpacity(0.6),
+                            ).colorScheme.onSurface.withOpacity(0.85),
                           ),
                         ),
                       ),
@@ -940,7 +940,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                           ),
                           Expanded(
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints: const BoxConstraints(maxWidth: 360),
                               child: TextField(
                                 controller: _toAmountController,
                                 keyboardType:
@@ -953,7 +953,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                                     ?.copyWith(
                                       color: Theme.of(
                                         context,
-                                      ).colorScheme.onSurface.withOpacity(.85),
+                                      ).colorScheme.onSurface,
                                       fontSize: 18,
                                       letterSpacing: -.1,
                                       fontWeight: FontWeight.w500,
@@ -1067,7 +1067,7 @@ class _SwapScreenState extends ConsumerState<SwapScreen> {
                     const SizedBox(height: 20),
                     // Swap button
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
+                      constraints: const BoxConstraints(maxWidth: 360),
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           minimumSize: Size(MediaQuery.of(context).size.width, 48),

@@ -2,26 +2,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ShellDest {
-  // ── 8 main tabs (indices 0-7) ──────────────────────────────
-  billing,       // 0
-  expenses,      // 1
-  shop,          // 2
-  transactions,  // 3
-  home,          // 4
-  accounts,      // 5
-  cards,         // 6
-  workflows,     // 7
-  // ── Sub-screens (8+) ────────────────────────────────────────
-  send,          // 8
-  receive,       // 9
-  swap,          // 10
-  settings,      // 11
-  security,      // 12
-  // ── Merchant sub-screens (13+) ──────────────────────────────
-  checkout,      // 13
-  addProduct,    // 14
-  editProduct,   // 15
-  productDetail, invoices, merchant, // 16
+  // ── 10 main tabs (indices 0-9) ─────────────────────────────
+  home,         // 0
+  accounts,     // 1
+  cards,        // 2
+  send,         // 3  (Payments tab)
+  transactions, // 4
+  billing,      // 5  (Invoices)
+  expenses,     // 6
+  shop,         // 7
+  reports,      // 8
+  workflows,    // 9
+  // ── Sub-screens (10+) ──────────────────────────────────────
+  receive,      // 10
+  swap,         // 11
+  settings,     // 12
+  security,     // 13
+  checkout,     // 14
+  addProduct,   // 15
+  editProduct,  // 16
+  productDetail,// 17
+  invoices,     // 18  (alias)
+  merchant,     // 19  (alias)
+  createInvoice,   // 20
+  invoiceDetail,   // 21
+  createExpense,   // 22
+  expenseDetail,   // 23
+  createCard,      // 24
+  cardDetail,      // 25
+  createWorkflow,  // 26
+  workflowDetail,  // 27
 }
 
 class ShellNavNotifier extends Notifier<ShellDest> {
@@ -43,9 +53,10 @@ class ShellNavNotifier extends Notifier<ShellDest> {
     state = temp;
   }
 
-  bool get isSubScreen => state.index >= ShellDest.send.index;
+  bool get isSubScreen => state.index >= ShellDest.receive.index;
   bool get isMerchantSubScreen => state.index >= ShellDest.checkout.index;
 }
 
-final shellNavProvider =
-    NotifierProvider<ShellNavNotifier, ShellDest>(ShellNavNotifier.new);
+final shellNavProvider = NotifierProvider<ShellNavNotifier, ShellDest>(
+  ShellNavNotifier.new,
+);

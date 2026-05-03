@@ -25,9 +25,9 @@ Future<void> _initFirebase(WidgetRef ref) async {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
           apiKey: "AIzaSyDummyKeyForWeb",
-          authDomain: "dayfi.firebaseapp.com",
-          projectId: "dayfi",
-          storageBucket: "dayfi.appspot.com",
+          authDomain: "DayFi.firebaseapp.com",
+          projectId: "DayFi",
+          storageBucket: "DayFi.appspot.com",
           messagingSenderId: "123456789",
           appId: "1:123456789:web:abcdef",
         ),
@@ -201,7 +201,7 @@ class _DayFiAppState extends ConsumerState<DayFiApp>
                               height: 64,
                               color: Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(.85),
+                              ).colorScheme.primary,
                             ),
                           ],
                         ),

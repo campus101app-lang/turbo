@@ -56,7 +56,7 @@ class OnboardingScreen extends StatelessWidget {
             Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
+                constraints: const BoxConstraints(maxWidth: 360),
                 child: SafeArea(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -140,7 +140,7 @@ class OnboardingScreen extends StatelessWidget {
                           children: [
                             // Create wallet
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints: const BoxConstraints(maxWidth: 360),
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: Size(
@@ -185,7 +185,7 @@ class OnboardingScreen extends StatelessWidget {
       
                             // Create wallet
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
+                              constraints: const BoxConstraints(maxWidth: 360),
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: Size(

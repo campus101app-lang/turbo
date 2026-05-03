@@ -4,12 +4,15 @@
 // Professional e-commerce management, inventory tracking, and analytics
 //
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_app/services/api_service.dart';
 import 'package:mobile_app/theme/app_theme.dart';
 import 'package:mobile_app/widgets/enterprise/kpi_card.dart';
 import 'package:mobile_app/widgets/enterprise/quick_actions_card.dart';
-import 'package:mobile_app/widgets/enterprise/activity_feed.dart';
 
 class EnhancedShopScreen extends StatefulWidget {
   const EnhancedShopScreen({super.key});
@@ -27,6 +30,9 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
 
   String _selectedTab = 'products';
   final List<String> _tabs = ['products', 'orders', 'inventory', 'customers', 'analytics'];
+
+  List<Map<String, dynamic>> _inventory = [];
+  bool _inventoryLoading = false;
 
   @override
   void initState() {
@@ -60,6 +66,19 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
     Future.delayed(const Duration(milliseconds: 200), () {
       _slideController.forward();
     });
+    _loadInventory();
+  }
+
+  Future<void> _loadInventory() async {
+    setState(() => _inventoryLoading = true);
+    try {
+      final items = await apiService.getInventory();
+      if (mounted) setState(() => _inventory = items.cast<Map<String, dynamic>>());
+    } catch (_) {
+      // keep empty list on error
+    } finally {
+      if (mounted) setState(() => _inventoryLoading = false);
+    }
   }
 
   @override
@@ -126,7 +145,7 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
               end: Alignment.bottomCenter,
               colors: [
                 themeExtension.surfaceBackground,
-                themeExtension.surfaceBackground.withOpacity(0.8),
+                themeExtension.surfaceBackground.withOpacity(1),
               ],
             ),
           ),
@@ -437,102 +456,154 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
   }
 
   Widget _buildRecentProducts(AppThemeExtension themeExtension) {
-    final products = [
-      {'name': 'Premium Laptop', 'price': 250000.00, 'stock': 15, 'category': 'Electronics'},
-      {'name': 'Wireless Mouse', 'price': 5000.00, 'stock': 45, 'category': 'Electronics'},
-      {'name': 'Office Chair', 'price': 35000.00, 'stock': 8, 'category': 'Furniture'},
-    ];
+    final products = _inventory.take(10).toList();
 
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: themeExtension.cardSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: themeExtension.cardBorder,
-          width: 1,
-        ),
+        border: Border.all(color: themeExtension.cardBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Recent Products',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: themeExtension.primaryText,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Products',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: themeExtension.primaryText,
+                    ),
+                  ),
+                ),
+                if (_inventoryLoading)
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: themeExtension.accentBlue,
+                    ),
+                  ),
+              ],
             ),
           ),
-          ...products.map((product) => _buildProductItem(product, themeExtension)),
+          if (products.isEmpty && !_inventoryLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Text(
+                'No products yet. Tap + to add one.',
+                style: TextStyle(color: themeExtension.secondaryText),
+              ),
+            )
+          else
+            ...products.map((p) => _buildProductItem(p, themeExtension)),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
   Widget _buildProductItem(Map<String, dynamic> product, AppThemeExtension themeExtension) {
-    final stock = product['stock'] as int;
-    Color stockColor = stock > 20 ? DayFiColors.green : stock > 10 ? DayFiColors.blue : DayFiColors.red;
+    final stock = (product['stock'] as num?)?.toInt() ?? 0;
+    final price = (product['priceUsdc'] as num?)?.toDouble()
+        ?? (product['price'] as num?)?.toDouble()
+        ?? 0.0;
+    final imageUrl = product['imageUrl'] as String?;
+    final category = product['category'] as String? ?? '';
+    final Color stockColor = stock > 20
+        ? DayFiColors.green
+        : stock > 10
+            ? DayFiColors.blue
+            : DayFiColors.red;
 
     return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: themeExtension.accentBlue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          Icons.inventory_2,
-          color: themeExtension.accentBlue,
-          size: 20,
-        ),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: imageUrl != null && imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _productIconFallback(themeExtension),
+              )
+            : _productIconFallback(themeExtension),
       ),
       title: Text(
-        product['name'],
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: themeExtension.primaryText,
-        ),
+        product['name'] as String? ?? '',
+        style: TextStyle(fontWeight: FontWeight.w600, color: themeExtension.primaryText),
       ),
-      subtitle: Text(
-        product['category'],
-        style: TextStyle(
-          color: themeExtension.secondaryText,
-        ),
-      ),
+      subtitle: category.isNotEmpty
+          ? Text(category, style: TextStyle(color: themeExtension.secondaryText))
+          : null,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '₦${product['price'].toStringAsFixed(2)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: themeExtension.primaryText,
-            ),
+            '\$${price.toStringAsFixed(2)}',
+            style: TextStyle(fontWeight: FontWeight.w600, color: themeExtension.primaryText),
           ),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: stockColor.withOpacity(0.1),
+              color: stockColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               'Stock: $stock',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: stockColor,
-              ),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: stockColor),
             ),
           ),
         ],
       ),
+      onLongPress: () => _showImagePickerForProduct(product),
     );
+  }
+
+  Widget _productIconFallback(AppThemeExtension themeExtension) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: themeExtension.accentBlue.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(Icons.inventory_2, color: themeExtension.accentBlue, size: 22),
+    );
+  }
+
+  Future<void> _showImagePickerForProduct(Map<String, dynamic> product) async {
+    final id = product['id'] as String?;
+    if (id == null) return;
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked == null || !mounted) return;
+
+    try {
+      final res = await apiService.uploadProductImage(id, File(picked.path));
+      final newUrl = res['imageUrl'] as String?;
+      if (newUrl != null && mounted) {
+        setState(() {
+          final idx = _inventory.indexWhere((p) => p['id'] == id);
+          if (idx != -1) _inventory[idx] = {..._inventory[idx], 'imageUrl': newUrl};
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image upload failed: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildOrderList(AppThemeExtension themeExtension) {
@@ -841,7 +912,7 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
 
   Future<void> _refreshData() async {
     HapticFeedback.lightImpact();
-    await Future.delayed(const Duration(milliseconds: 1000));
+    await _loadInventory();
   }
 
   void _openSearch() {
@@ -856,7 +927,194 @@ class _EnhancedShopScreenState extends State<EnhancedShopScreen>
 
   void _addProduct() {
     HapticFeedback.lightImpact();
-    // Navigate to product creation
+    final themeExtension = Theme.of(context).extension<AppThemeExtension>()!;
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    final stockCtrl = TextEditingController(text: '1');
+    final categoryCtrl = TextEditingController();
+    File? pickedImage;
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: themeExtension.cardSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20, 20, 20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'New Product',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: themeExtension.primaryText,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Image picker
+                GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(
+                      source: ImageSource.gallery,
+                      imageQuality: 80,
+                    );
+                    if (picked != null) setSheet(() => pickedImage = File(picked.path));
+                  },
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: themeExtension.accentBlue.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: themeExtension.accentBlue.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: pickedImage != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.file(pickedImage!, fit: BoxFit.cover),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_photo_alternate_outlined,
+                                  size: 32, color: themeExtension.accentBlue),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Tap to add photo',
+                                style: TextStyle(
+                                    color: themeExtension.accentBlue, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _sheetField(nameCtrl, 'Product name', themeExtension),
+                const SizedBox(height: 12),
+                _sheetField(priceCtrl, 'Price (USDC)', themeExtension,
+                    inputType: const TextInputType.numberWithOptions(decimal: true)),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: _sheetField(stockCtrl, 'Stock qty', themeExtension,
+                        inputType: TextInputType.number),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _sheetField(categoryCtrl, 'Category', themeExtension),
+                  ),
+                ]),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final name = nameCtrl.text.trim();
+                            final price = double.tryParse(priceCtrl.text.trim()) ?? 0;
+                            final stock = int.tryParse(stockCtrl.text.trim()) ?? 0;
+                            if (name.isEmpty || price <= 0) return;
+                            setSheet(() => saving = true);
+                            try {
+                              final item = await apiService.createInventoryItem(
+                                name: name,
+                                priceUsdc: price,
+                                stock: stock,
+                                category: categoryCtrl.text.trim().isEmpty
+                                    ? null
+                                    : categoryCtrl.text.trim(),
+                              );
+                              // Upload image if picked
+                              if (pickedImage != null && item['id'] != null) {
+                                try {
+                                  final res = await apiService.uploadProductImage(
+                                      item['id'], pickedImage!);
+                                  item['imageUrl'] = res['imageUrl'];
+                                } catch (_) {}
+                              }
+                              if (mounted) {
+                                setState(() => _inventory.insert(0, item));
+                                Navigator.of(context).pop();
+                              }
+                            } catch (e) {
+                              setSheet(() => saving = false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed: $e')),
+                                );
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: themeExtension.accentBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Add Product',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetField(
+    TextEditingController ctrl,
+    String hint,
+    AppThemeExtension th, {
+    TextInputType inputType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: inputType,
+      style: TextStyle(color: th.primaryText),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: th.secondaryText),
+        filled: true,
+        fillColor: th.surfaceBackground,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: th.cardBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: th.cardBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: th.accentBlue, width: 1.5),
+        ),
+      ),
+    );
   }
 
   void _viewOrders() {

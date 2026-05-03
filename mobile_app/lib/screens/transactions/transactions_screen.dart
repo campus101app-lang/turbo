@@ -817,7 +817,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
           fontSize: 12,
         ),
       ),
@@ -1075,7 +1075,7 @@ void _showTxDetails(BuildContext context, Map<String, dynamic> tx) {
             SizedBox(
               width: double.infinity,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
+                constraints: const BoxConstraints(maxWidth: 360),
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     minimumSize: Size(MediaQuery.of(context).size.width, 48),

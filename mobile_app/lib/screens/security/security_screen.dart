@@ -104,7 +104,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
             // ── Buttons ────────────────────────────────────
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   minimumSize: Size(MediaQuery.of(context).size.width, 48),
@@ -144,7 +144,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
 
             // Create wallet
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   minimumSize: Size(MediaQuery.of(context).size.width, 48),
@@ -251,7 +251,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       height: 24,
                       color: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(.85),
+                      ).colorScheme.primary,
                     ),
                     const SizedBox(width: 14),
                     Expanded(
