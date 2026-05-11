@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Zap402 — pay-per-query AI agent marketplace on Stellar",
   "scripts": {
-    "dev": "concurrently -k \"npm run dev:api\" \"npm run dev:vite\"",
+    "dev": "npm run dev:vite",
     "dev:vite": "vite",
     "dev:api": "node server/dev-api.mjs",
     "build": "vite build",

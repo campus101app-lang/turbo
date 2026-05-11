@@ -17,11 +17,11 @@ const AppContent: React.FC = () => {
         >
           Skip to content
         </a>
-        <Header />
+        {/* <Header /> */}
         <div className="flex-1">
           {routeElements}
         </div>
-        <Footer />
+        {/* <Footer /> */}
       </div>
     </>
   );

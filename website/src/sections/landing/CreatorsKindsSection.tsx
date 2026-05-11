@@ -16,14 +16,14 @@ import {
 // import ScrollReveal from "@/components/feedback/ScrollReveal";
 
 const KINDS = [
-  { label: "Payments", description: "Send and receive in Naira or USDC instantly", image: "/images/payments.jpg" },
-  { label: "Invoicing", description: "Create, send, and get paid on invoices in minutes", image: "/images/invoicing.jpg" },
-  { label: "Merchant Store", description: "Sell products with QR and NFC checkout", image: "/images/merchant.jpg" },
-  { label: "Expense Tracking", description: "Automatic categorization built for Nigerian spending", image: "/images/expense.jpg" },
-  { label: "Accounts", description: "Connect and manage all your bank accounts in one place", image: "/images/bank.jpg" },
-  { label: "Analytics", description: "Real-time insights into your cashflow and spending", image: "/images/analytics.jpg" },
-  { label: "Cards", description: "Multi-currency cards for you and your team", image: "/images/cards.jpg" },
-  { label: "Inventory", description: "Track stock, set alerts, and manage products", image: "/images/inventory.jpg" },
+  { label: "Payments", description: "Send & receive digital naira and dollars.", image: "/images/payments.jpg" },
+  { label: "Username", description: "Meet your @dayfi username. Ditch the long addresses.", image: "/images/invoicing.jpg" },
+  { label: "Self-custodial", description: "Your wallet, your keys. Back up your 12 words offline.", image: "/images/merchant.jpg" },
+  { label: "Stellar", description: "Done in seconds. Costs almost nothing.", image: "/images/expense.jpg" },
+  // { label: "Accounts", description: "Connect and manage all your bank accounts in one place", image: "/images/bank.jpg" },
+  // { label: "Analytics", description: "Real-time insights into your cashflow and spending", image: "/images/analytics.jpg" },
+  // { label: "Cards", description: "Multi-currency cards for you and your team", image: "/images/cards.jpg" },
+  // { label: "Inventory", description: "Track stock, set alerts, and manage products", image: "/images/inventory.jpg" },
 ] as const;
 
 const CreatorsKindsSection: React.FC = () => {
@@ -36,10 +36,10 @@ const CreatorsKindsSection: React.FC = () => {
         {/* <ScrollReveal> */}
         <div className="mx-auto max-w-4xl text-center">
           <p className="font-body text-[14px] uppercase tracking-widest text-green-600 font-semibold opacity-100 text-green-600">
-            Products
+            Take a closer look
           </p>
           <h2 className="font-display font-semibold pt-4 mt-8 mx-auto w-full max-w-[600px] text-[clamp(1.75rem,9vw,3rem)] font-normal leading-[1.1] tracking-tight text-zap-ink md:mt-0">
-            One platform,{" "}<span className="italic text-green-600">more control</span>{" "}and complete visibility
+            Seamless. Borderless. Built for Nigeria.
           </h2>
           {/* <p className="font-body pt-0 mt-0 mx-auto w-full max-w-[600px] text-[20px] leading-snug text-zap-ink leading-[1] md:mt-4 md:text-[28px]">
             One platform, more control and complete visibility
