@@ -75,13 +75,13 @@ const LandingPage: React.FC = () => {
             >
               <div className="space-y-6">
                 <div className="flex items-center justify-between text-[13px] font-semibold tracking-tight text-white/90">
-                  <span>{currentTime}</span>
-                  <span>Play</span>
+                  {/* <span>{currentTime}</span>
+                  <span>Play</span> */}
                 </div>
               </div>
 
               <div className="pb-0">
-                <h1 className="max-w-[320px] text-[64px] font-light leading-[1] tracking-[-0.035em] text-white/95">
+                <h1 className="max-w-[320px] text-[58px] font-light leading-[1.01] tracking-[-0.038em] text-white/95">
                   One point of sale, wherever you grow
                 </h1>
               </div>
@@ -90,7 +90,7 @@ const LandingPage: React.FC = () => {
                 <button className="h-12 w-full rounded-full bg-white text-[12px] font-semibold tracking-[-0.01em] text-black transition hover:bg-white/90">
                   Create account
                 </button>
-                <button className="h-12 w-full rounded-full border border-white/10 bg-black/65 text-[12px] font-medium tracking-[-0.01em] text-white/90 transition hover:bg-black/75">
+                <button className="h-12 w-full rounded-full bg-black/85 text-[12px] font-medium tracking-[-0.01em] text-white transition hover:bg-black/75">
                   Sign in
                 </button>
               </div>
