@@ -52,7 +52,9 @@ const LandingPage: React.FC = () => {
             <p className="font-body mb-4 mt-2 w-full text-center text-[16px] leading-snug text-zap-ink md:text-[20px]">
               Every day is payday
             </p>
-        
+            <p className="font-body mt-4 w-full text-center text-[18px] leading-snug text-zap-ink-muted md:text-[22px]">
+              Built for Nigerian merchants who move fast. Sell in-person, online, or on the go.
+            </p>
           </div> 
 
           <Iphone17Pro width={370 * .9} height={780 * .9} className="mx-auto max-w-full shrink-0">
@@ -95,19 +97,19 @@ const LandingPage: React.FC = () => {
             </div>
           </Iphone17Pro>
           <div className="hidden w-[320px] flex-col items-center justify-center gap-4 xl:flex">
-            <p className="font-body mt-4 w-full text-center text-[18px] leading-snug text-zap-ink-muted md:text-[22px]">
+            {/* <p className="font-body mt-4 w-full text-center text-[18px] leading-snug text-zap-ink-muted md:text-[22px]">
               Built for Nigerian merchants who move fast. Sell in-person, online, or on the go.
-            </p>
+            </p> */}
             <div className="flex w-full flex-row items-center justify-center gap-3 pt-8">
               <img
                 src={appStoreBadge}
                 alt="Coming soon to the App Store"
-                className="w-full max-w-[122px]"
+                className="w-full max-w-[134px]"
               />
               <img
                 src={googlePlayBadge}
                 alt="Coming soon on Google Play"
-                className="w-full max-w-[122px]"
+                className="w-full max-w-[134px]"
               />
             </div>
           </div>
