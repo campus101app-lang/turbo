@@ -57,7 +57,7 @@ const LandingPage: React.FC = () => {
             </p>
           </div> 
 
-          <Iphone17Pro width={370 * .9} height={780 * .9} className="mx-auto max-w-full shrink-0">
+          <Iphone17Pro width={370 * .95} height={780 * .95} className="mx-auto max-w-full shrink-0">
             <video
               autoPlay
               loop
@@ -100,20 +100,20 @@ const LandingPage: React.FC = () => {
             {/* <p className="font-body mt-4 w-full text-center text-[18px] leading-snug text-zap-ink-muted md:text-[22px]">
               Built for Nigerian merchants who move fast. Sell in-person, online, or on the go.
             </p> */}
-            <div className="flex w-full flex-row items-center justify-center gap-3 pt-8">
+            <div className="flex w-full flex-col items-center justify-center gap-3 pt-8">
               <img
                 src={appStoreBadge}
                 alt="Coming soon to the App Store"
-                className="w-full max-w-[134px]"
+                className="w-full max-w-[144px]"
               />
               <img
                 src={googlePlayBadge}
                 alt="Coming soon on Google Play"
-                className="w-full max-w-[134px]"
+                className="w-full max-w-[144px]"
               />
             </div>
           </div>
-          
+        
         </div>
       </section>
     </div>
